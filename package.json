@@ -6,13 +6,18 @@
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "react-router-serve ./build/server/server.mjs",
+    "preview:amplify": "node ./.amplify-hosting/compute/default/server.mjs",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
     "@puckeditor/core": "^0.21.2",
+    "@react-router/express": "^7.5.3",
     "@react-router/node": "^7.5.3",
     "@react-router/serve": "^7.5.3",
+    "compression": "^1.8.1",
+    "express": "^4.21.2",
+    "morgan": "^1.10.1",
     "isbot": "^5",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
@@ -20,11 +25,15 @@
   },
   "devDependencies": {
     "@react-router/dev": "^7.5.3",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
     "@types/node": "^20",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
+    "vite-plugin-react-router-amplify-hosting": "^0.7.0",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "engines": {
