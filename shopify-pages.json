@@ -1,0 +1,23 @@
+[
+  {
+    "id": "shopify-gid-1",
+    "title": "Home",
+    "handle": "/",
+    "filterType": "Standard",
+    "isHome": true
+  },
+  {
+    "id": "shopify-gid-2",
+    "title": "Contact",
+    "handle": "/pages/contact",
+    "filterType": "Standard",
+    "isHome": false
+  },
+  {
+    "id": "shopify-gid-3",
+    "title": "About us",
+    "handle": "/pages/about",
+    "filterType": "Standard",
+    "isHome": false
+  }
+]

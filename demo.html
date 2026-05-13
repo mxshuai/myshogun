@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简易版 Shogun Page Builder</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f4f6f8;
+            --border-color: #ddd;
+            --sidebar-width: 250px;
+            --panel-width: 300px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden;
+        }
+
+        /* 布局容器 */
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 左侧组件栏 */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: white;
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .draggable-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: grab;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .draggable-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+            transform: translateY(-1px);
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .icon-box {
+            width: 30px;
+            height: 30px;
+            background: #eef2f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* 中间画布 */
+        .canvas-area {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            background-image: radial-gradient(#ccc 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .canvas-paper {
+            width: 100%;
+            max-width: 800px;
+            min-height: 800px;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+        }
+
+        /* 画布中的组件 */
+        .canvas-component {
+            position: relative;
+            border: 2px solid transparent;
+            padding: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        .canvas-component:hover {
+            border-color: #b3d7ff;
+            background-color: #f0f8ff;
+        }
+
+        .canvas-component.selected {
+            border-color: var(--primary-color);
+            background-color: #fff;
+            z-index: 2;
+        }
+
+        .canvas-component .actions {
+            position: absolute;
+            right: 10px;
+            top: -10px;
+            display: none;
+            background: var(--primary-color);
+            border-radius: 12px;
+            padding: 2px 6px;
+        }
+
+        .canvas-component.selected .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* 右侧属性面板 */
+        .properties-panel {
+            width: var(--panel-width);
+            background: white;
+            border-left: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        .prop-group {
+            margin-bottom: 20px;
+        }
+
+        .prop-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .prop-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            margin-top: 50px;
+            font-style: italic;
+        }
+
+        /* 拖拽占位符 */
+        .drag-over-indicator {
+            height: 4px;
+            background: var(--primary-color);
+            margin: 5px 0;
+            border-radius: 2px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-width);
+            right: var(--panel-width);
+            height: 50px;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 20;
+        }
+        
+        .canvas-wrapper {
+            margin-top: 50px;
+            height: calc(100vh - 50px);
+            display: flex;
+            justify-content: center;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 左侧组件库 -->
+    <div class="sidebar">
+        <h3>组件库</h3>
+        <div class="draggable-item" draggable="true" data-type="heading">
+            <div class="icon-box">H</div>
+            <span>标题 (Heading)</span>
+        </div>
+        <div class="draggable-item" draggable="true" data-type="text">
+            <div class="icon-box">T</div>
+            <span>文本段落 (Text)</span>
+        </div>
+        <div class="draggable-item" draggable="true" data-type="image">
+            <div class="icon-box">🖼️</div>
+            <span>图片 (Image)</span>
+        </div>
+        <div class="draggable-item" draggable="true" data-type="button">
+            <div class="icon-box">🔘</div>
+            <span>按钮 (Button)</span>
+        </div>
+        <div class="draggable-item" draggable="true" data-type="divider">
+            <div class="icon-box">—</div>
+            <span>分割线 (Divider)</span>
+        </div>
+    </div>
+
+    <!-- 顶部工具栏 -->
+    <div class="toolbar">
+        <strong>My Landing Page</strong>
+        <button onclick="exportHTML()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">导出 HTML</button>
+    </div>
+
+    <!-- 中间画布区域 -->
+    <div class="canvas-wrapper">
+        <div class="canvas-area">
+            <div id="canvas" class="canvas-paper">
+                <div class="empty-state" id="empty-state">从左侧拖拽组件到此处</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧属性面板 -->
+    <div class="properties-panel" id="properties-panel">
+        <div class="empty-state">选择一个组件以编辑属性</div>
+    </div>
+</div>
+
+<script>
+    // 状态管理
+    let selectedComponent = null;
+    const canvas = document.getElementById('canvas');
+    const propertiesPanel = document.getElementById('properties-panel');
+    const emptyState = document.getElementById('empty-state');
+
+    // 1. 拖拽开始 (Sidebar)
+    document.querySelectorAll('.draggable-item').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('type', item.dataset.type);
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+    });
+
+    // 2. 拖拽进入画布
+    canvas.addEventListener('dragover', (e) => {
+        e.preventDefault(); // 允许放置
+        e.dataTransfer.dropEffect = 'copy';
+        
+        // 简单的视觉反馈：找到鼠标下方的元素
+        const afterElement = getDragAfterElement(canvas, e.clientY);
+        const indicator = document.querySelector('.drag-over-indicator');
+        
+        if (!indicator) {
+            const newIndicator = document.createElement('div');
+            newIndicator.classList.add('drag-over-indicator');
+            if (afterElement == null) {
+                canvas.appendChild(newIndicator);
+            } else {
+                canvas.insertBefore(newIndicator, afterElement);
+            }
+        }
+    });
+
+    canvas.addEventListener('dragleave', () => {
+        const indicator = document.querySelector('.drag-over-indicator');
+        if (indicator) indicator.remove();
+    });
+
+    // 3. 放置组件
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('type');
+        const afterElement = getDragAfterElement(canvas, e.clientY);
+        
+        // 移除指示器
+        const indicator = document.querySelector('.drag-over-indicator');
+        if (indicator) indicator.remove();
+
+        // 隐藏空状态
+        if (emptyState) emptyState.style.display = 'none';
+
+        if (type) {
+            const componentEl = createComponentElement(type);
+            if (afterElement == null) {
+                canvas.appendChild(componentEl);
+            } else {
+                canvas.insertBefore(componentEl, afterElement);
+            }
+            selectComponent(componentEl);
+        }
+    });
+
+    // 辅助函数：计算插入位置
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.canvas-component:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // 4. 创建组件 DOM
+    function createComponentElement(type) {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('canvas-component');
+        wrapper.dataset.type = type;
+        
+        let contentHtml = '';
+        let defaultProps = {};
+
+        switch (type) {
+            case 'heading':
+                contentHtml = '<h2 style="margin:0; color:#333;">双击编辑标题</h2>';
+                defaultProps = { text: '双击编辑标题', color: '#333333', align: 'left' };
+                break;
+            case 'text':
+                contentHtml = '<p style="margin:0; color:#666; line-height:1.6;">这是一段示例文本，点击右侧面板修改内容。</p>';
+                defaultProps = { text: '这是一段示例文本，点击右侧面板修改内容。', color: '#666666', fontSize: '16px' };
+                break;
+            case 'image':
+                contentHtml = '<img src="https://via.placeholder.com/600x200?text=Image+Placeholder" style="max-width:100%; height:auto; display:block;" />';
+                defaultProps = { src: 'https://via.placeholder.com/600x200?text=Image+Placeholder', alt: '描述图片' };
+                break;
+            case 'button':
+                contentHtml = '<button style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">立即行动</button>';
+                defaultProps = { text: '立即行动', bgColor: '#007bff', textColor: '#ffffff', link: '#' };
+                break;
+            case 'divider':
+                contentHtml = '<hr style="border:0; border-top:1px solid #eee; margin:20px 0;" />';
+                defaultProps = { color: '#eeeeee', thickness: '1px' };
+                break;
+        }
+
+        wrapper.innerHTML = `
+            ${contentHtml}
+            <div class="actions">
+                <span class="action-btn" onclick="moveUp(event)">↑</span>
+                <span class="action-btn" onclick="moveDown(event)">↓</span>
+                <span class="action-btn" onclick="deleteComponent(event)">🗑️</span>
+            </div>
+        `;
+
+        // 存储默认属性以便编辑
+        wrapper.dataset.props = JSON.stringify(defaultProps);
+
+        // 绑定点击选择事件
+        wrapper.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectComponent(wrapper);
+        });
+
+        // 绑定内容直接编辑 (ContentEditable)
+        const editableChild = wrapper.querySelector('h2, p, button');
+        if(editableChild) {
+            editableChild.contentEditable = true;
+            editableChild.addEventListener('input', (e) => {
+                if(selectedComponent === wrapper) {
+                    updatePropsFromDOM();
+                }
+            });
+        }
+
+        return wrapper;
+    }
+
+    // 5. 选择组件与渲染属性面板
+    function selectComponent(el) {
+        // 清除之前的选择
+        document.querySelectorAll('.canvas-component').forEach(c => c.classList.remove('selected'));
+        
+        selectedComponent = el;
+        el.classList.add('selected');
+        
+        renderPropertiesPanel(el);
+    }
+
+    // 点击画布空白处取消选择
+    canvas.addEventListener('click', (e) => {
+        if (e.target === canvas || e.target.classList.contains('canvas-paper')) {
+            document.querySelectorAll('.canvas-component').forEach(c => c.classList.remove('selected'));
+            selectedComponent = null;
+            propertiesPanel.innerHTML = '<div class="empty-state">选择一个组件以编辑属性</div>';
+        }
+    });
+
+    function renderPropertiesPanel(el) {
+        const type = el.dataset.type;
+        const props = JSON.parse(el.dataset.props);
+        let html = `<h3>编辑 ${type.toUpperCase()}</h3>`;
+
+        // 根据类型生成表单
+        if (props.text !== undefined) {
+            html += createInput('text', '文本内容', props.text, (val) => {
+                const target = el.querySelector('h2, p, button');
+                if(target) target.innerText = val;
+                saveProp('text', val);
+            });
+        }
+
+        if (props.color !== undefined && type !== 'button') {
+            html += createInput('color', '文字颜色', props.color, (val) => {
+                const target = el.querySelector('h2, p');
+                if(target) target.style.color = val;
+                saveProp('color', val);
+            });
+        }
+
+        if (type === 'button') {
+            html += createInput('color', '背景颜色', props.bgColor, (val) => {
+                const btn = el.querySelector('button');
+                btn.style.backgroundColor = val;
+                saveProp('bgColor', val);
+            });
+             html += createInput('color', '文字颜色', props.textColor, (val) => {
+                const btn = el.querySelector('button');
+                btn.style.color = val;
+                saveProp('textColor', val);
+            });
+        }
+
+        if (props.src !== undefined) {
+            html += createInput('text', '图片 URL', props.src, (val) => {
+                const img = el.querySelector('img');
+                img.src = val;
+                saveProp('src', val);
+            });
+        }
+
+        if (props.align !== undefined) {
+            html += `
+                <div class="prop-group">
+                    <label class="prop-label">对齐方式</label>
+                    <select class="prop-input" onchange="updateAlign(this.value)">
+                        <option value="left" ${props.align === 'left' ? 'selected' : ''}>左对齐</option>
+                        <option value="center" ${props.align === 'center' ? 'selected' : ''}>居中</option>
+                        <option value="right" ${props.align === 'right' ? 'selected' : ''}>右对齐</option>
+                    </select>
+                </div>
+            `;
+        }
+
+        propertiesPanel.innerHTML = html;
+    }
+
+    function createInput(type, label, value, callback) {
+        const inputType = type === 'color' ? 'color' : 'text';
+        return `
+            <div class="prop-group">
+                <label class="prop-label">${label}</label>
+                <input type="${inputType}" class="prop-input" value="${value}" 
+                       oninput="this.nextElementSibling(this.value)">
+                <script>window.updateTemp=(v)=>{${callback.toString().replace('val', 'v')}}<\/script>
+                <input type="hidden" oninput="(function(v){${callback.toString()}})(this.previousElementSibling.value)" value="${value}">
+                 <script>
+                    // Hacky way to bind inline event to closure in single file without complex framework
+                    const inp = document.currentScript.previousElementSibling.previousElementSibling;
+                    inp.oninput = function(e) { (${callback.toString()})(e.target.value) };
+                 <\/script>
+            </div>
+        `;
+        // 注意：上面的 createInput 为了简化演示使用了内联脚本技巧，实际项目中建议使用事件委托
+    }
+    
+    // 修正后的更清晰的输入生成器
+    function createInputClean(type, label, value, propName) {
+        let inputHtml = '';
+        if(type === 'color') {
+            inputHtml = `<input type="color" class="prop-input" value="${value}" onchange="updateCurrentProp('${propName}', this.value)">`;
+        } else {
+            inputHtml = `<input type="text" class="prop-input" value="${value}" oninput="updateCurrentProp('${propName}', this.value)">`;
+        }
+        
+        return `
+            <div class="prop-group">
+                <label class="prop-label">${label}</label>
+                ${inputHtml}
+            </div>
+        `;
+    }
+    
+    // 重写 renderPropertiesPanel 使用 clean 版本
+    window.renderPropertiesPanel = function(el) {
+        const type = el.dataset.type;
+        const props = JSON.parse(el.dataset.props);
+        let html = `<h3>编辑 ${type.toUpperCase()}</h3>`;
+
+        if (props.text !== undefined) {
+            html += createInputClean('text', '文本内容', props.text, 'text');
+        }
+        if (props.color !== undefined && type !== 'button') {
+            html += createInputClean('color', '文字颜色', props.color, 'color');
+        }
+        if (type === 'button') {
+            html += createInputClean('color', '背景颜色', props.bgColor, 'bgColor');
+            html += createInputClean('color', '文字颜色', props.textColor, 'textColor');
+        }
+        if (props.src !== undefined) {
+            html += createInputClean('text', '图片 URL', props.src, 'src');
+        }
+        if (props.align !== undefined) {
+             html += `
+                <div class="prop-group">
+                    <label class="prop-label">对齐方式</label>
+                    <select class="prop-input" onchange="updateCurrentProp('align', this.value)">
+                        <option value="left" ${props.align === 'left' ? 'selected' : ''}>左对齐</option>
+                        <option value="center" ${props.align === 'center' ? 'selected' : ''}>居中</option>
+                        <option value="right" ${props.align === 'right' ? 'selected' : ''}>右对齐</option>
+                    </select>
+                </div>
+            `;
+        }
+        propertiesPanel.innerHTML = html;
+    }
+    
+    // 覆盖之前的定义
+    renderPropertiesPanel = window.renderPropertiesPanel;
+
+    // 全局更新函数
+    window.updateCurrentProp = function(key, value) {
+        if (!selectedComponent) return;
+        saveProp(key, value);
+        
+        // 实时应用样式
+        const props = JSON.parse(selectedComponent.dataset.props);
+        const type = selectedComponent.dataset.type;
+        
+        if (key === 'text') {
+            const target = selectedComponent.querySelector('h2, p, button');
+            if(target) target.innerText = value;
+        } else if (key === 'color' && type !== 'button') {
+            const target = selectedComponent.querySelector('h2, p');
+            if(target) target.style.color = value;
+        } else if (key === 'bgColor') {
+            selectedComponent.querySelector('button').style.backgroundColor = value;
+        } else if (key === 'textColor') {
+            selectedComponent.querySelector('button').style.color = value;
+        } else if (key === 'src') {
+            selectedComponent.querySelector('img').src = value;
+        } else if (key === 'align') {
+             const inner = selectedComponent.firstElementChild; // 获取内部元素 (h2, p, img etc)
+             if(inner && inner.tagName !== 'HR') {
+                 // 对于flex布局或直接margin处理，这里简单演示 text-align
+                 if(['H2', 'P', 'BUTTON'].includes(inner.tagName)) {
+                     inner.style.textAlign = value;
+                     if(inner.tagName === 'BUTTON') {
+                         inner.parentElement.style.textAlign = value; // 按钮需要父级居中
+                     }
+                 }
+             }
+        }
+    };
+
+    function saveProp(key, value) {
+        if (!selectedComponent) return;
+        const props = JSON.parse(selectedComponent.dataset.props);
+        props[key] = value;
+        selectedComponent.dataset.props = JSON.stringify(props);
+    }
+    
+    function updatePropsFromDOM() {
+        // 当用户在画布上直接打字时同步数据
+        if(!selectedComponent) return;
+        const target = selectedComponent.querySelector('h2, p, button');
+        if(target && selectedComponent.dataset.props) {
+            const props = JSON.parse(selectedComponent.dataset.props);
+            props.text = target.innerText;
+            selectedComponent.dataset.props = JSON.stringify(props);
+            // 不重新渲染面板以免失去焦点，仅更新数据
+        }
+    }
+
+    // 6. 组件操作 (删除、移动)
+    window.deleteComponent = function(e) {
+        e.stopPropagation();
+        if (selectedComponent) {
+            selectedComponent.remove();
+            selectedComponent = null;
+            propertiesPanel.innerHTML = '<div class="empty-state">选择一个组件以编辑属性</div>';
+            if (canvas.children.length <= 1) { // 1 because empty-state is hidden but exists or logic check
+                 if(canvas.querySelectorAll('.canvas-component').length === 0) {
+                     emptyState.style.display = 'block';
+                 }
+            }
+        }
+    };
+
+    window.moveUp = function(e) {
+        e.stopPropagation();
+        if (selectedComponent && selectedComponent.previousElementSibling) {
+            canvas.insertBefore(selectedComponent, selectedComponent.previousElementSibling);
+        }
+    };
+
+    window.moveDown = function(e) {
+        e.stopPropagation();
+        if (selectedComponent && selectedComponent.nextElementSibling) {
+            canvas.insertBefore(selectedComponent.nextElementSibling, selectedComponent);
+        }
+    };
+
+    // 7. 导出功能
+    window.exportHTML = function() {
+        // 克隆画布以清理编辑用的类名和按钮
+        const clone = canvas.cloneNode(true);
+        clone.querySelectorAll('.actions').forEach(el => el.remove());
+        clone.querySelectorAll('.canvas-component').forEach(el => {
+            el.classList.remove('selected', 'canvas-component');
+            el.style.border = 'none';
+            el.style.padding = '0';
+            // 移除 contentEditable
+            const editable = el.querySelector('[contenteditable]');
+            if(editable) editable.removeAttribute('contenteditable');
+        });
+        
+        const htmlContent = clone.innerHTML;
+        const fullPage = `
+<!DOCTYPE html>
+<html>
+<head><title>Exported Page</title></head>
+<body>
+<div style="max-width:800px; margin:0 auto; padding:20px;">
+${htmlContent}
+</div>
+</body>
+</html>`;
+        
+        const blob = new Blob([fullPage], {type: 'text/html'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'landing-page.html';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+</script>
+
+</body>
+</html>

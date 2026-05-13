@@ -1,0 +1,282 @@
+import type { Config, Data, Slot } from "@puckeditor/core";
+import type { WithLayout } from "./Layout";
+
+// 定义所有组件的 Props 类型
+export type Components = {
+  Heading: WithLayout<{
+    text: string;
+    level: 1 | 2 | 3 | 4 | 5 | 6;
+    size: "xxxl" | "xxl" | "xl" | "l" | "m" | "s" | "xs";
+    align: "left" | "center" | "right";
+  }>;
+  Text: WithLayout<{
+    text: string;
+    size: "s" | "m";
+    align: "left" | "center" | "right";
+    color: "default" | "muted";
+    maxWidth?: string;
+  }>;
+  Button: {
+    label: string;
+    href: string;
+    variant: "primary" | "secondary";
+  };
+  Card: WithLayout<{
+    title: string;
+    description: string;
+    imageUrl?: string;
+    href?: string;
+  }>;
+  Grid: {
+    numColumns: number;
+    gap: number;
+    items: Slot;
+  };
+  Hero: {
+    title: string;
+    subtitle: string;
+    buttonText: string;
+    buttonHref: string;
+    backgroundImage?: string;
+    align: "left" | "center";
+  };
+  Flex: WithLayout<{
+    direction: "row" | "column";
+    justifyContent: "start" | "center" | "end";
+    gap: number;
+    wrap: "wrap" | "nowrap";
+    items: Slot;
+  }>;
+  Image: WithLayout<{
+    src: string;
+    alt: string;
+    width?: string;
+    height?: string;
+  }>;
+  Video: WithLayout<{
+    videoUrl: string;
+    aspectRatio: "16:9" | "4:3";
+    loading: "eager" | "lazy" | "auto";
+    loop: boolean;
+    autoplay: boolean;
+    muteAudio: boolean;
+    relatedVideosFromOtherChannels: boolean;
+  }>;
+  Icon: WithLayout<{
+    iconId: string;
+    height: string;
+    align: "left" | "center" | "right";
+    color: string;
+    ariaLabel: string;
+    addLink: boolean;
+    linkHref: string;
+    openInNewWindow: boolean;
+  }>;
+  CustomHtml: WithLayout<{
+    html: string;
+    css: string;
+  }>;
+  Divider: {
+    thickness: number;
+    color: string;
+    style: "solid" | "dashed" | "dotted";
+  };
+  Spacer: {
+    height: number;
+  };
+  Table: WithLayout<{
+    // Main
+    borderColor: string;
+    borderWidth: number;
+    tableBorderRadius: number;
+    
+    // Header
+    headerBackgroundColor: string;
+    headerFont: string;
+    headerSize: number;
+    headerTextColor: string;
+    headerLineHeight: number;
+    headerLetterSpacing: number;
+    headerTextAlignment: "left" | "center" | "right";
+    
+    // Columns
+    columns: Array<{
+      name: string;
+      content: Slot;
+    }>;
+    columnSpacing: number;
+    
+    // Rows
+    numberOfRows: number;
+    rowBackgroundColor: string;
+    rowSpacing: number;
+  }>;
+  Container: WithLayout<{
+    // Main
+    entireContainerClickable: boolean;
+    containerUrl: string;
+    openInNewWindow: boolean;
+    verticalAlign: "top" | "middle" | "bottom";
+    
+    // Background
+    backgroundType: "color" | "image" | "video";
+    backgroundImage: string;
+    backgroundColor: string;
+    backgroundVideo: string;
+    videoMuted: boolean;
+    backgroundSize: "cover" | "contain" | "custom";
+    backgroundRepeat: "no-repeat" | "repeat";
+    horizontalPosition: "left" | "center" | "right" | "custom";
+    horizontalPositionValue: number;
+    verticalPosition: "top" | "center" | "bottom" | "custom";
+    verticalPositionValue: number;
+    responsiveImage: boolean;
+    loading: "eager" | "lazy" | "auto";
+    parallaxEffect: boolean;
+    
+    // Content
+    content: Slot;
+  }>;
+  Tabs: WithLayout<{
+    // Active Tab Control
+    activeTabIndex?: number;
+    
+    // Tabs
+    tabs: Array<{
+      id?: string;
+      title: string;
+      content: Slot;
+    }>;
+    
+    // Theme
+    theme: "rectangular" | "sloped" | "stretch";
+    
+    // Border
+    borderColor: string;
+    borderThickness: number;
+    
+    // Font
+    font: string;
+    fontSize: number;
+  }>;
+
+  Accordion: WithLayout<{
+    items: Array<{
+      title: string;
+      open: boolean;
+      content: Slot;
+    }>;
+    onlyOneOpen: boolean;
+    openIcon: "none" | "chevron" | "plus";
+
+    headerFont: string;
+    headerSize: number;
+    headerTextAlignment: "left" | "center" | "right";
+    headingPadding: number;
+
+    headerBackgroundColor: string;
+    headerTextColor: string;
+    innerBackgroundColor: string;
+    borderColor: string;
+  }>;
+  Slider: WithLayout<{
+    mode: "slide" | "loop";
+    rewind: boolean;
+    /** 可滑动的屏数（点/箭头切换的「页」数） */
+    numberOfSlides: number;
+    /** 每一屏横向并列的 slot 数量，类似 Grid 列数 */
+    slidesPerPage: number;
+    /** 编辑模式：当前编辑第几屏（0-based，与 `numberOfSlides` 对应） */
+    currentSlideIndex: number;
+    animation: string;
+    autoSlide: boolean;
+    showEachSlideSeconds: number;
+    pauseAutoplayOnHover: boolean;
+    controlsOverContent: boolean;
+    showArrows: boolean;
+    arrowColor: string;
+    arrowHeight: number;
+    arrowBackground: boolean;
+    showDots: boolean;
+    selectedDotColor: string;
+    unselectedDotColor: string;
+    dotsSize: number;
+    selectedDotWidth: number;
+    dotsLocation: "left" | "center" | "right";
+    spaceBetweenDots: number;
+    items: Array<{
+      /** 每个 Slide 项对应一个可编辑槽位 */
+      slot: Slot;
+    }>;
+  }>;
+};
+
+// 导出配置类型
+export type AppConfig = Config<Components>;
+
+// 初始数据
+export const initialData: Data = {
+  content: [
+    {
+      type: "Table",
+      props: {
+        // Main
+        borderColor: "#e0e0e0",
+        borderWidth: 1,
+        tableBorderRadius: 4,
+        
+        // Header
+        headerBackgroundColor: "#f5f5f5",
+        headerFont: "",
+        headerSize: 14,
+        headerTextColor: "#000000",
+        headerLineHeight: 1.5,
+        headerLetterSpacing: 0,
+        headerTextAlignment: "left",
+        
+        // Columns
+        columns: [
+          {
+            name: "姓名",
+            content: [
+              {
+                type: "Text",
+                props: {
+                  text: "张三",
+                  size: "m",
+                  align: "left",
+                  color: "default",
+                },
+              },
+            ],
+          },
+          {
+            name: "年龄",
+            content: [
+              {
+                type: "Text",
+                props: {
+                  text: "25",
+                  size: "m",
+                  align: "center",
+                  color: "default",
+                },
+              },
+            ],
+          },
+        ],
+        columnSpacing: 10,
+        
+        // Rows
+        numberOfRows: 1,
+        rowBackgroundColor: "#ffffff",
+        rowSpacing: 10,
+      },
+    },
+  ],
+  root: {
+    props: {
+      title: "My Puck Page",
+    },
+  },
+};
