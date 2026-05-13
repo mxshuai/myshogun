@@ -1,10 +1,9 @@
-import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs/promises";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const metadataPath = path.join(__dirname, "..", "..", "page-metadata.json");
+import {
+  ensureShogunDataDirectory,
+  getPageMetadataPath,
+} from "./data-paths.server";
 
 export type PageStatus = "draft" | "published" | "scheduled";
 
@@ -16,7 +15,7 @@ export type PageMetaEntry = {
 
 export async function readMetadata(): Promise<Record<string, PageMetaEntry>> {
   try {
-    const file = await fs.readFile(metadataPath, "utf8");
+    const file = await fs.readFile(getPageMetadataPath(), "utf8");
     return JSON.parse(file) as Record<string, PageMetaEntry>;
   } catch {
     return {};
@@ -24,7 +23,8 @@ export async function readMetadata(): Promise<Record<string, PageMetaEntry>> {
 }
 
 async function writeMetadata(meta: Record<string, PageMetaEntry>) {
-  await fs.writeFile(metadataPath, JSON.stringify(meta, null, 2), {
+  await ensureShogunDataDirectory();
+  await fs.writeFile(getPageMetadataPath(), JSON.stringify(meta, null, 2), {
     encoding: "utf8",
   });
 }

@@ -1,12 +1,9 @@
-import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs/promises";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.join(__dirname, "..", "..");
-const shopifyPagesPath = path.join(root, "shopify-pages.json");
-const importedIdsPath = path.join(root, "shopify-imported-ids.json");
+import {
+  ensureShogunDataDirectory,
+  getShopifyJsonPaths,
+} from "./data-paths.server";
 
 export type ShopifyPageMock = {
   id: string;
@@ -21,6 +18,7 @@ export type ShopifyPageRow = ShopifyPageMock & {
 };
 
 async function readImportedIds(): Promise<string[]> {
+  const { importedIdsPath } = getShopifyJsonPaths();
   try {
     const raw = await fs.readFile(importedIdsPath, "utf8");
     const j = JSON.parse(raw) as { ids?: string[] };
@@ -31,6 +29,8 @@ async function readImportedIds(): Promise<string[]> {
 }
 
 async function writeImportedIds(ids: string[]) {
+  const { importedIdsPath } = getShopifyJsonPaths();
+  await ensureShogunDataDirectory();
   await fs.writeFile(
     importedIdsPath,
     JSON.stringify({ ids }, null, 2),
@@ -39,6 +39,7 @@ async function writeImportedIds(ids: string[]) {
 }
 
 export async function listShopifyPages(): Promise<ShopifyPageRow[]> {
+  const { shopifyPagesPath } = getShopifyJsonPaths();
   let mocks: ShopifyPageMock[] = [];
   try {
     const raw = await fs.readFile(shopifyPagesPath, "utf8");
@@ -54,6 +55,7 @@ export async function listShopifyPages(): Promise<ShopifyPageRow[]> {
 }
 
 export async function markShopifyPageImported(id: string): Promise<boolean> {
+  const { shopifyPagesPath } = getShopifyJsonPaths();
   const mocks = await (async () => {
     try {
       const raw = await fs.readFile(shopifyPagesPath, "utf8");

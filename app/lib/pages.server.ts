@@ -1,8 +1,11 @@
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import type { Data } from "@puckeditor/core";
 
+import {
+  ensureShogunDataDirectory,
+  getDatabasePath,
+} from "./data-paths.server";
 import {
   deletePageMetadata,
   mergeMetaWithDefaults,
@@ -12,10 +15,6 @@ import {
   upsertPageMetadata,
 } from "./page-metadata.server";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const databasePath = path.join(__dirname, "..", "..", "database.json");
-
 export async function getPage(pagePath: string) {
   const pages = await readDatabase();
   return pages[pagePath];
@@ -24,7 +23,10 @@ export async function getPage(pagePath: string) {
 export async function savePage(pagePath: string, data: Data) {
   const pages = await readDatabase();
   pages[pagePath] = data;
-  await fs.writeFile(databasePath, JSON.stringify(pages), { encoding: "utf8" });
+  await ensureShogunDataDirectory();
+  await fs.writeFile(getDatabasePath(), JSON.stringify(pages), {
+    encoding: "utf8",
+  });
   await touchPageMetadata(pagePath);
 }
 
@@ -58,7 +60,10 @@ async function renamePageRecord(
   }
   pages[toPath] = pages[fromPath];
   delete pages[fromPath];
-  await fs.writeFile(databasePath, JSON.stringify(pages), { encoding: "utf8" });
+  await ensureShogunDataDirectory();
+  await fs.writeFile(getDatabasePath(), JSON.stringify(pages), {
+    encoding: "utf8",
+  });
   await renamePageMetadata(fromPath, toPath);
   return { ok: true, path: toPath };
 }
@@ -84,12 +89,33 @@ export async function saveEditorPage(
 }
 
 async function readDatabase() {
+  const dest = getDatabasePath();
   try {
-    const file = await fs.readFile(databasePath, "utf8");
+    const file = await fs.readFile(dest, "utf8");
     return JSON.parse(file) as Record<string, Data>;
-  } catch (error: unknown) {
-    console.error(error);
-    return {};
+  } catch (first: unknown) {
+    const code =
+      first &&
+      typeof first === "object" &&
+      "code" in first &&
+      (first as NodeJS.ErrnoException).code === "ENOENT"
+        ? "ENOENT"
+        : undefined;
+    if (code !== "ENOENT") {
+      console.error(first);
+      return {};
+    }
+    // Amplify 等环境：数据写在 /tmp，首次从部署包内的种子文件复制（若存在）
+    try {
+      const seed = path.join(process.cwd(), "database.json");
+      const raw = await fs.readFile(seed, "utf8");
+      const parsed = JSON.parse(raw) as Record<string, Data>;
+      await ensureShogunDataDirectory();
+      await fs.writeFile(dest, raw, { encoding: "utf8" });
+      return parsed;
+    } catch {
+      return {};
+    }
   }
 }
 
@@ -101,7 +127,10 @@ export async function deletePage(pagePath: string) {
   const pages = await readDatabase();
   if (!(pagePath in pages)) return false;
   delete pages[pagePath];
-  await fs.writeFile(databasePath, JSON.stringify(pages), { encoding: "utf8" });
+  await ensureShogunDataDirectory();
+  await fs.writeFile(getDatabasePath(), JSON.stringify(pages), {
+    encoding: "utf8",
+  });
   await deletePageMetadata(pagePath);
   return true;
 }
@@ -177,7 +206,10 @@ export async function duplicatePage(pagePath: string): Promise<string | null> {
   };
 
   pages[newPath] = clone;
-  await fs.writeFile(databasePath, JSON.stringify(pages), { encoding: "utf8" });
+  await ensureShogunDataDirectory();
+  await fs.writeFile(getDatabasePath(), JSON.stringify(pages), {
+    encoding: "utf8",
+  });
   await upsertPageMetadata(newPath, {
     status: "draft",
     updatedAt: new Date().toISOString(),
