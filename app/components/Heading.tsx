@@ -1,7 +1,7 @@
 import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
-import { withLayout } from "./Layout";
+import { defaultLayoutSpacing, withLayout } from "./Layout";
 
 const sizeOptions = [
   { value: "xxxl", label: "XXXL" },
@@ -50,8 +50,10 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
     align: "left",
     text: "Heading",
     size: "m",
+    level: 2,
     layout: {
       padding: "8px",
+      ...defaultLayoutSpacing,
     },
   },
   render: ({ align, text, size, level }) => {

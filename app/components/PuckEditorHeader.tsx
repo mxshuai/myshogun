@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { usePuck } from "@puckeditor/core";
 
@@ -55,6 +56,47 @@ export function PuckEditorHeader({
         `}
       </style>
       <div style={{ position: "relative", width: "100%" }}>
+        <Link
+          to="/pages"
+          title="Back to pages"
+          aria-label="Back to pages"
+          style={{
+            position: "absolute",
+            left: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 7,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            color: "#374151",
+            textDecoration: "none",
+            transition: "background-color 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#f3f4f6";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "transparent";
+          }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </Link>
         {children}
         <div
           style={{

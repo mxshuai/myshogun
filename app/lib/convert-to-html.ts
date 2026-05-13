@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
+import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
  * 将 Puck JSON 数据转换为 HTML 字符串（包含内联 CSS）
@@ -103,11 +104,12 @@ function generateHeading(props: any, layout: any, spaces: string): string {
   
   const fontSize = sizeMap[props.size] || '1.5rem';
   const textAlign = props.align || 'left';
-  const padding = layout.padding ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};` : '';
-  
-  return `${spaces}<h${level} style="font-size: ${fontSize}; text-align: ${textAlign}; margin: 0; font-weight: 600; line-height: 1.2; ${padding}">
-${spaces}  <span style="display: block; width: 100%;">${escapeHtml(props.text || 'Heading')}</span>
-${spaces}</h${level}>\n`;
+
+  const inner = `<h${level} style="font-size: ${fontSize}; text-align: ${textAlign}; margin: 0; font-weight: 600; line-height: 1.2;">
+<span style="display: block; width: 100%;">${escapeHtml(props.text || 'Heading')}</span>
+</h${level}>
+`;
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**
@@ -123,17 +125,18 @@ function generateText(props: any, layout: any, spaces: string): string {
   const textAlign = props.align || 'left';
   const color = props.color === 'muted' ? '#6c757d' : 'inherit';
   const maxWidth = props.maxWidth ? `max-width: ${props.maxWidth};` : '';
-  const padding = layout.padding ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};` : '';
   
   let justifyContent = 'flex-start';
   if (textAlign === 'center') justifyContent = 'center';
   else if (textAlign === 'right') justifyContent = 'flex-end';
   
-  return `${spaces}<div style="display: flex; text-align: ${textAlign}; width: 100%; ${maxWidth} ${padding}">
-${spaces}  <span style="color: ${color}; font-size: ${fontSize}; font-weight: 300; justify-content: ${justifyContent};">
-${spaces}    ${escapeHtml(props.text || 'Text')}
-${spaces}  </span>
-${spaces}</div>\n`;
+  const inner = `<div style="display: flex; text-align: ${textAlign}; width: 100%;">
+<span style="color: ${color}; font-size: ${fontSize}; font-weight: 300; justify-content: ${justifyContent}; ${maxWidth}">
+${escapeHtml(props.text || 'Text')}
+</span>
+</div>
+`;
+  return wrapLayoutLayers(layout, inner, spaces, props.maxWidth);
 }
 
 /**
@@ -158,63 +161,64 @@ ${spaces}</div>\n`;
  * 生成 Card HTML
  */
 function generateCard(props: any, layout: any, spaces: string): string {
-  const padding = layout.padding ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};` : '';
-  
-  let html = `${spaces}<div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background-color: #ffffff; ${padding}">\n`;
-  
+  let inner = `<div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+`;
+
   if (props.imageUrl) {
-    html += `${spaces}  <img src="${props.imageUrl}" alt="${escapeHtml(props.title)}" style="width: 100%; height: 200px; object-fit: cover;" />\n`;
+    inner += `<img src="${props.imageUrl}" alt="${escapeHtml(props.title)}" style="width: 100%; height: 200px; object-fit: cover;" />
+`;
   }
-  
-  html += `${spaces}  <div style="padding: 20px;">\n`;
-  html += `${spaces}    <h3 style="margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 600; color: #333;">${escapeHtml(props.title)}</h3>\n`;
-  html += `${spaces}    <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: #666;">${escapeHtml(props.description)}</p>\n`;
-  
+
+  inner += `<div style="padding: 20px;">
+<h3 style="margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 600; color: #333;">${escapeHtml(props.title)}</h3>
+<p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: #666;">${escapeHtml(props.description)}</p>
+`;
+
   if (props.href) {
-    html += `${spaces}    <a href="${props.href}" style="display: inline-block; margin-top: 12px; color: #0070f3; text-decoration: none; font-weight: 500;">Learn more →</a>\n`;
+    inner += `<a href="${props.href}" style="display: inline-block; margin-top: 12px; color: #0070f3; text-decoration: none; font-weight: 500;">Learn more →</a>
+`;
   }
-  
-  html += `${spaces}  </div>\n`;
-  html += `${spaces}</div>\n`;
-  
-  return html;
+
+  inner += `</div>
+</div>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**
  * 生成 Custom HTML（按编辑内容原样输出，不做转义）
  */
 function generateCustomHtml(props: any, layout: any, spaces: string): string {
-  const padding = layout.padding
-    ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};`
-    : "";
   const rawHtml = props.html ?? "";
   const rawCss = (props.css ?? "").trim();
 
-  let block = `${spaces}<div class="puck-custom-html-root" style="${padding}">\n`;
+  let inner = `<div class="puck-custom-html-root">
+`;
   if (rawCss) {
-    block += `${spaces}  <style>\n`;
-    block += rawCss
-      .split("\n")
-      .map((line: string) => `${spaces}    ${line}`)
-      .join("\n");
-    block += `\n${spaces}  </style>\n`;
+    inner += `<style>
+`;
+    inner += rawCss + "\n";
+    inner += `</style>
+`;
   }
-  for (const line of rawHtml.split("\n")) {
-    block += `${spaces}  ${line}\n`;
-  }
-  block += `${spaces}</div>\n`;
-  return block;
+  inner += rawHtml + (rawHtml.endsWith("\n") ? "" : "\n");
+  inner += `</div>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**
  * 生成 Image HTML
  */
 function generateImage(props: any, layout: any, spaces: string): string {
-  const padding = layout.padding ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};` : '';
-  
-  return `${spaces}<div style="${padding}">
-${spaces}  <img src="${props.src}" alt="${escapeHtml(props.alt)}" style="width: ${props.width || '100%'}; height: ${props.height || 'auto'}; display: block; border-radius: 8px;" />
-${spaces}</div>\n`;
+  const inner = `<div>
+<img src="${props.src}" alt="${escapeHtml(props.alt)}" style="width: ${props.width || '100%'}; height: ${props.height || 'auto'}; display: block; border-radius: 8px;" />
+</div>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 function parseYouTubeId(url: string): string | null {
@@ -264,7 +268,6 @@ function buildVideoEmbedUrl(props: any): string {
 }
 
 function generateVideo(props: any, layout: any, spaces: string): string {
-  const padding = layout.padding ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};` : '';
   const aspectRatio = props.aspectRatio || '16:9';
   const ratioPadding = aspectRatio === '4:3' ? '75%' : '56.25%';
   const embedUrl = buildVideoEmbedUrl(props);
@@ -274,24 +277,31 @@ function generateVideo(props: any, layout: any, spaces: string): string {
   const loading = props.loading === 'eager' || props.loading === 'lazy' ? props.loading : '';
 
   if (!props.videoUrl || (!embedUrl && !isDirectVideo)) {
-    return `${spaces}<div style="${padding} border: 1px dashed #d0d0d0; border-radius: 8px; padding: 16px; color: #666; font-size: 14px;">
-${spaces}  Youtube or Vimeo link
-${spaces}</div>\n`;
+    const inner = `<div style="border: 1px dashed #d0d0d0; border-radius: 8px; padding: 16px; color: #666; font-size: 14px;">
+Youtube or Vimeo link
+</div>
+`;
+    return wrapLayoutLayers(layout, inner, spaces);
   }
 
   if (isDirectVideo) {
-    return `${spaces}<div style="${padding}">
-${spaces}  <div style="position: relative; width: 100%; padding-top: ${ratioPadding}; background-color: #000; border-radius: 8px; overflow: hidden;">
-${spaces}    <video src="${videoUrl}" controls ${props.autoplay ? 'autoplay' : ''} ${props.loop ? 'loop' : ''} ${props.muteAudio ? 'muted' : ''} playsinline style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;"></video>
-${spaces}  </div>
-${spaces}</div>\n`;
+    const inner = `<div>
+<div style="position: relative; width: 100%; padding-top: ${ratioPadding}; background-color: #000; border-radius: 8px; overflow: hidden;">
+<video src="${videoUrl}" controls ${props.autoplay ? 'autoplay' : ''} ${props.loop ? 'loop' : ''} ${props.muteAudio ? 'muted' : ''} playsinline style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;"></video>
+</div>
+</div>
+`;
+    return wrapLayoutLayers(layout, inner, spaces);
   }
 
-  return `${spaces}<div style="${padding}">
-${spaces}  <div style="position: relative; width: 100%; padding-top: ${ratioPadding};">
-${spaces}    <iframe src="${embedUrl}" title="Video player" ${loading ? `loading="${loading}"` : ''} allow="${props.autoplay ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' : 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'}" allowfullscreen style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
-${spaces}  </div>
-${spaces}</div>\n`;
+  const inner = `<div>
+<div style="position: relative; width: 100%; padding-top: ${ratioPadding};">
+<iframe src="${embedUrl}" title="Video player" ${loading ? `loading="${loading}"` : ''} allow="${props.autoplay ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' : 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'}" allowfullscreen style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
+</div>
+</div>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**
@@ -362,9 +372,6 @@ ${spaces}</div>\n`;
  * 生成 Divider HTML
  */
 function generateIcon(props: any, layout: any, spaces: string): string {
-  const padding = layout.padding
-    ? `padding-top: ${layout.padding}; padding-bottom: ${layout.padding};`
-    : "";
   const fontSize = iconFontSizeFromHeight(props.height);
   const align = props.align || "center";
   const color = props.color || "#333333";
@@ -380,23 +387,26 @@ function generateIcon(props: any, layout: any, spaces: string): string {
 
   const iconTag = `<i class="${fa}" style="font-size: ${escapeHtml(fontSize)}; line-height: 1; color: ${escapeHtml(color)};" aria-hidden="true"></i>`;
 
-  let inner: string;
+  let core: string;
   if (props.addLink && props.linkHref?.trim()) {
     const href = escapeHtml(props.linkHref.trim());
     const target = props.openInNewWindow
       ? ' target="_blank" rel="noopener noreferrer"'
       : "";
     const aLabel = aria ? ` aria-label="${escapeHtml(aria)}"` : "";
-    inner = `<a href="${href}"${target}${aLabel} style="display: inline-flex; text-decoration: none; color: inherit;">${iconTag}</a>`;
+    core = `<a href="${href}"${target}${aLabel} style="display: inline-flex; text-decoration: none; color: inherit;">${iconTag}</a>`;
   } else if (aria) {
-    inner = `<span aria-label="${escapeHtml(aria)}">${iconTag}</span>`;
+    core = `<span aria-label="${escapeHtml(aria)}">${iconTag}</span>`;
   } else {
-    inner = iconTag;
+    core = iconTag;
   }
 
-  return `${spaces}<div style="${padding}display: flex; justify-content: ${justify}; width: 100%;">
-${spaces}  ${inner}
-${spaces}</div>\n`;
+  const inner = `<div style="display: flex; justify-content: ${justify}; width: 100%;">
+${core}
+</div>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 function generateDivider(props: any, spaces: string): string {

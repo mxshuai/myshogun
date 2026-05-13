@@ -9,6 +9,7 @@ import { resolvePuckPath } from "~/lib/resolve-puck-path.server";
 import { getPage, saveEditorPage } from "~/lib/pages.server";
 import editorStyles from "@puckeditor/core/puck.css?url";
 import { PuckEditorHeader } from "~/components/PuckEditorHeader";
+import { PreviewModal } from "~/components/PreviewModal";
 import { ViewPageModal } from "~/components/ViewPageModal";
 
 /** 编辑数据里补齐 URL path（属性面板展示）；旧数据无该字段时用当前路由 path */
@@ -104,6 +105,7 @@ function Editor() {
   const fetcher = useFetcher<typeof action>();
   const navigate = useNavigate();
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [editorData, setEditorData] = useState<Data>(loaderData.data);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -188,9 +190,38 @@ function Editor() {
           ),
           headerActions: ({ children }) => (
             <>
+              {/* View Page：按钮暂时隐藏；ViewPageModal、showViewModal 仍挂载，恢复显示改为 true 或删除包裹 */}
+              {false && (
+                <button
+                  type="button"
+                  onClick={() => setShowViewModal(true)}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#ffffff",
+                    color: "#333333",
+                    border: "1px solid #e0e0e0",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    fontSize: "0.875rem",
+                    marginRight: "8px",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#f8f9fa";
+                    e.currentTarget.style.borderColor = "#d0d0d0";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#ffffff";
+                    e.currentTarget.style.borderColor = "#e0e0e0";
+                  }}
+                >
+                  View Page
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setShowViewModal(true)}
+                onClick={() => setShowPreviewModal(true)}
                 style={{
                   padding: "8px 16px",
                   backgroundColor: "#ffffff",
@@ -212,12 +243,17 @@ function Editor() {
                   e.currentTarget.style.borderColor = "#e0e0e0";
                 }}
               >
-                View Page
+                Preview
               </button>
               {children}
             </>
           ),
         }}
+      />
+      <PreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        data={editorData}
       />
       <ViewPageModal
         isOpen={showViewModal}

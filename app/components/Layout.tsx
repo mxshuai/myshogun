@@ -2,21 +2,120 @@ import React, { forwardRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ComponentConfig, DefaultComponentProps, ObjectField } from "@puckeditor/core";
 import { spacingOptions } from "./options";
+import {
+  SectionSpacingProvider,
+  type SectionSpacingValue,
+} from "./SectionSpacingContext";
 
-// Layout 字段类型
+function normalizeSectionSide(v: string | undefined): string {
+  return (v ?? "").trim() || "0";
+}
+
+export type SectionSidesFields = {
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+};
+
+export type LayoutDimensionsFields = {
+  minHeight?: number;
+  maxWidth?: number;
+};
+
+/** Puck layout 字段（嵌套分组：Dimensions、Section margin/padding） */
 export type LayoutFieldProps = {
   padding?: string;
   spanCol?: number;
   spanRow?: number;
   grow?: boolean;
+  dimensions?: LayoutDimensionsFields;
+  /** false：侧边栏仅显示开关；true：展开 margin / padding 四边编辑 */
+  sectionSpacingAdvanced?: boolean;
+  sectionMargin?: SectionSidesFields;
+  sectionPadding?: SectionSidesFields;
 };
 
-// WithLayout 类型包装
 export type WithLayout<Props extends DefaultComponentProps> = Props & {
   layout?: LayoutFieldProps;
 };
 
-// Layout 组件字段定义
+const dimensionsField = {
+  type: "object" as const,
+  label: "Dimensions",
+  objectFields: {
+    minHeight: {
+      type: "number" as const,
+      label: "Min Height (px)",
+      min: 0,
+    },
+    maxWidth: {
+      type: "number" as const,
+      label: "Max Width (px)",
+      min: 0,
+    },
+  },
+};
+
+const sectionSpacingToggleField = {
+  type: "radio" as const,
+  label: "Section spacing",
+  options: [
+    { label: "Default (0)", value: false },
+    { label: "Custom margins & padding", value: true },
+  ],
+};
+
+const sectionSides = (label: string) =>
+  ({
+    type: "object" as const,
+    label,
+    objectFields: {
+      top: { type: "text" as const, label: "Top" },
+      right: { type: "text" as const, label: "Right" },
+      bottom: { type: "text" as const, label: "Bottom" },
+      left: { type: "text" as const, label: "Left" },
+    },
+  }) satisfies ObjectField<SectionSidesFields>;
+
+function resolveSectionLayout(layout?: LayoutFieldProps): SectionSpacingValue {
+  const m = layout?.sectionMargin;
+  const p = layout?.sectionPadding;
+  const dim = layout?.dimensions;
+  const maxW =
+    dim?.maxWidth != null && dim.maxWidth > 0 ? `${dim.maxWidth}px` : undefined;
+  const minH =
+    dim?.minHeight != null && dim.minHeight > 0 ? `${dim.minHeight}px` : undefined;
+
+  return {
+    sectionMarginTop: normalizeSectionSide(m?.top),
+    sectionMarginRight: normalizeSectionSide(m?.right),
+    sectionMarginBottom: normalizeSectionSide(m?.bottom),
+    sectionMarginLeft: normalizeSectionSide(m?.left),
+    sectionPaddingTop: normalizeSectionSide(p?.top),
+    sectionPaddingRight: normalizeSectionSide(p?.right),
+    sectionPaddingBottom: normalizeSectionSide(p?.bottom),
+    sectionPaddingLeft: normalizeSectionSide(p?.left),
+    sectionMinHeight: minH,
+    sectionMaxWidth: maxW,
+  };
+}
+
+const defaultSectionSides = {
+  top: "0",
+  right: "0",
+  bottom: "0",
+  left: "0",
+} satisfies SectionSidesFields;
+
+/** 供各组件 defaultProps.layout 与 withLayout 合并 */
+export const defaultLayoutSpacing = {
+  dimensions: { minHeight: 0, maxWidth: 1280 },
+  sectionSpacingAdvanced: false,
+  sectionMargin: { ...defaultSectionSides },
+  sectionPadding: { ...defaultSectionSides },
+} satisfies Partial<LayoutFieldProps>;
+
 export const layoutField: ObjectField<LayoutFieldProps> = {
   type: "object",
   objectFields: {
@@ -45,10 +144,13 @@ export const layoutField: ObjectField<LayoutFieldProps> = {
       label: "Vertical Padding",
       options: [{ label: "0px", value: "0px" }, ...spacingOptions],
     },
+    dimensions: dimensionsField,
+    sectionSpacingAdvanced: sectionSpacingToggleField,
+    sectionMargin: sectionSides("Section margin"),
+    sectionPadding: sectionSides("Section padding"),
   },
 };
 
-// Layout 包装组件
 type LayoutProps = WithLayout<{
   children: ReactNode;
   className?: string;
@@ -57,6 +159,8 @@ type LayoutProps = WithLayout<{
 
 export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
   ({ children, className, layout, style }, ref) => {
+    const sectionValue = resolveSectionLayout(layout);
+
     return (
       <div
         className={className}
@@ -74,7 +178,7 @@ export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
         }}
         ref={ref}
       >
-        {children}
+        <SectionSpacingProvider value={sectionValue}>{children}</SectionSpacingProvider>
       </div>
     );
   }
@@ -82,13 +186,49 @@ export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
 
 Layout.displayName = "Layout";
 
-// withLayout 高阶组件
+function layoutFieldsForParent(
+  parentType: string | undefined,
+  showSpacingSides: boolean
+) {
+  const spacingBlocks = showSpacingSides
+    ? {
+        sectionMargin: sectionSides("Section margin"),
+        sectionPadding: sectionSides("Section padding"),
+      }
+    : {};
+
+  if (parentType === "Grid") {
+    return {
+      spanCol: layoutField.objectFields.spanCol,
+      spanRow: layoutField.objectFields.spanRow,
+      padding: layoutField.objectFields.padding,
+      dimensions: dimensionsField,
+      sectionSpacingAdvanced: sectionSpacingToggleField,
+      ...spacingBlocks,
+    };
+  }
+  if (parentType === "Flex") {
+    return {
+      grow: layoutField.objectFields.grow,
+      padding: layoutField.objectFields.padding,
+      dimensions: dimensionsField,
+      sectionSpacingAdvanced: sectionSpacingToggleField,
+      ...spacingBlocks,
+    };
+  }
+  return {
+    padding: layoutField.objectFields.padding,
+    dimensions: dimensionsField,
+    sectionSpacingAdvanced: sectionSpacingToggleField,
+    ...spacingBlocks,
+  };
+}
+
 export function withLayout<
   ThisComponentConfig extends ComponentConfig<any> = ComponentConfig
 >(componentConfig: ThisComponentConfig): ThisComponentConfig {
-  // 保存原始的 resolveFields 函数（如果存在）
   const originalResolveFields = componentConfig.resolveFields;
-  
+
   return {
     ...componentConfig,
     fields: {
@@ -102,24 +242,25 @@ export function withLayout<
         spanRow: 1,
         padding: "0px",
         grow: false,
+        ...defaultLayoutSpacing,
         ...componentConfig.defaultProps?.layout,
       },
     },
     resolveFields: (data, params) => {
-      // 首先调用原始的 resolveFields（如果存在）
-      let fields = originalResolveFields ? originalResolveFields(data, params) : { ...componentConfig.fields };
-      
-      // 然后根据父组件类型添加/修改 layout 字段
+      let fields = originalResolveFields
+        ? originalResolveFields(data, params)
+        : { ...componentConfig.fields };
+
+      const layoutState = (data as { props?: { layout?: LayoutFieldProps } }).props
+        ?.layout;
+      const showSides = layoutState?.sectionSpacingAdvanced === true;
+
       if (params.parent?.type === "Grid") {
         fields = {
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: {
-              spanCol: layoutField.objectFields.spanCol,
-              spanRow: layoutField.objectFields.spanRow,
-              padding: layoutField.objectFields.padding,
-            },
+            objectFields: layoutFieldsForParent("Grid", showSides),
           },
         } as any;
       } else if (params.parent?.type === "Flex") {
@@ -127,10 +268,7 @@ export function withLayout<
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: {
-              grow: layoutField.objectFields.grow,
-              padding: layoutField.objectFields.padding,
-            },
+            objectFields: layoutFieldsForParent("Flex", showSides),
           },
         } as any;
       } else {
@@ -138,13 +276,11 @@ export function withLayout<
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: {
-              padding: layoutField.objectFields.padding,
-            },
+            objectFields: layoutFieldsForParent(undefined, showSides),
           },
         } as any;
       }
-      
+
       return fields;
     },
     inline: true,
