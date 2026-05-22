@@ -8,9 +8,17 @@ import { createAdminClient } from "~/lib/server/shopify";
 
 export async function loader({ request }: Route.LoaderArgs) {
   requireAdmin(request);
-  const ctx = await ensureServerContext();
-  const shops = await ctx.repo.listShops();
-  return { shops };
+  try {
+    const ctx = await ensureServerContext();
+    const shops = await ctx.repo.listShops();
+    return { shops, loadError: null as string | null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      shops: [],
+      loadError: `Server context init failed: ${message}`,
+    };
+  }
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -74,7 +82,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function AdminShops() {
-  const { shops } = useLoaderData<typeof loader>();
+  const { shops, loadError } = useLoaderData<typeof loader>();
 
   return (
     <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 960 }}>
@@ -85,6 +93,21 @@ export default function AdminShops() {
           <Link to="/">Site</Link>
         </nav>
       </header>
+      {loadError ? (
+        <div
+          role="alert"
+          style={{
+            marginTop: 12,
+            padding: 12,
+            border: "1px solid #fecaca",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            borderRadius: 8,
+          }}
+        >
+          {loadError}
+        </div>
+      ) : null}
 
       <section style={{ marginTop: 24, padding: 16, border: "1px solid #ddd" }}>
         <h2>Add shop</h2>
