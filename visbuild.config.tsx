@@ -17,6 +17,7 @@ import { Tabs } from "./app/components/Tabs";
 import { Accordion } from "./app/components/Accordion";
 import { Slider } from "./app/components/Slider";
 import { CustomHtml } from "./app/components/CustomHtml";
+import { RawHTML } from "./app/components/RawHTML";
 
 export const config: Config = {
   root: {
@@ -54,6 +55,7 @@ export const config: Config = {
         "Image",
         "Video",
         "CustomHtml",
+        "RawHTML",
         "Button",
         "Divider",
         "Icon",
@@ -76,6 +78,7 @@ export const config: Config = {
     Video,
     Icon,
     CustomHtml,
+    RawHTML,
     Divider,
     Spacer,
     Table,

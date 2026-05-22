@@ -366,6 +366,21 @@ export function PagesList({
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
             Pages
           </h1>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Link
+            to="/admin/shops"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: `1px solid ${accent}`,
+              color: accent,
+              fontWeight: 600,
+              fontSize: "0.9rem",
+              textDecoration: "none",
+            }}
+          >
+            Shopify admin
+          </Link>
           <button
             type="button"
             onClick={() => {
@@ -387,6 +402,7 @@ export function PagesList({
           >
             New page
           </button>
+          </div>
         </div>
 
         <div

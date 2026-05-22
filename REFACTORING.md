@@ -153,7 +153,7 @@ Flex (direction: row)
 - `app/components/Hero.tsx` - 暂不使用 withLayout
 - `app/components/Divider.tsx` - 暂不使用 withLayout
 - `app/components/Spacer.tsx` - 暂不使用 withLayout
-- `puck.config.tsx` - 配置保持不变
+- `visbuild.config.tsx` - 配置保持不变
 
 ## 与官方 Demo 的差异
 

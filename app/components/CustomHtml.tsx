@@ -26,7 +26,7 @@ const CustomHtmlInternal: ComponentConfig<Components["CustomHtml"]> = {
   },
   render: ({ html, css }) => {
     return (
-      <div className="puck-custom-html-root">
+      <div className="visbuild-custom-html-root">
         {css?.trim() ? (
           <style dangerouslySetInnerHTML={{ __html: css }} />
         ) : null}

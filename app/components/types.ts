@@ -76,6 +76,9 @@ export type Components = {
     html: string;
     css: string;
   }>;
+  RawHTML: WithLayout<{
+    html: string;
+  }>;
   Divider: {
     thickness: number;
     color: string;
@@ -276,7 +279,7 @@ export const initialData: Data = {
   ],
   root: {
     props: {
-      title: "My Puck Page",
+      title: "My Visbuild Page",
     },
   },
 };

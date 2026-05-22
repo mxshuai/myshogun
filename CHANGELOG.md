@@ -28,7 +28,7 @@
 
 ### 修复
 
-- 恢复 `app/lib/resolve-puck-path.server.ts`，保证 SSR 路由下编辑路径解析正常。
+- 恢复 `app/lib/resolve-visbuild-path.server.ts`，保证 SSR 路由下编辑路径解析正常。
 
 ### 移除 / 回退
 

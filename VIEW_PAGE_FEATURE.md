@@ -18,8 +18,8 @@
 - ⌨️ 等宽字体显示，便于阅读
 - 🔄 复制成功后显示 "✓ Copied!" 提示（2秒后恢复）
 
-### 2. **puck-splat.tsx** (修改)
-- 路径: `app/routes/puck-splat.tsx`
+### 2. **visbuild-splat.tsx** (修改)
+- 路径: `app/routes/visbuild-splat.tsx`
 - 修改内容:
   - 导入 `useState` 和 `ViewPageModal`
   - 添加 `showViewModal` 状态管理

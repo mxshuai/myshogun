@@ -30,6 +30,6 @@ You can do this for any **base** route on the application, **even if the page do
 
 To adopt this recipe, you will need to:
 
-- **IMPORTANT** Add authentication to `/edit` routes. This can be done by modifying the [route module action](https://reactrouter.com/start/framework/route-module#action) in the splat route `/app/routes/puck-splat.tsx`. **If you don't do this, Puck will be completely public.**
+- **IMPORTANT** Add authentication to `/edit` routes. This can be done by modifying the [route module action](https://reactrouter.com/start/framework/route-module#action) in the splat route `/app/routes/visbuild-splat.tsx`. **If you don't do this, Puck will be completely public.**
 - Integrate your database into the functions in `/lib/pages.server.ts`
-- Implement a custom puck configuration in `/app/puck.config.tsx`
+- Implement a custom puck configuration in `/app/visbuild.config.tsx`

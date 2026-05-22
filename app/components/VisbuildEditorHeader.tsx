@@ -9,7 +9,7 @@ import { usePuck } from "@puckeditor/core";
  * 覆盖 Puck 顶栏中间标题：无边框输入，失焦时写入 Puck 并触发 onPersist（保存服务端）。
  * 不渲染 overrides.header 的 `actions`：其与 header 内 MenuBar 中的 Publish 重复。
  */
-export function PuckEditorHeader({
+export function VisbuildEditorHeader({
   children,
   onPersist,
 }: {

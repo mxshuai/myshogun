@@ -1,8 +1,8 @@
 import type { Data } from "@puckeditor/core";
 import { Render } from "@puckeditor/core";
 
-import { config } from "../../puck.config";
+import { config } from "../../visbuild.config";
 
-export function PuckRender({ data }: { data: Data }) {
+export function VisbuildRender({ data }: { data: Data }) {
   return <Render config={config} data={data} />;
 }

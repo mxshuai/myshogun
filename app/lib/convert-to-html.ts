@@ -20,7 +20,7 @@ export function convertToHTML(data: Data): string {
   html += cssContent.split('\n').map(line => '    ' + line).join('\n');
   html += '\n  </style>\n';
   html += '</head>\n<body>\n';
-  html += '  <div class="puck-page">\n';
+  html += '  <div class="visbuild-page">\n';
   
   components.forEach((component) => {
     html += generateComponentHTML(component);
@@ -30,6 +30,14 @@ export function convertToHTML(data: Data): string {
   html += '</body>\n</html>';
   
   return html;
+}
+
+/** 导出供 Shopify body 等片段 HTML 生成复用 */
+export function generateComponentHTMLForExport(
+  component: unknown,
+  indent: number = 2
+): string {
+  return generateComponentHTML(component, indent);
 }
 
 /**
@@ -56,6 +64,8 @@ function generateComponentHTML(component: any, indent: number = 2): string {
       return generateCard(props, layout, spaces);
     case 'CustomHtml':
       return generateCustomHtml(props, layout, spaces);
+    case 'RawHTML':
+      return generateRawHTML(props, layout, spaces);
     case 'Image':
       return generateImage(props, layout, spaces);
     case 'Video':
@@ -193,7 +203,7 @@ function generateCustomHtml(props: any, layout: any, spaces: string): string {
   const rawHtml = props.html ?? "";
   const rawCss = (props.css ?? "").trim();
 
-  let inner = `<div class="puck-custom-html-root">
+  let inner = `<div class="visbuild-custom-html-root">
 `;
   if (rawCss) {
     inner += `<style>
@@ -206,6 +216,13 @@ function generateCustomHtml(props: any, layout: any, spaces: string): string {
   inner += `</div>
 `;
 
+  return wrapLayoutLayers(layout, inner, spaces);
+}
+
+/** 从 Shopify 导入的 HTML 原样输出 */
+function generateRawHTML(props: any, layout: any, spaces: string): string {
+  const rawHtml = props.html ?? "";
+  const inner = `${rawHtml}${rawHtml.endsWith("\n") ? "" : "\n"}`;
   return wrapLayoutLayers(layout, inner, spaces);
 }
 
@@ -1060,7 +1077,7 @@ function escapeHtml(text: string): string {
  * 生成 CSS 文件内容
  */
 export function generateCSS(): string {
-  return `/* Puck Page Styles */
+  return `/* Visbuild Page Styles */
 * {
   margin: 0;
   padding: 0;
@@ -1073,7 +1090,7 @@ body {
   color: #333;
 }
 
-.puck-page {
+.visbuild-page {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 16px;
@@ -1081,7 +1098,7 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .puck-page {
+  .visbuild-page {
     padding: 0 12px;
   }
 }

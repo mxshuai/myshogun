@@ -114,7 +114,7 @@ http://localhost:5173/edit
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="puck-page">
+  <div class="visbuild-page">
     <h1 style="font-size: 2.5rem; text-align: center; margin: 0; font-weight: 600; line-height: 1.2;">
       <span style="display: block; width: 100%;">Welcome</span>
     </h1>
@@ -143,7 +143,7 @@ body {
   color: #333;
 }
 
-.puck-page {
+.visbuild-page {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 16px;
@@ -151,7 +151,7 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .puck-page {
+  .visbuild-page {
     padding: 0 12px;
   }
 }
@@ -170,7 +170,7 @@ body {
 **生成的 CSS 文件包含：**
 - 全局重置样式
 - 基础字体设置
-- `.puck-page` 容器样式
+- `.visbuild-page` 容器样式
 - 响应式媒体查询
 
 ### Layout 属性处理

@@ -5,3 +5,5 @@
 /.react-router/
 /build/
 /.amplify-hosting/
+.dev-data/
+infra/dist/

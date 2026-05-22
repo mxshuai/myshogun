@@ -1,4 +1,4 @@
-export function resolvePuckPath(
+export function resolveVisbuildPath(
   path = "",
   // `base` can be any valid origin, it is required for the URL constructor so
   // we can return a pathname - you can change this if you want, but it isn't

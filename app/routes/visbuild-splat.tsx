@@ -3,12 +3,12 @@ import { data, useFetcher, useLoaderData, useNavigate } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { Puck, Render } from "@puckeditor/core";
 
-import type { Route } from "./+types/puck-splat";
-import { config } from "../../puck.config";
-import { resolvePuckPath } from "~/lib/resolve-puck-path.server";
+import type { Route } from "./+types/visbuild-splat";
+import { config } from "../../visbuild.config";
+import { resolveVisbuildPath } from "~/lib/resolve-visbuild-path.server";
 import { getPage, saveEditorPage } from "~/lib/pages.server";
 import editorStyles from "@puckeditor/core/puck.css?url";
-import { PuckEditorHeader } from "~/components/PuckEditorHeader";
+import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
 import { PreviewModal } from "~/components/PreviewModal";
 import { ViewPageModal } from "~/components/ViewPageModal";
 
@@ -36,7 +36,7 @@ function stripPublicRootProps(data: Data): Data {
 
 export async function loader({ params }: Route.LoaderArgs) {
   const pathname = params["*"] ?? "/";
-  const { isEditorRoute, path } = resolvePuckPath(pathname);
+  const { isEditorRoute, path } = resolveVisbuildPath(pathname);
   let page = await getPage(path);
 
   // Throw a 404 if we're not rendering the editor and data for the page does not exist
@@ -80,7 +80,7 @@ type SaveBody = { data: Data };
 
 export async function action({ params, request }: Route.ActionArgs) {
   const pathname = params["*"] ?? "/";
-  const { path } = resolvePuckPath(pathname);
+  const { path } = resolveVisbuildPath(pathname);
   const body = (await request.json()) as SaveBody;
 
   const rootProps = body.data.root?.props as
@@ -151,7 +151,7 @@ function Editor() {
 
   return (
     <>
-      <link rel="stylesheet" href={editorStyles} id="puck-css" />
+      <link rel="stylesheet" href={editorStyles} id="visbuild-editor-css" />
       {saveError ? (
         <div
           role="alert"
@@ -184,9 +184,9 @@ function Editor() {
         }}
         overrides={{
           header: ({ children }) => (
-            <PuckEditorHeader onPersist={persistPage}>
+            <VisbuildEditorHeader onPersist={persistPage}>
               {children}
-            </PuckEditorHeader>
+            </VisbuildEditorHeader>
           ),
           headerActions: ({ children }) => (
             <>
@@ -264,7 +264,7 @@ function Editor() {
   );
 }
 
-export default function PuckSplatRoute({ loaderData }: Route.ComponentProps) {
+export default function VisbuildSplatRoute({ loaderData }: Route.ComponentProps) {
   return (
     <div>
       {loaderData.isEditorRoute ? (

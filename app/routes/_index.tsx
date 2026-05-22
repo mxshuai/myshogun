@@ -1,10 +1,10 @@
 import type { Route } from "./+types/_index";
-import { PuckRender } from "~/components/puck-render";
-import { resolvePuckPath } from "~/lib/resolve-puck-path.server";
+import { VisbuildRender } from "~/components/visbuild-render";
+import { resolveVisbuildPath } from "~/lib/resolve-visbuild-path.server";
 import { getPage } from "~/lib/pages.server";
 
 export async function loader() {
-  const { isEditorRoute, path } = resolvePuckPath("/");
+  const { isEditorRoute, path } = resolveVisbuildPath("/");
   let page = await getPage(path);
 
   if (!page) {
@@ -26,6 +26,6 @@ export function meta({ data: loaderData }: Route.MetaArgs) {
   ];
 }
 
-export default function PuckSplatRoute({ loaderData }: Route.ComponentProps) {
-  return <PuckRender data={loaderData.data} />;
+export default function VisbuildIndexRoute({ loaderData }: Route.ComponentProps) {
+  return <VisbuildRender data={loaderData.data} />;
 }

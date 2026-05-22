@@ -45,7 +45,7 @@
       color: #333;
     }
 
-    .puck-page {
+    .visbuild-page {
       max-width: 1280px;
       margin: 0 auto;
       padding: 0 16px;
@@ -53,14 +53,14 @@
 
     /* Responsive adjustments */
     @media (max-width: 768px) {
-      .puck-page {
+      .visbuild-page {
         padding: 0 12px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="puck-page">
+  <div class="visbuild-page">
     <!-- Components here -->
   </div>
 </body>

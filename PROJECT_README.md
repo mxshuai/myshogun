@@ -89,6 +89,10 @@ npm start
 - **TypeScript** - 类型安全
 - **Vite** - 构建工具
 
+## 🌐 生产部署
+
+演示环境可使用 **AWS Amplify Hosting**（SSR）。步骤、本地预览与生产注意项见根目录 [`DEPLOYMENT.md`](DEPLOYMENT.md)。
+
 ## 📂 项目结构
 
 ```
@@ -109,7 +113,7 @@ my-app/
 │   ├── lib/                # 工具函数
 │   ├── routes/             # 路由组件
 │   └── root.tsx            # 根组件
-├── puck.config.tsx         # Puck 配置文件
+├── visbuild.config.tsx     # 可视化编辑器配置文件
 ├── database.json           # 页面数据存储
 └── package.json
 ```
@@ -121,7 +125,7 @@ my-app/
 1. 在 `app/components/` 目录下创建新的组件文件
 2. 定义组件的类型（在 `types.ts` 中）
 3. 实现组件配置（fields, defaultProps, render）
-4. 在 `puck.config.tsx` 中导入并注册组件
+4. 在 `visbuild.config.tsx` 中导入并注册组件
 
 示例：
 ```tsx

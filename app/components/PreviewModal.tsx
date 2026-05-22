@@ -1,7 +1,7 @@
 import type { Data } from "@puckeditor/core";
 import { Render } from "@puckeditor/core";
 
-import { config } from "../../puck.config";
+import { config } from "../../visbuild.config";
 
 function stripPublicRootProps(data: Data): Data {
   const props = { ...(data.root?.props as Record<string, unknown>) };
