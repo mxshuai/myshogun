@@ -12,7 +12,7 @@ export async function loader() {
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  const key = String(form.get("apiKey") ?? "");
+  const key = String(form.get("apiKey") ?? "").trim();
   const next = String(form.get("next") ?? "/admin/shops");
   return adminLoginResponse(key, next);
 }
