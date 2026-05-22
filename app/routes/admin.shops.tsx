@@ -7,12 +7,13 @@ import { normalizeShopDomain, upsertShopRecord } from "~/lib/server/page-ops";
 import { createAdminClient } from "~/lib/server/shopify";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  requireAdmin(request);
   try {
+    requireAdmin(request);
     const ctx = await ensureServerContext();
     const shops = await ctx.repo.listShops();
     return { shops, loadError: null as string | null };
   } catch (error) {
+    if (error instanceof Response) throw error;
     const message = error instanceof Error ? error.message : String(error);
     return {
       shops: [],
