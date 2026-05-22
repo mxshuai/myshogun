@@ -12,7 +12,7 @@ export function requireAdmin(request: Request): void {
   const cookie = parseCookie(request.headers.get("Cookie")).get(COOKIE_NAME);
   if (header === expected || cookie === expected) return;
 
-  const url = new URL(request.url);
+  const url = safeParseUrl(request);
   if (url.pathname === "/admin/login") return;
 
   throw redirect(`/admin/login?next=${encodeURIComponent(url.pathname + url.search)}`);
@@ -47,7 +47,24 @@ function parseCookie(header: string | null): Map<string, string> {
   if (!header) return map;
   for (const part of header.split(";")) {
     const [k, ...rest] = part.trim().split("=");
-    if (k) map.set(k, decodeURIComponent(rest.join("=")));
+    if (!k) continue;
+    const raw = rest.join("=");
+    try {
+      map.set(k, decodeURIComponent(raw));
+    } catch {
+      // 忽略非法 cookie 编码，避免鉴权阶段抛 500
+      map.set(k, raw);
+    }
   }
   return map;
+}
+
+function safeParseUrl(request: Request): URL {
+  try {
+    return new URL(request.url);
+  } catch {
+    const host = request.headers.get("host") || "localhost";
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    return new URL(request.url, `${proto}://${host}`);
+  }
 }
