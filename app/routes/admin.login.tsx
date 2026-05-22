@@ -1,13 +1,12 @@
-import { Form, redirect, useSearchParams } from "react-router";
+import { Form, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/admin.login";
 import { adminLoginResponse } from "~/lib/server/auth.server";
 import { getAdminApiKey } from "~/lib/server/env";
 
 export async function loader() {
-  if (!getAdminApiKey()) {
-    throw redirect("/admin/shops");
-  }
+  // 未配置 ADMIN_API_KEY 时也允许打开登录页，避免在生产环境出现循环跳转到其他管理页。
+  getAdminApiKey();
   return {};
 }
 
