@@ -20,10 +20,19 @@ export function requireAdmin(request: Request): void {
 
 export function adminLoginResponse(apiKey: string, next: string): Response {
   const expected = getAdminApiKey();
-  if (!expected || apiKey !== expected) {
+  const safeNext = next.startsWith("/admin") ? next : "/admin/shops";
+  // 与 requireAdmin 行为保持一致：未配置 ADMIN_API_KEY 时关闭鉴权，允许直接进入管理页。
+  if (!expected) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: safeNext,
+      },
+    });
+  }
+  if (apiKey !== expected) {
     return new Response("Invalid key", { status: 401 });
   }
-  const safeNext = next.startsWith("/admin") ? next : "/admin/shops";
   return new Response(null, {
     status: 302,
     headers: {
