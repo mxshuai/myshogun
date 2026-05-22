@@ -36,6 +36,31 @@
 
 ---
 
+## 本地先验（推荐，减少反复 Redeploy）
+
+1. 复制环境变量模板（仅本机）：
+
+```powershell
+copy .env.production.local.example .env.production.local
+```
+
+2. 填好 `.env.production.local`（尤其 `ADMIN_API_KEY`、`SCHEDULER_ROLE_ARN`）。
+3. 启动本地生产模式（会先 build 再 start）：
+
+```powershell
+npm run start:local-prod
+```
+
+4. 新开一个终端跑冒烟验证：
+
+```powershell
+npm run verify:local-admin
+```
+
+通过后再 push 触发 Amplify，通常可把线上调试次数降到 1 次。
+
+---
+
 ## 五步总览
 
 | 步骤 | 在哪里操作 | 主要作用 |
@@ -186,7 +211,7 @@ npm run deploy:publish-lambda
 | 变量 | 示例值 | 作用 |
 |------|--------|------|
 | `USE_AWS_DATA_LAYER` | `true` | SSR 使用 DynamoDB / Secrets / EventBridge，**不用**仓库内 JSON 当生产库 |
-| `AWS_REGION` | `ap-southeast-2` | AWS SDK 区域 |
+| `APP_AWS_REGION` | `ap-southeast-2` | AWS SDK 区域（**勿**用 `AWS_REGION`，Amplify 保留前缀会报错） |
 | `APP_TABLE_NAME` | `visbuild-shopify-app` | 步骤 1 创建的表名 |
 | `PUBLISH_LAMBDA_ARN` | 步骤 1 Output | 创建定时任务时指定触发哪个 Lambda |
 | `SCHEDULER_ROLE_ARN` | 步骤 1 Output | Scheduler 代你 Invoke Lambda 的角色 |
@@ -236,12 +261,41 @@ npm run deploy:publish-lambda
 
 ## 步骤 4：Amplify SSR 执行角色 IAM
 
-### 你要做的操作（AWS 控制台）
+### 方式 A（推荐）：先在 IAM 建角色，再在 Amplify 里选择
+
+**1. IAM 创建角色**
+
+- IAM → **Roles** → **Create role**
+- **Trusted entity**：**Custom trust policy**，粘贴 [`infra/amplify-compute-trust-policy.json`](infra/amplify-compute-trust-policy.json)
+- **Permissions**：先不挂托管策略，直接 **Next**
+- **Role name**：例如 `myshogun-amplify-compute-role` → **Create role**
+
+**2. 给该角色加两条内联策略**
+
+在同一角色上 **Add permissions** → **Create inline policy** → JSON，各建一条：
+
+| 策略名建议 | JSON 文件 |
+|------------|-----------|
+| `VisbuildSSRDataAccess` | [`infra/amplify-ssr-iam-policy.json`](infra/amplify-ssr-iam-policy.json) |
+| `VisbuildSSRPassSchedulerRole` | [`infra/amplify-compute-passrole-policy.json`](infra/amplify-compute-passrole-policy.json) |
+
+**3. Amplify 绑定 Compute role**
+
+- Amplify → **myshogun** → **App settings** → **IAM roles** → **Compute role** → **Edit**
+- **Default role** → **Use an existing role** → 选 `myshogun-amplify-compute-role` → 保存
+
+**4. Redeploy** 一次 master 分支，使 SSR 使用新角色。
+
+### 方式 B：在 Amplify 里点「Create new role」
+
+由 Amplify 自动创建角色后，再到 IAM 给该角色粘贴上述两份 JSON 内联策略（勿选 `PublishLambdaRole`）。
+
+### 方式 B 的补充说明
 
 1. Amplify → **App settings** → 找到 SSR / Compute 的 **Service role** 或 **Execution role** 名称  
 2. IAM → **Roles** → 打开该角色 → **Add permissions** → **Create inline policy** → JSON  
 3. 粘贴 [`infra/amplify-ssr-iam-policy.json`](infra/amplify-ssr-iam-policy.json)  
-4. 若步骤 5 创建 Schedule 时报 `PassRole`，再按下方 JSON 增加 PassRole 语句（角色名以 IAM 里 `SchedulerInvoke` 为准）
+4. 若步骤 5 创建 Schedule 时报 `PassRole`，再粘贴 [`infra/amplify-compute-passrole-policy.json`](infra/amplify-compute-passrole-policy.json)
 
 PassRole 示例（资源名请与 IAM 控制台实际角色 ARN 对齐）：
 

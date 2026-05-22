@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "amplify.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "124074140777"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:amplify:ap-southeast-2:124074140777:apps/d3w458ytk16hpm/*"
+        }
+      }
+    }
+  ]
+}

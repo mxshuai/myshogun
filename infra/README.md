@@ -23,7 +23,7 @@ aws cloudformation deploy \
 - `APP_TABLE_NAME`
 - `PUBLISH_LAMBDA_ARN`
 - `SCHEDULER_ROLE_ARN`
-- `AWS_REGION`
+- `APP_AWS_REGION`（勿用 `AWS_REGION`，Amplify 保留前缀）
 - `ASSETS_BUCKET_NAME`（若创建 S3）
 
 并为 **Amplify SSR 计算角色**附加对 DynamoDB、Secrets Manager、Scheduler 的 IAM 策略。

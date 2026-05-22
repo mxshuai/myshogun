@@ -8,6 +8,8 @@
     "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node20 --outfile=infra/dist/publish/index.js --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/server.mjs",
+    "start:local-prod": "powershell -ExecutionPolicy Bypass -File scripts/start-local-prod.ps1",
+    "verify:local-admin": "powershell -ExecutionPolicy Bypass -File scripts/verify-local-admin.ps1",
     "preview:amplify": "node ./.amplify-hosting/compute/default/server.mjs",
     "typecheck": "react-router typegen && tsc",
     "verify:publish-flow": "tsx scripts/verify-publish-flow.ts",
