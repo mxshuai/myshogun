@@ -59,6 +59,20 @@ npm run verify:local-admin
 
 通过后再 push 触发 Amplify，通常可把线上调试次数降到 1 次。
 
+### 方案 C：不经过后台登录，验证写入 Shopify
+
+在 `.env.production.local` 增加（**不要用** `ADMIN_API_KEY` 充当 Shopify Token）：
+
+- `SHOPIFY_SHOP_DOMAIN` — 如 `your-store.myshopify.com`
+- `SHOPIFY_ACCESS_TOKEN` — Custom App 的 `shpat_...`（需 `read_content` / `write_content`）
+- 可选 `SHOPIFY_PAGE_GID` — 已有页面则填；不填则脚本自动 `pageCreate` 测试页
+
+```powershell
+npm run seed:publish-test
+```
+
+脚本会：写入 Secrets Manager → 写入 DynamoDB（shop/page/version/job）→ 调用 `visbuild-shopify-data-publish` → 轮询 job 是否 `done`。仅写入不调用 Lambda 时设 `SEED_SKIP_INVOKE=1`。
+
 ---
 
 ## 五步总览

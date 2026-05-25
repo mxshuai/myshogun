@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
+    "build": "react-router build && node scripts/sync-amplify-compute-assets.mjs",
     "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node20 --outfile=infra/dist/publish/index.js --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/server.mjs",
@@ -13,6 +13,7 @@
     "preview:amplify": "node ./.amplify-hosting/compute/default/server.mjs",
     "typecheck": "react-router typegen && tsc",
     "verify:publish-flow": "tsx scripts/verify-publish-flow.ts",
+    "seed:publish-test": "tsx scripts/seed-publish-test.ts",
     "deploy:data-plane": "powershell -ExecutionPolicy Bypass -File scripts/deploy-data-plane.ps1",
     "deploy:publish-lambda": "powershell -ExecutionPolicy Bypass -File scripts/deploy-publish-lambda.ps1"
   },

@@ -38,9 +38,7 @@ try {
   if (-not $ApiKey) {
     $ApiKey = $env:ADMIN_API_KEY
   }
-  if (-not $ApiKey) {
-    throw "ADMIN_API_KEY is empty. Set it in .env.production.local or pass -ApiKey."
-  }
+  $authDisabled = [string]::IsNullOrWhiteSpace($ApiKey)
 
   $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
@@ -51,22 +49,26 @@ try {
     }
   }
 
-  Invoke-Step "POST /admin/login.data should redirect" {
-    $body = @{
-      next = "/admin/shops"
-      apiKey = $ApiKey
-    }
-    $res = Invoke-WebRequest `
-      -Uri "$BaseUrl/admin/login.data" `
-      -Method Post `
-      -Body $body `
-      -WebSession $session `
-      -TimeoutSec 20 `
-      -UseBasicParsing
+  if ($authDisabled) {
+    Write-Host "SKIP: POST /admin/login.data (ADMIN_API_KEY not set)" -ForegroundColor Yellow
+  } else {
+    Invoke-Step "POST /admin/login.data should redirect" {
+      $body = @{
+        next = "/admin/shops"
+        apiKey = $ApiKey
+      }
+      $res = Invoke-WebRequest `
+        -Uri "$BaseUrl/admin/login.data" `
+        -Method Post `
+        -Body $body `
+        -WebSession $session `
+        -TimeoutSec 20 `
+        -UseBasicParsing
 
-    $text = $res.Content
-    if (-not $text -or $text -notmatch "/admin/shops") {
-      throw "Unexpected response payload: $text"
+      $text = $res.Content
+      if (-not $text -or $text -notmatch "/admin/shops") {
+        throw "Unexpected response payload: $text"
+      }
     }
   }
 

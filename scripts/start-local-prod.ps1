@@ -29,8 +29,7 @@ try {
     "APP_TABLE_NAME",
     "PUBLISH_LAMBDA_ARN",
     "SCHEDULER_ROLE_ARN",
-    "SHOPIFY_TOKEN_SECRET_PREFIX",
-    "ADMIN_API_KEY"
+    "SHOPIFY_TOKEN_SECRET_PREFIX"
   )
 
   foreach ($name in $required) {
@@ -47,6 +46,10 @@ try {
   Write-Host "Building production bundle..." -ForegroundColor Cyan
   npm run build
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("ADMIN_API_KEY", "Process"))) {
+    Write-Host "ADMIN_API_KEY not set — admin routes are open (scheme B, no login)." -ForegroundColor Yellow
+  }
 
   Write-Host "Starting local production server at http://localhost:$($env:PORT)" -ForegroundColor Green
   npm run preview:amplify
