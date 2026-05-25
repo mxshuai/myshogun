@@ -3,10 +3,9 @@ import { Form, Link, data, useFetcher, useLoaderData } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { Puck } from "@puckeditor/core";
 
-import type { Route } from "./+types/admin.pages.$pageId";
+import type { Route } from "./+types/app.pages.$pageId";
 import { config } from "../../visbuild.config";
-import { requireAdmin } from "~/lib/server/auth.server";
-import { ensureServerContext } from "~/lib/server/factory";
+import { authenticateAppAdmin } from "~/lib/server/shopify-auth.server";
 import {
   cancelPendingJob,
   publishPageNow,
@@ -16,13 +15,13 @@ import {
 import editorStyles from "@puckeditor/core/puck.css?url";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  requireAdmin(request);
-  const ctx = await ensureServerContext();
+  const { shop, ctx } = await authenticateAppAdmin(request);
   const pageId = params.pageId!;
   const index = await ctx.repo.getPageIndex(pageId);
-  if (!index) throw new Response("Page not found", { status: 404 });
+  if (!index || index.shopId !== shop.id) {
+    throw new Response("Page not found", { status: 404 });
+  }
   const body = await ctx.repo.getPageBody(pageId);
-  const shop = await ctx.repo.getShop(index.shopId);
   let pendingJob = null;
   if (index.pendingJobId) {
     pendingJob = await ctx.repo.getJob(index.pendingJobId);
@@ -39,9 +38,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  requireAdmin(request);
-  const ctx = await ensureServerContext();
+  const { shop, ctx } = await authenticateAppAdmin(request);
   const pageId = params.pageId!;
+  const index = await ctx.repo.getPageIndex(pageId);
+  if (!index || index.shopId !== shop.id) {
+    return data({ error: "Page not found" }, { status: 404 });
+  }
+
   const contentType = request.headers.get("Content-Type") ?? "";
 
   if (contentType.includes("application/json")) {
@@ -90,7 +93,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "stylesheet", href: editorStyles },
 ];
 
-export default function AdminPageEditor() {
+export default function AppPageEditor() {
   const { index, shop, data: initialData, pendingJob } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
@@ -103,13 +106,10 @@ export default function AdminPageEditor() {
 
   const postJson = useCallback(
     (intent: "saveDraft" | "publishNow") => {
-      void fetcher.submit(
-        JSON.stringify({ intent, data: editorData }),
-        {
-          method: "post",
-          encType: "application/json",
-        }
-      );
+      void fetcher.submit(JSON.stringify({ intent, data: editorData }), {
+        method: "post",
+        encType: "application/json",
+      });
       setMessage(intent === "saveDraft" ? "Draft saved" : "Published to Shopify");
     },
     [editorData, fetcher]
@@ -140,7 +140,7 @@ export default function AdminPageEditor() {
           background: "#fafafa",
         }}
       >
-        <Link to={`/admin/shops/${index.shopId}/pages`}>← Pages</Link>
+        <Link to="/app/pages">← Pages</Link>
         <strong>
           {index.title} ({shop?.name})
         </strong>
@@ -186,7 +186,8 @@ export default function AdminPageEditor() {
           <Form method="post">
             <input type="hidden" name="intent" value="cancelSchedule" />
             <span style={{ fontSize: 13 }}>
-              Pending: {new Date(pendingJob.runAt).toLocaleString()} ({pendingJob.jobId.slice(0, 8)}…)
+              Pending: {new Date(pendingJob.runAt).toLocaleString()} (
+              {pendingJob.jobId.slice(0, 8)}…)
             </span>
             <button type="submit" style={{ marginLeft: 8 }}>
               Cancel

@@ -2,10 +2,10 @@ import { data } from "react-router";
 
 import type { Route } from "./+types/api.assets.upload-url";
 import { createAssetUploadUrl } from "~/lib/server/aws/assets.s3";
-import { requireAdmin } from "~/lib/server/auth.server";
+import { authenticateAppAdmin } from "~/lib/server/shopify-auth.server";
 
 export async function action({ request }: Route.ActionArgs) {
-  requireAdmin(request);
+  await authenticateAppAdmin(request);
   if (request.method !== "POST") {
     return data({ error: "Method not allowed" }, { status: 405 });
   }

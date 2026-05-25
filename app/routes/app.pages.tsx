@@ -1,8 +1,7 @@
 import { Form, Link, data, useLoaderData } from "react-router";
 
-import type { Route } from "./+types/admin.shops.$shopId.pages";
-import { requireAdmin } from "~/lib/server/auth.server";
-import { ensureServerContext } from "~/lib/server/factory";
+import type { Route } from "./+types/app.pages";
+import { authenticateAppAdmin } from "~/lib/server/shopify-auth.server";
 import {
   createManagedPage,
   normalizeHandle,
@@ -11,23 +10,14 @@ import {
 import { savePageDraft } from "~/lib/server/publish";
 import { createAdminClient } from "~/lib/server/shopify";
 
-export async function loader({ request, params }: Route.LoaderArgs) {
-  requireAdmin(request);
-  const ctx = await ensureServerContext();
-  const shopId = params.shopId!;
-  const shop = await ctx.repo.getShop(shopId);
-  if (!shop) throw new Response("Shop not found", { status: 404 });
-  const pages = await ctx.repo.listPagesByShop(shopId);
+export async function loader({ request }: Route.LoaderArgs) {
+  const { shop, ctx } = await authenticateAppAdmin(request);
+  const pages = await ctx.repo.listPagesByShop(shop.id);
   return { shop, pages };
 }
 
-export async function action({ request, params }: Route.ActionArgs) {
-  requireAdmin(request);
-  const ctx = await ensureServerContext();
-  const shopId = params.shopId!;
-  const shop = await ctx.repo.getShop(shopId);
-  if (!shop) throw new Response("Shop not found", { status: 404 });
-
+export async function action({ request }: Route.ActionArgs) {
+  const { shop, ctx } = await authenticateAppAdmin(request);
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
 
@@ -36,7 +26,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     const handle = normalizeHandle(String(form.get("handle") ?? title));
     if (!handle) return data({ error: "Invalid handle" }, { status: 400 });
     const page = await createManagedPage(ctx.repo, {
-      shopId,
+      shopId: shop.id,
       title,
       handle,
     });
@@ -45,8 +35,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === "import") {
     const gid = String(form.get("shopifyPageGid") ?? "");
-    const token = await ctx.secrets.getShopToken(shopId);
-    if (!token) return data({ error: "Configure shop token first" }, { status: 400 });
+    const token = await ctx.secrets.getShopToken(shop.id);
+    if (!token) return data({ error: "Shop token missing" }, { status: 400 });
     const client = createAdminClient({
       shopDomain: shop.domain,
       accessToken: token,
@@ -56,7 +46,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     const visbuildData = visbuildDataFromShopifyBody(remote.title, remote.body);
     const page = await createManagedPage(ctx.repo, {
-      shopId,
+      shopId: shop.id,
       title: remote.title,
       handle: remote.handle,
       visbuildData,
@@ -73,8 +63,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "importAll") {
-    const token = await ctx.secrets.getShopToken(shopId);
-    if (!token) return data({ error: "Configure shop token first" }, { status: 400 });
+    const token = await ctx.secrets.getShopToken(shop.id);
+    if (!token) return data({ error: "Shop token missing" }, { status: 400 });
     const client = createAdminClient({
       shopDomain: shop.domain,
       accessToken: token,
@@ -84,13 +74,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     do {
       const batch = await client.listPages({ first: 50, after });
       for (const node of batch.nodes) {
-        const existing = (await ctx.repo.listPagesByShop(shopId)).find(
+        const existing = (await ctx.repo.listPagesByShop(shop.id)).find(
           (p) => p.shopifyPageGid === node.id
         );
         if (existing) continue;
         const visbuildData = visbuildDataFromShopifyBody(node.title, node.body);
         const page = await createManagedPage(ctx.repo, {
-          shopId,
+          shopId: shop.id,
           title: node.title,
           handle: node.handle,
           visbuildData,
@@ -114,18 +104,19 @@ export async function action({ request, params }: Route.ActionArgs) {
   return data({ error: "Unknown intent" }, { status: 400 });
 }
 
-export default function AdminShopPages() {
+export default function AppPages() {
   const { shop, pages } = useLoaderData<typeof loader>();
 
   return (
-    <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 960 }}>
-      <Link to="/admin/shops">← Shops</Link>
+    <div style={{ fontFamily: "system-ui", padding: 16, maxWidth: 960 }}>
       <h1>{shop.name} — Pages</h1>
 
-      <Form method="post" style={{ margin: "16px 0", display: "inline" }}>
-        <input type="hidden" name="intent" value="importAll" />
-        <button type="submit">Import all from Shopify</button>
-      </Form>
+      <section style={{ marginTop: 16 }}>
+        <Form method="post" style={{ display: "inline" }}>
+          <input type="hidden" name="intent" value="importAll" />
+          <button type="submit">Import all from Shopify</button>
+        </Form>
+      </section>
 
       <section style={{ marginTop: 16, padding: 16, border: "1px solid #ddd" }}>
         <h2>New page</h2>
@@ -137,67 +128,54 @@ export default function AdminShopPages() {
         </Form>
       </section>
 
-      <ShopifyImportList shopId={shop.id} />
+      <section style={{ marginTop: 16 }}>
+        <h2>Import by GID</h2>
+        <Form method="post" style={{ display: "flex", gap: 8 }}>
+          <input type="hidden" name="intent" value="import" />
+          <input
+            name="shopifyPageGid"
+            placeholder="gid://shopify/Page/..."
+            style={{ flex: 1 }}
+            required
+          />
+          <button type="submit">Import</button>
+        </Form>
+      </section>
 
       <ul style={{ listStyle: "none", padding: 0, marginTop: 24 }}>
-        {pages.map((p) => (
-          <li
-            key={p.pageId}
-            style={{
-              border: "1px solid #eee",
-              padding: 12,
-              marginBottom: 8,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <Link to={`/admin/pages/${p.pageId}`}>
-                <strong>{p.title}</strong>
-              </Link>
-              <div style={{ fontSize: 13, color: "#666" }}>
-                /{p.handle} · {p.status}
-                {p.pendingJobId ? " · scheduled" : ""}
+        {pages.length === 0 ? (
+          <li>No pages yet.</li>
+        ) : (
+          pages.map((p) => (
+            <li
+              key={p.pageId}
+              style={{
+                border: "1px solid #eee",
+                padding: 12,
+                marginBottom: 8,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <Link to={`/app/pages/${p.pageId}`}>
+                  <strong>{p.title}</strong>
+                </Link>
+                <div style={{ fontSize: 13, color: "#666" }}>
+                  /{p.handle} · {p.status}
+                  {p.pendingJobId ? " · scheduled" : ""}
+                </div>
               </div>
-            </div>
-            <Form method="post">
-              <input type="hidden" name="intent" value="delete" />
-              <input type="hidden" name="pageId" value={p.pageId} />
-              <button type="submit">Delete</button>
-            </Form>
-          </li>
-        ))}
+              <Form method="post">
+                <input type="hidden" name="intent" value="delete" />
+                <input type="hidden" name="pageId" value={p.pageId} />
+                <button type="submit">Delete</button>
+              </Form>
+            </li>
+          ))
+        )}
       </ul>
     </div>
-  );
-}
-
-function ShopifyImportList({ shopId }: { shopId: string }) {
-  return (
-    <ShopifyImportLoader shopId={shopId} />
-  );
-}
-
-function ShopifyImportLoader({ shopId }: { shopId: string }) {
-  return (
-    <section style={{ marginTop: 24 }}>
-      <h2>Import single page (GID)</h2>
-      <p style={{ fontSize: 14, color: "#666" }}>
-        Paste a Shopify Page GID (e.g. gid://shopify/Page/123) after listing pages in
-        Shopify Admin, or use Import all above.
-      </p>
-      <Form method="post" style={{ display: "flex", gap: 8 }}>
-        <input type="hidden" name="intent" value="import" />
-        <input
-          name="shopifyPageGid"
-          placeholder="gid://shopify/Page/..."
-          style={{ flex: 1 }}
-          required
-        />
-        <button type="submit">Import</button>
-      </Form>
-      <input type="hidden" name="shopId" value={shopId} readOnly />
-    </section>
   );
 }
