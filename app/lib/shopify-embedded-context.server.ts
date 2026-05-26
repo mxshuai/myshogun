@@ -10,6 +10,8 @@ export const EMBEDDED_QUERY_KEYS = [
   "id_token",
 ] as const;
 
+const RECOVER_COOKIE = "sb_embed_recover";
+
 export function isEmbeddedAdminContext(request: Request): boolean {
   const url = new URL(request.url);
   if (url.searchParams.get("embedded") === "1") {
@@ -36,22 +38,11 @@ export function isEmbeddedAdminContext(request: Request): boolean {
 export function mergeShopifyQueryParams(
   target: URL,
   source: URL,
-): void;
-export function mergeShopifyQueryParams(
-  target: URLSearchParams,
-  source: URL,
-): void;
-export function mergeShopifyQueryParams(
-  target: URL | URLSearchParams,
-  source: URL,
 ): void {
   for (const key of EMBEDDED_QUERY_KEYS) {
     const value = source.searchParams.get(key);
-    if (!value) continue;
-    if (target instanceof URL) {
+    if (value) {
       target.searchParams.set(key, value);
-    } else {
-      target.set(key, value);
     }
   }
 }
@@ -74,68 +65,43 @@ export function shopFromAdminReferer(request: Request): string | null {
   return `${storeHandle}.myshopify.com`;
 }
 
-/** Shopify `host` query param: base64("admin.shopify.com/store/{handle}"). */
-export function hostParamFromShop(shop: string): string {
-  const handle = shop.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const storeHandle = handle.endsWith(".myshopify.com")
-    ? handle.slice(0, -".myshopify.com".length)
-    : handle;
-  const adminPath = `admin.shopify.com/store/${storeHandle}`;
-  return Buffer.from(adminPath, "utf8").toString("base64");
-}
-
-function appOrigin(): string {
-  const raw = process.env.SHOPIFY_APP_URL || process.env.HOST || "";
-  return raw.replace(/\/$/, "");
+function parseCookie(header: string | null): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!header) return map;
+  for (const part of header.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (!key) continue;
+    map.set(key, decodeURIComponent(rest.join("=")));
+  }
+  return map;
 }
 
 /**
- * Build /app?shop=&host=&embedded=1 when Shopify iframe omits query params.
+ * One-time recovery when /auth/login loads inside Admin without query params.
+ * Avoids redirect loops with authenticate.admin.
  */
-export function buildEmbeddedAppEntryPath(request: Request): string | null {
-  const url = new URL(request.url);
-  const shop =
-    url.searchParams.get("shop") ?? shopFromAdminReferer(request);
-  if (!shop) {
-    return null;
+export function redirectEmbeddedLoginToAppOnce(request: Request): void {
+  if (!isEmbeddedAdminContext(request)) {
+    return;
   }
-
-  const origin = appOrigin();
-  if (!origin) {
-    return null;
-  }
-
-  const params = new URLSearchParams(url.searchParams);
-  params.set("shop", shop);
-  if (!params.get("host")) {
-    params.set("host", hostParamFromShop(shop));
-  }
-  if (!params.get("embedded")) {
-    params.set("embedded", "1");
-  }
-
-  return `/app?${params.toString()}`;
-}
-
-export function redirectToEmbeddedAppEntry(request: Request): void {
   if (hasEmbeddedSessionParams(new URL(request.url))) {
     return;
   }
 
-  const path = buildEmbeddedAppEntryPath(request);
-  if (!path) {
+  const cookies = parseCookie(request.headers.get("Cookie"));
+  if (cookies.get(RECOVER_COOKIE) === "1") {
     return;
   }
 
-  throw redirect(path);
-}
-
-/**
- * When Admin iframe lands on /auth/login without Shopify query params.
- */
-export function redirectEmbeddedLoginToApp(request: Request): void {
-  if (!isEmbeddedAdminContext(request)) {
+  const shop = shopFromAdminReferer(request);
+  if (!shop) {
     return;
   }
-  redirectToEmbeddedAppEntry(request);
+
+  const params = new URLSearchParams({ shop, embedded: "1" });
+  throw redirect(`/app?${params.toString()}`, {
+    headers: {
+      "Set-Cookie": `${RECOVER_COOKIE}=1; Path=/; Max-Age=120; HttpOnly; SameSite=None; Secure`,
+    },
+  });
 }

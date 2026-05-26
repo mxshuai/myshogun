@@ -1,9 +1,9 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, redirect, useActionData, useLoaderData } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 
-import { redirectEmbeddedLoginToApp } from "~/lib/shopify-embedded-context.server";
+import { redirectEmbeddedLoginToAppOnce } from "~/lib/shopify-embedded-context.server";
 import { loginWithEmbeddedExitIframe } from "~/lib/shopify-login-redirect.server";
 import { login } from "~/shopify.server";
 import { loginErrorMessage } from "~/routes/auth.login.error.server";
@@ -30,17 +30,21 @@ async function runLogin(request: Request) {
 export async function loader({ request }: LoaderFunctionArgs) {
   const apiKey = process.env.SHOPIFY_API_KEY || "";
 
-  redirectEmbeddedLoginToApp(request);
+  redirectEmbeddedLoginToAppOnce(request);
 
   const url = new URL(request.url);
-  if (!url.searchParams.get("shop")) {
-    throw redirect("/app");
+  if (url.searchParams.get("shop")) {
+    const errors = await runLogin(request);
+    return {
+      apiKey,
+      errors,
+      hiddenFields: hiddenFieldsFromUrl(url),
+    };
   }
 
-  const errors = await runLogin(request);
   return {
     apiKey,
-    errors,
+    errors: {},
     hiddenFields: hiddenFieldsFromUrl(url),
   };
 }
@@ -50,7 +54,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const loginRequest = enrichRequestWithFormParams(request, formData);
 
-  redirectEmbeddedLoginToApp(loginRequest);
+  redirectEmbeddedLoginToAppOnce(loginRequest);
 
   const errors = await runLogin(loginRequest);
   return {

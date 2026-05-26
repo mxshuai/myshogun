@@ -1,3 +1,5 @@
+import { redirect } from "react-router";
+
 import { authenticate } from "~/shopify.server";
 import {
   isEmbeddedAdminContext,
@@ -35,7 +37,7 @@ function mergeLoginRedirectLocation(request: Request, location: string): string 
 
 /**
  * Wrapper around authenticate.admin that keeps embedded OAuth params and
- * routes external / OAuth redirects through /auth/exit-iframe.
+ * routes external OAuth redirects through /auth/exit-iframe.
  */
 export async function authenticateAdmin(request: Request) {
   try {
@@ -51,6 +53,12 @@ export async function authenticateAdmin(request: Request) {
     }
 
     const location = mergeLoginRedirectLocation(request, rawLocation);
+    const destPath = new URL(location, request.url).pathname;
+
+    if (destPath.endsWith(LOGIN_PATH)) {
+      throw redirect(location);
+    }
+
     redirectOAuthOutOfIframe(request, location);
   }
 }

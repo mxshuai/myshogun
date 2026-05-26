@@ -1,9 +1,5 @@
 import { redirect } from "react-router";
 
-import {
-  isEmbeddedAdminContext,
-} from "~/lib/shopify-embedded-context.server";
-
 function isRedirectResponse(error: unknown): error is Response {
   return (
     error instanceof Response &&
@@ -20,6 +16,50 @@ function appOrigin(): string {
   }
 }
 
+function isExternalUrl(destination: string, request: Request): boolean {
+  const origin = appOrigin();
+  if (!origin) {
+    return false;
+  }
+  try {
+    return new URL(destination, request.url).origin !== origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * OAuth / Admin install URLs must not load inside the Shopify Admin iframe.
+ * Same-origin /auth/* redirects are handled by shopify-app-react-router.
+ */
+export function redirectOAuthOutOfIframe(
+  request: Request,
+  destination: string,
+): never {
+  if (!isExternalUrl(destination, request)) {
+    throw redirect(destination);
+  }
+
+  const url = new URL(request.url);
+  const shop = url.searchParams.get("shop");
+  const host = url.searchParams.get("host");
+
+  if (shop && host) {
+    const params = new URLSearchParams({
+      shop,
+      host,
+      exitIframe: new URL(destination, request.url).toString(),
+    });
+    throw redirect(`/auth/exit-iframe?${params.toString()}`);
+  }
+
+  if (shop) {
+    redirectTopLevelHtml(new URL(destination, request.url).toString());
+  }
+
+  throw redirect(destination);
+}
+
 /** Break out of Admin iframe when host param is missing (e.g. manual login form POST). */
 export function redirectTopLevelHtml(destination: string): never {
   throw new Response(
@@ -28,65 +68,6 @@ export function redirectTopLevelHtml(destination: string): never {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     },
   );
-}
-
-function shouldBreakOutOfIframe(
-  request: Request,
-  destUrl: URL,
-  appOriginValue: string,
-): boolean {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-  if (!shop) {
-    return false;
-  }
-
-  const isExternal =
-    !appOriginValue || destUrl.origin !== appOriginValue;
-  const isAuthRoute =
-    destUrl.pathname === "/auth" || destUrl.pathname.startsWith("/auth/");
-
-  return isExternal || isAuthRoute;
-}
-
-/**
- * OAuth / Admin install URLs must not load inside the Shopify Admin iframe.
- * @see redirectOutOfApp in @shopify/shopify-app-react-router billing helpers
- */
-export function redirectOAuthOutOfIframe(
-  request: Request,
-  destination: string,
-): never {
-  const url = new URL(request.url);
-
-  let destUrl: URL;
-  try {
-    destUrl = new URL(destination, url.origin);
-  } catch {
-    throw redirect(destination);
-  }
-
-  if (!shouldBreakOutOfIframe(request, destUrl, appOrigin())) {
-    throw redirect(destination);
-  }
-
-  const shop = url.searchParams.get("shop")!;
-  const host = url.searchParams.get("host");
-
-  if (host) {
-    const params = new URLSearchParams({
-      shop,
-      host,
-      exitIframe: destUrl.toString(),
-    });
-    throw redirect(`/auth/exit-iframe?${params.toString()}`);
-  }
-
-  if (isEmbeddedAdminContext(request)) {
-    redirectTopLevelHtml(destUrl.toString());
-  }
-
-  throw redirect(destination);
 }
 
 export async function loginWithEmbeddedExitIframe(
