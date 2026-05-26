@@ -16,3 +16,13 @@ try {
 await mkdir(path.dirname(dest), { recursive: true });
 await cp(src, dest, { recursive: true, force: true });
 console.log("Synced build/server/assets -> .amplify-hosting/compute/default/assets");
+
+const computeDir = path.join(root, ".amplify-hosting", "compute", "default");
+const envProduction = path.join(root, ".env.production");
+try {
+  await access(envProduction);
+  await cp(envProduction, path.join(computeDir, ".env.production"), { force: true });
+  console.log("Copied .env.production -> .amplify-hosting/compute/default/.env.production");
+} catch {
+  console.warn("sync-amplify-compute-assets: .env.production not found, skipping");
+}

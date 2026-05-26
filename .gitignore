@@ -5,5 +5,6 @@
 /.react-router/
 /build/
 /.amplify-hosting/
+.env.production
 .dev-data/
 infra/dist/

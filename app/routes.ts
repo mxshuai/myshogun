@@ -10,7 +10,7 @@ export default [
     route("pages/:pageId", "routes/app.pages.$pageId.tsx"),
   ]),
   route("webhooks/app/uninstalled", "routes/webhooks.app.uninstalled.tsx"),
-  route("webhooks/pages/update", "routes/webhooks.pages.update.tsx"),
+  route("webhooks/app/scopes_update", "routes/webhooks.app.scopes_update.tsx"),
   route("api/assets/upload-url", "routes/api.assets.upload-url.tsx"),
   route("*", "routes/visbuild-splat.tsx"),
 ] satisfies RouteConfig;

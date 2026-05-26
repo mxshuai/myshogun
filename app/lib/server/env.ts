@@ -1,3 +1,5 @@
+import "~/lib/load-production-env.server";
+
 export function useAwsDataLayer(): boolean {
   const v = process.env.USE_AWS_DATA_LAYER?.trim().toLowerCase();
   if (v === "1" || v === "true" || v === "yes") return true;

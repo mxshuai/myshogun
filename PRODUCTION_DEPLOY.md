@@ -11,6 +11,8 @@
 | DynamoDB 表 | `visbuild-shopify-app` |
 | Publish Lambda | `visbuild-shopify-data-publish` |
 
+**Shopify 嵌入式 App 与架构选型**（路径 A / EC2 重构 / 旧 admin 对比）见 **[SHOPIFY_APP_SETUP.md](./SHOPIFY_APP_SETUP.md#方案对比)**。
+
 ---
 
 ## 部署前：本地 vs 生产 各管什么
@@ -28,7 +30,7 @@
 │ 生产  Amplify 默认域名（步骤 3 之后才切到 AWS 数据层）             │
 │  • USE_AWS_DATA_LAYER=true → DynamoDB + Secrets Manager           │
 │  • 定时发布 → EventBridge Scheduler → Lambda → Shopify            │
-│  • /admin/* 管理店铺与页面                                        │
+│  • 路径 A：`/app/pages`（嵌入式）；master 仍为 `/admin/*`          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -231,8 +233,14 @@ npm run deploy:publish-lambda
 | `SCHEDULER_ROLE_ARN` | 步骤 1 Output | Scheduler 代你 Invoke Lambda 的角色 |
 | `ADMIN_API_KEY` | 你自建的随机串 | 保护 `/admin/*`（登录或 `X-Admin-Key` 头） |
 | `SHOPIFY_TOKEN_SECRET_PREFIX` | `visbuild-shopify/token` | Token 存入 Secrets Manager 时的名称前缀 |
+| `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` | Partners 应用凭据 | 嵌入式 App OAuth |
+| `SCOPES` | `read_content,write_content` | OAuth 权限 |
+| `SHOPIFY_APP_URL` | `https://<分支>.<appId>.amplifyapp.com` | **仅 origin**，无 `/app` 路径 |
+| `HOST` | 同 `SHOPIFY_APP_URL` | 与官方模板兼容的备用变量名 |
 
 **不要**把 Shopify Admin Token 写进 Amplify 变量；应在 `/admin/shops` 保存（会进 Secrets Manager）。
+
+**SSR 运行时环境变量：** Amplify 控制台变量默认只在 **build** 阶段注入，Compute 进程里 `process.env` 可能为空，会导致 `ShopifyError: empty appUrl` 等 500。本仓库在 [`amplify.yml`](amplify.yml) 构建时把变量写入 `.env.production`，并复制到 Compute 目录，由 [`load-production-env.server.ts`](app/lib/load-production-env.server.ts) 在启动时加载（见 [AWS SSR 环境变量说明](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html)）。
 
 **可选（全链路不强制）：** `ASSETS_BUCKET_NAME` — 不配则不用 S3 预签上传。
 
@@ -243,8 +251,8 @@ npm run deploy:publish-lambda
 | 阶段 | 命令 | 作用 |
 |------|------|------|
 | preBuild | `nvm use 20`、`npm ci` | 安装依赖 |
-| build | `npm run build` | 生成 `.amplify-hosting`（SSR + 静态资源） |
-| 发布 | Amplify 托管 | 用新 env 启动 SSR 计算实例 |
+| build | 写入 `.env.production`、`npm run build` | 把控制台变量固化进 Compute 可读的 env 文件并打包 |
+| 发布 | Amplify 托管 | 部署含 `.env.production` 的 SSR 计算包 |
 
 ### AWS 上会发生什么
 

@@ -24,7 +24,9 @@ export class ShopifyApiError extends Error {
   }
 }
 
-const DEFAULT_VERSION = "2024-10";
+import { SHOPIFY_ADMIN_API_VERSION } from "~/lib/shopify-api-version";
+
+const DEFAULT_VERSION = SHOPIFY_ADMIN_API_VERSION;
 const MAX_RETRIES = 5;
 
 function normalizeDomain(domain: string): string {

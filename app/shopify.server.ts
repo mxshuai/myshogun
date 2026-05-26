@@ -1,3 +1,4 @@
+import "~/lib/load-production-env.server";
 import "@shopify/shopify-app-react-router/adapters/node";
 import {
   ApiVersion,
@@ -7,6 +8,7 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { MemorySessionStorage } from "@shopify/shopify-app-session-storage-memory";
 
+import { SHOPIFY_ADMIN_API_VERSION } from "~/lib/shopify-api-version";
 import { DynamoDbSessionStorage } from "~/lib/server/aws/session-storage.ddb";
 import { useAwsDataLayer } from "~/lib/server/env";
 import { ensureServerContext } from "~/lib/server/factory";
@@ -29,21 +31,23 @@ function normalizeAppUrl(raw: string | undefined): string {
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.October24,
+  apiVersion: ApiVersion.October25,
   scopes: process.env.SCOPES?.split(",").map((s) => s.trim()).filter(Boolean),
-  // Amplify 的 env 常被误填成带路径的 /app；这里统一归一成 origin
   appUrl: normalizeAppUrl(process.env.SHOPIFY_APP_URL || process.env.HOST),
   authPathPrefix: "/auth",
   sessionStorage,
   distribution: AppDistribution.AppStore,
+  future: {
+    expiringOfflineAccessTokens: true,
+  },
   webhooks: {
     APP_UNINSTALLED: {
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app/uninstalled",
     },
-    PAGES_UPDATE: {
+    APP_SCOPES_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/pages/update",
+      callbackUrl: "/webhooks/app/scopes_update",
     },
   },
   hooks: {
@@ -53,9 +57,17 @@ const shopify = shopifyApp({
       await shopify.registerWebhooks({ session });
     },
   },
+  ...(process.env.SHOP_CUSTOM_DOMAIN
+    ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
+    : {}),
 });
 
 export default shopify;
+export const apiVersion = ApiVersion.October25;
+export const adminApiVersion = SHOPIFY_ADMIN_API_VERSION;
+export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
+export const unauthenticated = shopify.unauthenticated;
+export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorageExport = shopify.sessionStorage;
