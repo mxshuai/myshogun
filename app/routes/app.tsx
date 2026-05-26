@@ -5,10 +5,10 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 
 import type { Route } from "./+types/app";
-import { authenticate } from "~/shopify.server";
+import { authenticateAdmin } from "~/lib/shopify-authenticate.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await authenticate.admin(request);
+  await authenticateAdmin(request);
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 }
 
