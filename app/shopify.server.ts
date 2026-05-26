@@ -16,12 +16,23 @@ const sessionStorage = useAwsDataLayer()
   ? new DynamoDbSessionStorage()
   : new MemorySessionStorage();
 
+function normalizeAppUrl(raw: string | undefined): string {
+  const value = raw?.trim();
+  if (!value) return "";
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value;
+  }
+}
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October24,
   scopes: process.env.SCOPES?.split(",").map((s) => s.trim()).filter(Boolean),
-  appUrl: process.env.SHOPIFY_APP_URL || process.env.HOST || "",
+  // Amplify 的 env 常被误填成带路径的 /app；这里统一归一成 origin
+  appUrl: normalizeAppUrl(process.env.SHOPIFY_APP_URL || process.env.HOST),
   authPathPrefix: "/auth",
   sessionStorage,
   distribution: AppDistribution.AppStore,
