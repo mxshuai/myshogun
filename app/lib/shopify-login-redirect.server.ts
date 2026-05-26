@@ -1,5 +1,9 @@
 import { redirect } from "react-router";
 
+import {
+  isEmbeddedAdminContext,
+} from "~/lib/shopify-embedded-context.server";
+
 function isRedirectResponse(error: unknown): error is Response {
   return (
     error instanceof Response &&
@@ -16,6 +20,16 @@ function appOrigin(): string {
   }
 }
 
+/** Break out of Admin iframe when host param is missing (e.g. manual login form POST). */
+export function redirectTopLevelHtml(destination: string): never {
+  throw new Response(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>window.top.location.href=${JSON.stringify(destination)}</script></body></html>`,
+    {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    },
+  );
+}
+
 function shouldBreakOutOfIframe(
   request: Request,
   destUrl: URL,
@@ -23,16 +37,14 @@ function shouldBreakOutOfIframe(
 ): boolean {
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop");
-  const host = url.searchParams.get("host");
-  if (!shop || !host) {
+  if (!shop) {
     return false;
   }
 
   const isExternal =
     !appOriginValue || destUrl.origin !== appOriginValue;
   const isAuthRoute =
-    destUrl.pathname === "/auth" ||
-    destUrl.pathname.startsWith("/auth/");
+    destUrl.pathname === "/auth" || destUrl.pathname.startsWith("/auth/");
 
   return isExternal || isAuthRoute;
 }
@@ -59,13 +71,22 @@ export function redirectOAuthOutOfIframe(
   }
 
   const shop = url.searchParams.get("shop")!;
-  const host = url.searchParams.get("host")!;
-  const params = new URLSearchParams({
-    shop,
-    host,
-    exitIframe: destUrl.toString(),
-  });
-  throw redirect(`/auth/exit-iframe?${params.toString()}`);
+  const host = url.searchParams.get("host");
+
+  if (host) {
+    const params = new URLSearchParams({
+      shop,
+      host,
+      exitIframe: destUrl.toString(),
+    });
+    throw redirect(`/auth/exit-iframe?${params.toString()}`);
+  }
+
+  if (isEmbeddedAdminContext(request)) {
+    redirectTopLevelHtml(destUrl.toString());
+  }
+
+  throw redirect(destination);
 }
 
 export async function loginWithEmbeddedExitIframe(

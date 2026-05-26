@@ -3,36 +3,124 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 
+import {
+  hasEmbeddedSessionParams,
+  isEmbeddedAdminContext,
+} from "~/lib/shopify-embedded-context.server";
 import { loginWithEmbeddedExitIframe } from "~/lib/shopify-login-redirect.server";
 import { login } from "~/shopify.server";
 import { loginErrorMessage } from "~/routes/auth.login.error.server";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+function enrichRequestWithFormParams(
+  request: Request,
+  formData: FormData,
+): Request {
+  const url = new URL(request.url);
+  for (const key of ["shop", "host", "embedded", "locale"] as const) {
+    const value = formData.get(key);
+    if (typeof value === "string" && value) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return new Request(url.toString(), request);
+}
+
+async function runLogin(request: Request) {
   const result = await loginWithEmbeddedExitIframe(request, login);
-  const errors = loginErrorMessage(
-    result as Awaited<ReturnType<typeof login>> | null,
-  );
-  return { errors };
+  return loginErrorMessage(result as Awaited<ReturnType<typeof login>> | null);
+}
+
+function shouldShowEmbeddedHint(request: Request): boolean {
+  if (!isEmbeddedAdminContext(request)) {
+    return false;
+  }
+  return !hasEmbeddedSessionParams(new URL(request.url));
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const apiKey = process.env.SHOPIFY_API_KEY || "";
+
+  if (shouldShowEmbeddedHint(request)) {
+    return { apiKey, errors: {}, hiddenFields: {}, embeddedHint: true };
+  }
+
+  const url = new URL(request.url);
+  if (url.searchParams.get("shop")) {
+    const errors = await runLogin(request);
+    return {
+      apiKey,
+      errors,
+      hiddenFields: hiddenFieldsFromUrl(url),
+      embeddedHint: false,
+    };
+  }
+
+  return {
+    apiKey,
+    errors: {},
+    hiddenFields: hiddenFieldsFromUrl(url),
+    embeddedHint: false,
+  };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const result = await loginWithEmbeddedExitIframe(request, login);
-  const errors = loginErrorMessage(
-    result as Awaited<ReturnType<typeof login>> | null,
-  );
-  return { errors };
+  const apiKey = process.env.SHOPIFY_API_KEY || "";
+  const formData = await request.formData();
+  const loginRequest = enrichRequestWithFormParams(request, formData);
+
+  if (shouldShowEmbeddedHint(loginRequest)) {
+    return { apiKey, errors: {}, hiddenFields: {}, embeddedHint: true };
+  }
+
+  const errors = await runLogin(loginRequest);
+  return {
+    apiKey,
+    errors,
+    hiddenFields: hiddenFieldsFromUrl(new URL(loginRequest.url)),
+    embeddedHint: false,
+  };
+}
+
+function hiddenFieldsFromUrl(url: URL): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const key of ["host", "embedded", "locale"] as const) {
+    const value = url.searchParams.get(key);
+    if (value) {
+      fields[key] = value;
+    }
+  }
+  return fields;
 }
 
 export default function AuthLogin() {
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const data = actionData ?? loaderData;
   const [shop, setShop] = useState("");
-  const { errors } = actionData ?? loaderData;
+  const { apiKey, errors, hiddenFields, embeddedHint } = data;
+
+  if (embeddedHint) {
+    return (
+      <AppProvider embedded apiKey={apiKey}>
+        <s-page>
+          <s-section heading="Open from Shopify Admin">
+            <s-paragraph>
+              This app runs inside Shopify Admin. Open it from Apps → your app
+              instead of entering a shop domain here.
+            </s-paragraph>
+          </s-section>
+        </s-page>
+      </AppProvider>
+    );
+  }
 
   return (
     <AppProvider embedded={false}>
       <s-page>
         <Form method="post">
+          {Object.entries(hiddenFields).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
           <s-section heading="Log in">
             <s-text-field
               name="shop"

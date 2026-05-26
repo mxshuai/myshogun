@@ -1,6 +1,8 @@
-import { redirect } from "react-router";
-
 import { authenticate } from "~/shopify.server";
+import {
+  isEmbeddedAdminContext,
+  mergeShopifyQueryParams,
+} from "~/lib/shopify-embedded-context.server";
 import { redirectOAuthOutOfIframe } from "~/lib/shopify-login-redirect.server";
 
 function isRedirectResponse(error: unknown): error is Response {
@@ -19,13 +21,13 @@ function mergeLoginRedirectLocation(request: Request, location: string): string 
     return location;
   }
 
-  const source = new URL(request.url);
-  for (const key of ["shop", "host", "embedded", "locale"]) {
-    const value =
-      source.searchParams.get(key) ?? target.searchParams.get(key);
-    if (value) {
-      target.searchParams.set(key, value);
-    }
+  mergeShopifyQueryParams(target, new URL(request.url));
+
+  if (
+    isEmbeddedAdminContext(request) &&
+    !target.searchParams.has("embedded")
+  ) {
+    target.searchParams.set("embedded", "1");
   }
 
   return `${target.pathname}${target.search}`;
