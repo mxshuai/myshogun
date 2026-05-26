@@ -3,16 +3,23 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 
+import { loginWithEmbeddedExitIframe } from "~/lib/shopify-login-redirect.server";
 import { login } from "~/shopify.server";
 import { loginErrorMessage } from "~/routes/auth.login.error.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const errors = loginErrorMessage(await login(request));
+  const result = await loginWithEmbeddedExitIframe(request, login);
+  const errors = loginErrorMessage(
+    result as Awaited<ReturnType<typeof login>> | null,
+  );
   return { errors };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const errors = loginErrorMessage(await login(request));
+  const result = await loginWithEmbeddedExitIframe(request, login);
+  const errors = loginErrorMessage(
+    result as Awaited<ReturnType<typeof login>> | null,
+  );
   return { errors };
 }
 
