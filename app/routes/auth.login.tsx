@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, useActionData, useLoaderData } from "react-router";
+import { Form, redirect, useActionData, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 
@@ -33,18 +33,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   redirectEmbeddedLoginToApp(request);
 
   const url = new URL(request.url);
-  if (url.searchParams.get("shop")) {
-    const errors = await runLogin(request);
-    return {
-      apiKey,
-      errors,
-      hiddenFields: hiddenFieldsFromUrl(url),
-    };
+  if (!url.searchParams.get("shop")) {
+    throw redirect("/app");
   }
 
+  const errors = await runLogin(request);
   return {
     apiKey,
-    errors: {},
+    errors,
     hiddenFields: hiddenFieldsFromUrl(url),
   };
 }

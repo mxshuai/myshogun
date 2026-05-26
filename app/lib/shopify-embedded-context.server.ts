@@ -15,11 +15,22 @@ export function isEmbeddedAdminContext(request: Request): boolean {
   if (url.searchParams.get("embedded") === "1") {
     return true;
   }
+
   const referer = request.headers.get("Referer") ?? "";
-  return (
+  if (
     referer.includes("admin.shopify.com") ||
     referer.includes(".myshopify.com/admin")
-  );
+  ) {
+    return true;
+  }
+
+  const secFetchDest = request.headers.get("Sec-Fetch-Dest");
+  const secFetchSite = request.headers.get("Sec-Fetch-Site");
+  if (secFetchDest === "iframe" && secFetchSite === "cross-site") {
+    return true;
+  }
+
+  return false;
 }
 
 export function mergeShopifyQueryParams(
@@ -63,25 +74,68 @@ export function shopFromAdminReferer(request: Request): string | null {
   return `${storeHandle}.myshopify.com`;
 }
 
+/** Shopify `host` query param: base64("admin.shopify.com/store/{handle}"). */
+export function hostParamFromShop(shop: string): string {
+  const handle = shop.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const storeHandle = handle.endsWith(".myshopify.com")
+    ? handle.slice(0, -".myshopify.com".length)
+    : handle;
+  const adminPath = `admin.shopify.com/store/${storeHandle}`;
+  return Buffer.from(adminPath, "utf8").toString("base64");
+}
+
+function appOrigin(): string {
+  const raw = process.env.SHOPIFY_APP_URL || process.env.HOST || "";
+  return raw.replace(/\/$/, "");
+}
+
 /**
- * When Admin iframe lands on /auth/login without Shopify query params,
- * send the user to /app so the library can call getEmbeddedAppUrl().
+ * Build /app?shop=&host=&embedded=1 when Shopify iframe omits query params.
+ */
+export function buildEmbeddedAppEntryPath(request: Request): string | null {
+  const url = new URL(request.url);
+  const shop =
+    url.searchParams.get("shop") ?? shopFromAdminReferer(request);
+  if (!shop) {
+    return null;
+  }
+
+  const origin = appOrigin();
+  if (!origin) {
+    return null;
+  }
+
+  const params = new URLSearchParams(url.searchParams);
+  params.set("shop", shop);
+  if (!params.get("host")) {
+    params.set("host", hostParamFromShop(shop));
+  }
+  if (!params.get("embedded")) {
+    params.set("embedded", "1");
+  }
+
+  return `/app?${params.toString()}`;
+}
+
+export function redirectToEmbeddedAppEntry(request: Request): void {
+  if (hasEmbeddedSessionParams(new URL(request.url))) {
+    return;
+  }
+
+  const path = buildEmbeddedAppEntryPath(request);
+  if (!path) {
+    return;
+  }
+
+  throw redirect(path);
+}
+
+/**
+ * When Admin iframe lands on /auth/login without Shopify query params.
  */
 export function redirectEmbeddedLoginToApp(request: Request): void {
   if (!isEmbeddedAdminContext(request)) {
     return;
   }
-  if (hasEmbeddedSessionParams(new URL(request.url))) {
-    return;
-  }
-
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop") ?? shopFromAdminReferer(request);
-  if (!shop) {
-    return;
-  }
-
-  const params = new URLSearchParams({ shop });
-  mergeShopifyQueryParams(params, url);
-  throw redirect(`/app?${params.toString()}`);
+  redirectToEmbeddedAppEntry(request);
 }

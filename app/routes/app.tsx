@@ -6,8 +6,10 @@ import { NavMenu } from "@shopify/app-bridge-react";
 
 import type { Route } from "./+types/app";
 import { authenticateAdmin } from "~/lib/shopify-authenticate.server";
+import { redirectToEmbeddedAppEntry } from "~/lib/shopify-embedded-context.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
+  redirectToEmbeddedAppEntry(request);
   await authenticateAdmin(request);
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 }
