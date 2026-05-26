@@ -3,10 +3,7 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
 
-import {
-  hasEmbeddedSessionParams,
-  isEmbeddedAdminContext,
-} from "~/lib/shopify-embedded-context.server";
+import { redirectEmbeddedLoginToApp } from "~/lib/shopify-embedded-context.server";
 import { loginWithEmbeddedExitIframe } from "~/lib/shopify-login-redirect.server";
 import { login } from "~/shopify.server";
 import { loginErrorMessage } from "~/routes/auth.login.error.server";
@@ -30,19 +27,10 @@ async function runLogin(request: Request) {
   return loginErrorMessage(result as Awaited<ReturnType<typeof login>> | null);
 }
 
-function shouldShowEmbeddedHint(request: Request): boolean {
-  if (!isEmbeddedAdminContext(request)) {
-    return false;
-  }
-  return !hasEmbeddedSessionParams(new URL(request.url));
-}
-
 export async function loader({ request }: LoaderFunctionArgs) {
   const apiKey = process.env.SHOPIFY_API_KEY || "";
 
-  if (shouldShowEmbeddedHint(request)) {
-    return { apiKey, errors: {}, hiddenFields: {}, embeddedHint: true };
-  }
+  redirectEmbeddedLoginToApp(request);
 
   const url = new URL(request.url);
   if (url.searchParams.get("shop")) {
@@ -51,7 +39,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       apiKey,
       errors,
       hiddenFields: hiddenFieldsFromUrl(url),
-      embeddedHint: false,
     };
   }
 
@@ -59,7 +46,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     apiKey,
     errors: {},
     hiddenFields: hiddenFieldsFromUrl(url),
-    embeddedHint: false,
   };
 }
 
@@ -68,16 +54,13 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const loginRequest = enrichRequestWithFormParams(request, formData);
 
-  if (shouldShowEmbeddedHint(loginRequest)) {
-    return { apiKey, errors: {}, hiddenFields: {}, embeddedHint: true };
-  }
+  redirectEmbeddedLoginToApp(loginRequest);
 
   const errors = await runLogin(loginRequest);
   return {
     apiKey,
     errors,
     hiddenFields: hiddenFieldsFromUrl(new URL(loginRequest.url)),
-    embeddedHint: false,
   };
 }
 
@@ -97,22 +80,7 @@ export default function AuthLogin() {
   const actionData = useActionData<typeof action>();
   const data = actionData ?? loaderData;
   const [shop, setShop] = useState("");
-  const { apiKey, errors, hiddenFields, embeddedHint } = data;
-
-  if (embeddedHint) {
-    return (
-      <AppProvider embedded apiKey={apiKey}>
-        <s-page>
-          <s-section heading="Open from Shopify Admin">
-            <s-paragraph>
-              This app runs inside Shopify Admin. Open it from Apps → your app
-              instead of entering a shop domain here.
-            </s-paragraph>
-          </s-section>
-        </s-page>
-      </AppProvider>
-    );
-  }
+  const { apiKey, errors, hiddenFields } = data;
 
   return (
     <AppProvider embedded={false}>
