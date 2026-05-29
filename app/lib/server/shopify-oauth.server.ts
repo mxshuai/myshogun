@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { redirect } from "react-router";
 
+import "~/lib/load-production-env.server";
 import { normalizeShopDomain, upsertShopRecord } from "./page-ops";
 import { createAdminClient } from "./shopify";
 import type { ServerContext } from "./types";
