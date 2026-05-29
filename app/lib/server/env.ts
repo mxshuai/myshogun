@@ -6,6 +6,16 @@ export function useAwsDataLayer(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
+/**
+ * Reliable "deployed / production-like" check. Amplify SSR compute does NOT
+ * reliably set NODE_ENV=production, so a bare NODE_ENV check would wrongly
+ * treat production as dev (e.g. opening the dev-login backdoor). The AWS data
+ * layer being enabled is an explicit, dependable production signal.
+ */
+export function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || useAwsDataLayer();
+}
+
 /** Amplify 禁止以 AWS 开头的自定义环境变量；可设 APP_AWS_REGION。运行时仍可读自动注入的 AWS_REGION。 */
 export function getAwsRegion(): string {
   return (

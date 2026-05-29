@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
 
-import { getAdminApiKey } from "./env";
+import { getAdminApiKey, isProductionRuntime } from "./env";
 import {
   clearShopSessionCookie,
   getShopSessionFromRequest,
@@ -102,7 +102,7 @@ export function adminLoginResponse(apiKey: string, next: string): Response {
 
 export function clearAuthCookies(): Headers {
   const headers = new Headers();
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = isProductionRuntime() ? "; Secure" : "";
   headers.append(
     "Set-Cookie",
     `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,

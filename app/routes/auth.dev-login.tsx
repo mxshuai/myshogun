@@ -1,12 +1,16 @@
 import { redirect } from "react-router";
 
 import type { Route } from "./+types/auth.dev-login";
+import { isProductionRuntime } from "~/lib/server/env";
 import { ensureServerContext } from "~/lib/server/factory";
 import { normalizeShopDomain, upsertShopRecord } from "~/lib/server/page-ops";
 import { setShopSessionCookie } from "~/lib/server/shopify-oauth.server";
 
 function devLoginEnabled(): boolean {
-  return process.env.NODE_ENV !== "production";
+  // Never enable in a deployed environment. Relying on NODE_ENV alone is unsafe
+  // because Amplify SSR does not set NODE_ENV=production, which would otherwise
+  // expose this OAuth-bypassing backdoor in production.
+  return !isProductionRuntime();
 }
 
 function sanitizeNext(raw: string | null): string {

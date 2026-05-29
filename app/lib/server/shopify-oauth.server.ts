@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { redirect } from "react-router";
 
 import "~/lib/load-production-env.server";
+import { isProductionRuntime } from "./env";
 import { normalizeShopDomain, upsertShopRecord } from "./page-ops";
 import { createAdminClient } from "./shopify";
 import type { ServerContext } from "./types";
@@ -21,7 +22,8 @@ const DEV_SESSION_SECRET = "dev-insecure-shop-session-secret";
 function resolveSessionSecret(): string {
   const secret = process.env.SHOPIFY_API_SECRET?.trim();
   if (secret) return secret;
-  if (process.env.NODE_ENV !== "production") return DEV_SESSION_SECRET;
+  // Only fall back to the insecure dev secret in a true local environment.
+  if (!isProductionRuntime()) return DEV_SESSION_SECRET;
   return "";
 }
 
@@ -69,14 +71,14 @@ function requireShopifyOAuthConfig(): ShopifyOAuthConfig {
 }
 
 function buildCookie(name: string, value: string, maxAgeSeconds: number): string {
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = isProductionRuntime();
   const sameSite = isProd ? "None" : "Lax";
   const secure = isProd ? "; Secure" : "";
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
 function clearCookie(name: string): string {
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = isProductionRuntime();
   const sameSite = isProd ? "None" : "Lax";
   const secure = isProd ? "; Secure" : "";
   return `${name}=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0${secure}`;
