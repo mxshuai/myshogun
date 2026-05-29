@@ -53,11 +53,43 @@ npm run preview:amplify
 
 ---
 
+## 运行场景与数据层配置对照
+
+不同启动方式下「数据层」「登录方式」「必填配置」差异较大，按下表对号入座。
+
+| 场景 | 启动命令 | `NODE_ENV` | 数据层 | 必填配置 | 登录方式 |
+|------|----------|-----------|--------|----------|----------|
+| **A. 本地快速验证**（推荐） | `npm run dev` | `development` | 本地 dev repo（`.dev-data/repo.json`） | `USE_AWS_DATA_LAYER=false`（或留空） | `/auth/dev-login`；会话用内置 dev 兜底密钥签名，**无需** `SHOPIFY_API_SECRET` |
+| **B. 本地连真实 AWS** | `npm run dev` + `USE_AWS_DATA_LAYER=true` | `development` | 真实 DynamoDB / Secrets（悉尼区） | AWS 凭证 + `APP_TABLE_NAME` / `APP_AWS_REGION` | `dev-login` 仍可用；走真实 OAuth 需配 `SHOPIFY_API_KEY/SECRET/SCOPES/SHOPIFY_APP_URL` |
+| **C. 本地生产模式** | `npm run start:local-prod` | `production` | 真实 DynamoDB / Secrets | 全套生产变量（见下方环境变量表） | 真实 Shopify OAuth；**dev-login 失效（404）** |
+| **D. 生产 Amplify** | push / Redeploy | `production` | 真实 DynamoDB / Secrets | Amplify 控制台全套环境变量 | 真实 Shopify OAuth |
+
+### `USE_AWS_DATA_LAYER` 取值规则
+
+由 [`app/lib/server/env.ts`](app/lib/server/env.ts) 的 `useAwsDataLayer()` 解析：
+
+- `true` / `1` / `yes` → 走 AWS 数据层
+- `false` / `0` / `no` → 走本地 dev repo
+- **未设置 → 取决于 `NODE_ENV`**：`production` 默认走 AWS，否则走 dev repo
+
+> 因此 `npm run dev` 下「注释掉该变量」等价于 dev repo；但 `npm run start:local-prod`（`NODE_ENV=production`）下「注释掉」会**默认变成 AWS**。为避免两种场景踩坑，建议**显式写 `USE_AWS_DATA_LAYER=false`** 而非注释。
+
+### 关键注意事项
+
+1. **`.env.production.local` 在 dev 下也会被加载**：[`load-production-env.server.ts`](app/lib/load-production-env.server.ts) 在模块导入时读取 `.env.production` / `.env.production.local`。若其中有 `USE_AWS_DATA_LAYER=true`，则连 `npm run dev` 也会连真实 AWS。想要纯本地验证（场景 A），请把该行设为 `false`。
+2. **改完 `.env.*` 必须重启进程**：`applyEnvFile` 只在变量未定义时写入，不会覆盖已加载到 `process.env` 的值；HMR 也不会重读。务必 `Ctrl+C` 停掉再重新启动。
+3. **会话签名密钥**：生产强制要求真实 `SHOPIFY_API_SECRET`；非生产环境缺该变量时自动使用内置 dev 兜底密钥（`shopify-oauth.server.ts` 的 `resolveSessionSecret()`），使 dev-login 可离线工作。生产安全性不受影响。
+4. **dev-login 仅非生产可用**：`NODE_ENV=production` 时 `/auth/dev-login` 返回 404，不会成为生产后门。
+
+---
+
 ## 环境变量
 
 在 **Amplify 控制台 → 你的应用 → Hosting → Environment variables** 中为各分支配置变量。
 
-当前代码若仍主要依赖仓库内 JSON（如 `database.json`、`page-metadata.json`）做演示，则**通常无需**在控制台配置密钥。后续接入 **Shopify Admin API**、**DynamoDB**、**Secrets Manager** 等时，应在此集中配置（例如 API 版本、表名、功能开关），**勿**将密钥提交进 Git。
+整站已锁定为「Shopify 登录后可访问」，因此**生产必须**配置 OAuth 相关变量（`SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` / `SCOPES` / `SHOPIFY_APP_URL`），否则用户无法登录、`/pages` 与编辑器均不可用。接入 **DynamoDB**、**Secrets Manager** 等时在此集中配置表名与功能开关，**勿**将密钥提交进 Git。
+
+> 旧的仓库内 JSON（`database.json` / `page-metadata.json`）已不再作为 `/pages` 与编辑器的数据源；页面改为按登录店铺隔离存放在 repo（生产 DynamoDB、本地 dev repo）。
 
 ---
 
@@ -72,6 +104,27 @@ npm run preview:amplify
 1. **无持久化本地磁盘**：Amplify SSR 计算环境不应依赖写入仓库内 JSON 文件作为唯一数据源；多实例或重启会导致数据不一致或丢失。若要做正式多用户/多端部署，需要 **DynamoDB（或同类托管存储）** 等后端持久化（参见项目内产品计划：`visbuild-shopify-aws-saas`）。
 2. **定时任务**：不应仅依赖单实例进程内的 `setTimeout` 做生产级定时发布；应使用 **EventBridge Scheduler + Lambda** 等托管调度。
 3. **观测**：在 Amplify 控制台查看构建与访问日志；后端 Lambda 等需在 **CloudWatch** 单独配置指标与告警。
+
+---
+
+## 访问控制：整站登录 + 6 小时会话 + 按店铺隔离
+
+- **整站登录**：根加载器（[`app/root.tsx`](app/root.tsx) → `guardRootRequest`）对所有 GET 导航强制要求 Shopify 会话。未登录会跳转 `/auth/shopify/start?next=...`。放行白名单仅限：`/auth/shopify/*`、`/auth/dev-login`、`/api/shopify/webhook`，以及 `ADMIN_AUTH_MODE=legacy` 时的 `/admin/login`。
+- **POST 守卫**：因 action 先于 root loader 执行，`/pages`、通配编辑/保存（`*`）、`/api/assets/upload-url` 的 action 内部各自调用 `requireShopSession` / `requireAdmin`。
+- **6 小时会话**：`shop_session` cookie 内的签名 payload 携带 `exp`（Unix 秒，TTL = 6 小时）。服务端在 [`shopify-oauth.server.ts`](app/lib/server/shopify-oauth.server.ts) 验签后再校验 `exp`，过期即视为未登录（cookie `Max-Age` 仅作浏览器侧兜底）。超过 6 小时强制重新登录。
+- **按店铺隔离**：`/pages` 列表、首页 `/`、通配编辑器读写都以当前会话的 `shopId` 为维度，经 [`page-service.server.ts`](app/lib/server/page-service.server.ts) 调用 `repo.listPagesByShop` / `getPageBody`。A 店铺登录看不到 B 店铺页面。新店铺无首页时 `/` 会重定向到 `/pages`（而非 404）。
+- **Shopify 标签页**：`/pages` 的「Shopify」标签用当前店铺 token 经 Admin API 拉取真实页面并按 `shopifyPageGid` 标记是否已导入；无 token 时优雅降级为空列表。
+- **`USE_AWS_DATA_LAYER`**：生产置 `true` 走 DynamoDB + Secrets Manager；本地不设则自动用 dev repo（`.dev-data/repo.json`），与生产数据隔离。
+
+### 本地调试入口（dev-login）
+
+仅在 `NODE_ENV !== "production"` 生效（生产返回 404）。免去真实 OAuth，直接下发会话 cookie：
+
+```
+/auth/dev-login?shop=devstore.myshopify.com&next=/pages
+```
+
+会按 `?shop=` upsert 一个 dev 店铺到 dev repo 并下发 `shop_session`，随后即可在本地增删改页面。
 
 ---
 

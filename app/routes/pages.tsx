@@ -2,19 +2,19 @@ import { data } from "react-router";
 
 import type { Route } from "./+types/pages";
 import { PagesList } from "~/components/pages/PagesList";
+import { requireShopSession } from "~/lib/server/auth.server";
+import { ensureServerContext } from "~/lib/server/factory";
 import {
-  createPage,
-  deletePage,
-  duplicatePage,
-  listShogunPageSummaries,
-} from "~/lib/pages.server";
+  createPageForShop,
+  deletePageByPath,
+  duplicatePageByPath,
+  listPagesForShop,
+  setPublishedByPath,
+  setScheduledByPath,
+} from "~/lib/server/page-service.server";
 import {
-  setPagePublished,
-  setPageScheduled,
-} from "~/lib/page-metadata.server";
-import {
-  listShopifyPages,
-  markShopifyPageImported,
+  importShopifyPageForShop,
+  listShopifyPagesForShop,
 } from "~/lib/shopify-pages.server";
 import { formatRelativeTime } from "~/lib/relative-time";
 
@@ -33,9 +33,11 @@ function normalizePathInput(raw: string): string | null {
   return s;
 }
 
-export async function loader(_args: Route.LoaderArgs) {
-  const shogun = await listShogunPageSummaries();
-  const shopify = await listShopifyPages();
+export async function loader({ request }: Route.LoaderArgs) {
+  const session = requireShopSession(request);
+  const ctx = await ensureServerContext();
+  const shogun = await listPagesForShop(ctx, session.shopId);
+  const shopify = await listShopifyPagesForShop(ctx, session.shopId);
   return {
     shogunPages: shogun.map((row) => ({
       ...row,
@@ -46,6 +48,9 @@ export async function loader(_args: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  const session = requireShopSession(request);
+  const ctx = await ensureServerContext();
+  const shopId = session.shopId;
   const form = await request.formData();
   const intent = form.get("intent");
 
@@ -54,7 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    await setPagePublished(pagePath);
+    await setPublishedByPath(ctx, shopId, pagePath);
     return data({ ok: true as const });
   }
 
@@ -74,7 +79,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     for (const p of paths) {
       const pagePath = typeof p === "string" ? normalizePagePath(p) : null;
-      if (pagePath) await setPagePublished(pagePath);
+      if (pagePath) await setPublishedByPath(ctx, shopId, pagePath);
     }
     return data({ ok: true as const });
   }
@@ -89,7 +94,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (Number.isNaN(Date.parse(scheduledPublishAt))) {
       return data({ ok: false as const, error: "Invalid date" }, { status: 400 });
     }
-    await setPageScheduled(pagePath, scheduledPublishAt);
+    await setScheduledByPath(ctx, shopId, pagePath, scheduledPublishAt);
     return data({ ok: true as const });
   }
 
@@ -98,7 +103,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    const newPath = await duplicatePage(pagePath);
+    const newPath = await duplicatePageByPath(ctx, shopId, pagePath);
     if (!newPath) {
       return data({ ok: false as const, error: "Not found" }, { status: 404 });
     }
@@ -110,7 +115,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    const removed = await deletePage(pagePath);
+    const removed = await deletePageByPath(ctx, shopId, pagePath);
     if (!removed) {
       return data({ ok: false as const, error: "Not found" }, { status: 404 });
     }
@@ -125,7 +130,9 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid URL path" }, { status: 400 });
     }
-    const result = await createPage(
+    const result = await createPageForShop(
+      ctx,
+      shopId,
       pagePath,
       typeof title === "string" ? title : ""
     );
@@ -140,7 +147,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (typeof id !== "string" || !id.trim()) {
       return data({ ok: false as const, error: "Missing id" }, { status: 400 });
     }
-    const ok = await markShopifyPageImported(id.trim());
+    const ok = await importShopifyPageForShop(ctx, shopId, id.trim());
     if (!ok) {
       return data({ ok: false as const, error: "Unknown page" }, { status: 404 });
     }

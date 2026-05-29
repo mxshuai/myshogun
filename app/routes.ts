@@ -5,6 +5,7 @@ export default [
   index("routes/_index.tsx"),
   route("auth/shopify/start", "routes/auth.shopify.start.tsx"),
   route("auth/shopify/callback", "routes/auth.shopify.callback.tsx"),
+  route("auth/dev-login", "routes/auth.dev-login.tsx"),
   route("pages", "routes/pages.tsx"),
   route("admin/login", "routes/admin.login.tsx"),
   route("admin/shops", "routes/admin.shops.tsx"),

@@ -6,7 +6,12 @@ import { Puck, Render } from "@puckeditor/core";
 import type { Route } from "./+types/visbuild-splat";
 import { config } from "../../visbuild.config";
 import { resolveVisbuildPath } from "~/lib/resolve-visbuild-path.server";
-import { getPage, saveEditorPage } from "~/lib/pages.server";
+import { requireShopSession } from "~/lib/server/auth.server";
+import { ensureServerContext } from "~/lib/server/factory";
+import {
+  getPageDataByPath,
+  savePageByPath,
+} from "~/lib/server/page-service.server";
 import editorStyles from "@puckeditor/core/puck.css?url";
 import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
 import { PreviewModal } from "~/components/PreviewModal";
@@ -34,35 +39,33 @@ function stripPublicRootProps(data: Data): Data {
   };
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
+  const session = requireShopSession(request);
   const pathname = params["*"] ?? "/";
   const { isEditorRoute, path } = resolveVisbuildPath(pathname);
-  let page = await getPage(path);
+  const ctx = await ensureServerContext();
+  const page = await getPageDataByPath(ctx, session.shopId, path);
 
   // Throw a 404 if we're not rendering the editor and data for the page does not exist
   if (!isEditorRoute && !page) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  // Empty shell for new pages
-  if (isEditorRoute && !page) {
-    page = {
-      content: [],
-      root: {
-        props: {
-          title: "",
-          pagePath: path,
-        },
-      },
-    };
-  } else if (isEditorRoute && page) {
-    page = ensureEditorRootProps(page, path);
+  let resolved: Data;
+  if (page) {
+    resolved = isEditorRoute ? ensureEditorRootProps(page, path) : page;
+  } else {
+    // Empty shell for a brand new page in the editor.
+    resolved = ensureEditorRootProps(
+      { content: [], root: { props: { title: "" } } },
+      path,
+    );
   }
 
   return {
     isEditorRoute,
     path,
-    data: page,
+    data: resolved,
   };
 }
 
@@ -79,8 +82,10 @@ export function meta({ data: loaderData }: Route.MetaArgs) {
 type SaveBody = { data: Data };
 
 export async function action({ params, request }: Route.ActionArgs) {
+  const session = requireShopSession(request);
   const pathname = params["*"] ?? "/";
   const { path } = resolveVisbuildPath(pathname);
+  const ctx = await ensureServerContext();
   const body = (await request.json()) as SaveBody;
 
   const rootProps = body.data.root?.props as
@@ -89,7 +94,13 @@ export async function action({ params, request }: Route.ActionArgs) {
   const desired =
     typeof rootProps?.pagePath === "string" ? rootProps.pagePath : path;
 
-  const result = await saveEditorPage(path, body.data, desired);
+  const result = await savePageByPath(
+    ctx,
+    session.shopId,
+    path,
+    body.data,
+    desired
+  );
   if (!result.ok) {
     return data({ ok: false as const, error: result.error }, { status: 400 });
   }
@@ -138,7 +149,7 @@ function Editor() {
     (next: Data) => {
       setEditorData(next);
       fetcher.submit(
-        { data: next },
+        JSON.stringify({ data: next }),
         {
           action: "",
           method: "post",
@@ -174,7 +185,7 @@ function Editor() {
         }}
         onPublish={async (pubData) => {
           await fetcher.submit(
-            { data: pubData },
+            JSON.stringify({ data: pubData }),
             {
               action: "",
               method: "post",

@@ -50,10 +50,11 @@ export function pageIndexToItem(index: PageIndex) {
 }
 
 export function pageIndexFromItem(item: Record<string, unknown>): PageIndex {
+  const handle = String(item.handle);
   return {
     pageId: String(item.pageId),
     shopId: String(item.shopId),
-    handle: String(item.handle),
+    handle,
     title: String(item.title),
     status: item.status as PageIndex["status"],
     shopifyPageGid: item.shopifyPageGid
@@ -63,6 +64,14 @@ export function pageIndexFromItem(item: Record<string, unknown>): PageIndex {
       ? String(item.lastPublishedAt)
       : null,
     pendingJobId: item.pendingJobId ? String(item.pendingJobId) : null,
+    // Backfill defaults for records written before these fields existed.
+    pagePath: item.pagePath ? String(item.pagePath) : `/${handle}`,
+    updatedAt: item.updatedAt
+      ? String(item.updatedAt)
+      : new Date(0).toISOString(),
+    scheduledPublishAt: item.scheduledPublishAt
+      ? String(item.scheduledPublishAt)
+      : null,
   };
 }
 

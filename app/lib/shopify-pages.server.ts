@@ -1,75 +1,102 @@
-import fs from "fs/promises";
-
 import {
-  ensureShogunDataDirectory,
-  getShopifyJsonPaths,
-} from "./data-paths.server";
+  createManagedPage,
+  visbuildDataFromShopifyBody,
+} from "./server/page-ops";
+import { savePageDraft } from "./server/publish";
+import { createAdminClient } from "./server/shopify";
+import type { ServerContext } from "./server/types";
 
-export type ShopifyPageMock = {
+export type ShopifyPageRow = {
   id: string;
   title: string;
   handle: string;
   filterType: string;
   isHome?: boolean;
-};
-
-export type ShopifyPageRow = ShopifyPageMock & {
   imported: boolean;
 };
 
-async function readImportedIds(): Promise<string[]> {
-  const { importedIdsPath } = getShopifyJsonPaths();
+/**
+ * List the live Shopify pages for a shop, flagging which ones are already
+ * imported into the shop's editor pages. Returns an empty list (never throws)
+ * when no token is configured or Shopify is unreachable, so the UI degrades
+ * gracefully.
+ */
+export async function listShopifyPagesForShop(
+  ctx: ServerContext,
+  shopId: string,
+): Promise<ShopifyPageRow[]> {
+  const shop = await ctx.repo.getShop(shopId);
+  if (!shop) return [];
+  const token = await ctx.secrets.getShopToken(shopId);
+  if (!token) return [];
+
+  const importedGids = new Set(
+    (await ctx.repo.listPagesByShop(shopId))
+      .map((p) => p.shopifyPageGid)
+      .filter((g): g is string => Boolean(g)),
+  );
+
   try {
-    const raw = await fs.readFile(importedIdsPath, "utf8");
-    const j = JSON.parse(raw) as { ids?: string[] };
-    return Array.isArray(j.ids) ? j.ids : [];
+    const client = createAdminClient({
+      shopDomain: shop.domain,
+      accessToken: token,
+    });
+    const rows: ShopifyPageRow[] = [];
+    let after: string | undefined;
+    do {
+      const batch = await client.listPages({ first: 50, after });
+      for (const node of batch.nodes) {
+        rows.push({
+          id: node.id,
+          title: node.title,
+          handle: node.handle,
+          filterType: node.isPublished ? "Published" : "Draft",
+          imported: importedGids.has(node.id),
+        });
+      }
+      if (!batch.pageInfo.hasNextPage) break;
+      after = batch.pageInfo.endCursor ?? undefined;
+    } while (after);
+    return rows;
   } catch {
     return [];
   }
 }
 
-async function writeImportedIds(ids: string[]) {
-  const { importedIdsPath } = getShopifyJsonPaths();
-  await ensureShogunDataDirectory();
-  await fs.writeFile(
-    importedIdsPath,
-    JSON.stringify({ ids }, null, 2),
-    { encoding: "utf8" }
+/**
+ * Import a single Shopify page (by GID) into the shop's editor pages. Returns
+ * false if no token is set or the page is missing on Shopify.
+ */
+export async function importShopifyPageForShop(
+  ctx: ServerContext,
+  shopId: string,
+  gid: string,
+): Promise<boolean> {
+  const shop = await ctx.repo.getShop(shopId);
+  if (!shop) return false;
+  const token = await ctx.secrets.getShopToken(shopId);
+  if (!token) return false;
+
+  const existing = (await ctx.repo.listPagesByShop(shopId)).find(
+    (p) => p.shopifyPageGid === gid,
   );
-}
+  if (existing) return true;
 
-export async function listShopifyPages(): Promise<ShopifyPageRow[]> {
-  const { shopifyPagesPath } = getShopifyJsonPaths();
-  let mocks: ShopifyPageMock[] = [];
-  try {
-    const raw = await fs.readFile(shopifyPagesPath, "utf8");
-    mocks = JSON.parse(raw) as ShopifyPageMock[];
-  } catch {
-    mocks = [];
-  }
-  const imported = new Set(await readImportedIds());
-  return mocks.map((m) => ({
-    ...m,
-    imported: imported.has(m.id),
-  }));
-}
+  const client = createAdminClient({
+    shopDomain: shop.domain,
+    accessToken: token,
+  });
+  const remote = await client.getPage(gid);
+  if (!remote) return false;
 
-export async function markShopifyPageImported(id: string): Promise<boolean> {
-  const { shopifyPagesPath } = getShopifyJsonPaths();
-  const mocks = await (async () => {
-    try {
-      const raw = await fs.readFile(shopifyPagesPath, "utf8");
-      return JSON.parse(raw) as ShopifyPageMock[];
-    } catch {
-      return [];
-    }
-  })();
-  const exists = mocks.some((m) => m.id === id);
-  if (!exists) return false;
-
-  const ids = await readImportedIds();
-  if (ids.includes(id)) return true;
-  ids.push(id);
-  await writeImportedIds(ids);
+  const visbuildData = visbuildDataFromShopifyBody(remote.title, remote.body);
+  const page = await createManagedPage(ctx.repo, {
+    shopId,
+    title: remote.title,
+    handle: remote.handle,
+    visbuildData,
+    shopifyPageGid: remote.id,
+  });
+  await savePageDraft(page.pageId, ctx, visbuildData);
   return true;
 }

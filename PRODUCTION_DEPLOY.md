@@ -264,7 +264,7 @@ npm run deploy:publish-lambda
 | **Amplify 应用配置** | 分支上写入上述环境变量 |
 | **新的 Hosting 部署版本** | 新 SSR 进程启动时读取 `USE_AWS_DATA_LAYER=true` |
 | **运行时行为** | `/admin/shops`、`/admin/pages/*` 通过 [`factory.ts`](app/lib/server/factory.ts) 走 **DDB 实现** |
-| **公开页面** `/pages`、`/edit` 等 | 仍可用原有 `database.json` 逻辑（演示路径），与 admin 数据面分离 |
+| **`/pages`、编辑器、首页 `/`** | 整站需登录；数据按登录店铺隔离，经 [`page-service.server.ts`](app/lib/server/page-service.server.ts) 读写同一 DDB 表，**不再**使用 `database.json` |
 | **DDB / Lambda** | 资源已在步骤 1–2 存在；此步是**让 Amplify 去连它们** |
 
 **若只改变量不 Redeploy：** 旧 SSR 进程可能仍用旧配置，**必须重新部署**。
@@ -438,6 +438,15 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 - `admin/shops` 可加载，且新授权店铺自动出现在列表中
 - `Verify token` 成功，`Secrets Manager` 中存在对应 shop token
 - callback 缺参数 / 错误 state / 错误 hmac 时返回 4xx，不出现循环重定向
+
+### 整站锁定 / 店铺隔离 / 会话过期回归
+
+- 未登录访问 `/`、`/pages`、任意 `/x`、`/admin/*` 全部跳转 `/auth/shopify/start?next=...`
+- `/api/shopify/webhook` 不依赖 cookie，仍可被 Shopify 调用（HMAC 校验）
+- 登录后只看到当前店铺页面；A 店铺登录看不到 B 店铺页面
+- 新店铺无首页时访问 `/` 重定向到 `/pages`（而非 404）
+- 会话超过 6 小时后强制重新登录（`shop_session` 内 `exp` 过期）
+- 本地（未设 `USE_AWS_DATA_LAYER`）经 `/auth/dev-login?shop=...&next=/pages` 可进入并正常增删改页面
 
 ### 回滚开关
 

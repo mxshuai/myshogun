@@ -23,6 +23,35 @@ export function requireShopSession(request: Request) {
   return session;
 }
 
+/**
+ * Paths that must stay reachable without a shop session so that the login
+ * handshake itself and Shopify-originated callbacks can complete.
+ */
+const PUBLIC_PATH_PREFIXES = [
+  "/auth/shopify/",
+  "/auth/dev-login",
+  "/api/shopify/webhook",
+];
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) {
+    return true;
+  }
+  // Legacy admin login page stays open only when legacy auth is enabled.
+  if (useLegacyAdminAuth() && pathname === "/admin/login") return true;
+  return false;
+}
+
+/**
+ * Site-wide guard for GET navigations. Applied from the root loader so every
+ * route requires a Shopify session except the explicit allowlist above.
+ */
+export function guardRootRequest(request: Request) {
+  const url = safeParseUrl(request);
+  if (isPublicPath(url.pathname)) return;
+  requireShopSession(request);
+}
+
 export function requireAdmin(request: Request) {
   if (!useLegacyAdminAuth()) {
     return requireShopSession(request);

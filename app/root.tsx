@@ -8,6 +8,12 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { guardRootRequest } from "~/lib/server/auth.server";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  guardRootRequest(request);
+  return null;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

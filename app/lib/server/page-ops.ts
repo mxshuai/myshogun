@@ -54,6 +54,9 @@ export async function createManagedPage(
     shopifyPageGid: params.shopifyPageGid ?? null,
     lastPublishedAt: null,
     pendingJobId: null,
+    pagePath: params.handle.startsWith("/") ? params.handle : `/${params.handle}`,
+    updatedAt: now,
+    scheduledPublishAt: null,
   };
 
   await repo.putPageIndex(index);
@@ -84,12 +87,20 @@ export async function upsertShopRecord(
   repo: Repo,
   params: { id?: string; domain: string; name: string }
 ): Promise<Shop> {
-  const id = params.id ?? newId();
+  const domain = normalizeShopDomain(params.domain);
+  // Reuse the existing shop id for this domain so repeated logins / OAuth
+  // callbacks stay idempotent. Minting a fresh id each time would orphan the
+  // shop's pages (they are keyed by shopId).
+  let id = params.id;
+  if (!id) {
+    const shops = await repo.listShops();
+    id = shops.find((s) => s.domain === domain)?.id ?? newId();
+  }
   const now = new Date().toISOString();
   const existing = await repo.getShop(id);
   const shop: Shop = {
     id,
-    domain: normalizeShopDomain(params.domain),
+    domain,
     name: params.name.trim() || params.domain,
     tokenSecretRef: existing?.tokenSecretRef ?? `pending://${id}`,
     createdAt: existing?.createdAt ?? now,

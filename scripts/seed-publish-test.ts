@@ -185,6 +185,9 @@ async function main() {
     shopifyPageGid,
     lastPublishedAt: null,
     pendingJobId: jobId,
+    pagePath: handle.startsWith("/") ? handle : `/${handle}`,
+    updatedAt: now,
+    scheduledPublishAt: runAt,
   };
 
   const body: PageBody = {

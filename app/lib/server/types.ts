@@ -33,6 +33,12 @@ export interface PageIndex {
   shopifyPageGid: string | null;
   lastPublishedAt: string | null;
   pendingJobId: string | null;
+  /** URL path used by the visual editor, e.g. "/" or "/about". */
+  pagePath: string;
+  /** ISO timestamp of last edit, used for list sorting / display. */
+  updatedAt: string;
+  /** ISO timestamp for a pending scheduled publish, or null. */
+  scheduledPublishAt: string | null;
 }
 
 export interface PageBody {

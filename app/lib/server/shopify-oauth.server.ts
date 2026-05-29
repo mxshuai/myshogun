@@ -9,7 +9,21 @@ import type { ServerContext } from "./types";
 const OAUTH_STATE_COOKIE = "shopify_oauth_state";
 const SHOP_SESSION_COOKIE = "shop_session";
 const OAUTH_STATE_TTL_SECONDS = 10 * 60;
-const SHOP_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const SHOP_SESSION_TTL_SECONDS = 6 * 60 * 60;
+
+/**
+ * Local-only fallback so the dev-login shortcut can sign sessions without a
+ * real Shopify secret. Production never uses this: there the real
+ * SHOPIFY_API_SECRET is always required.
+ */
+const DEV_SESSION_SECRET = "dev-insecure-shop-session-secret";
+
+function resolveSessionSecret(): string {
+  const secret = process.env.SHOPIFY_API_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV !== "production") return DEV_SESSION_SECRET;
+  return "";
+}
 
 type OAuthStatePayload = {
   nonce: string;
@@ -20,6 +34,8 @@ type OAuthStatePayload = {
 export type ShopSession = {
   shopId: string;
   shopDomain: string;
+  /** Unix epoch seconds when this session must be re-authenticated. */
+  exp: number;
 };
 
 type ShopifyOAuthConfig = {
@@ -53,13 +69,17 @@ function requireShopifyOAuthConfig(): ShopifyOAuthConfig {
 }
 
 function buildCookie(name: string, value: string, maxAgeSeconds: number): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
+  const isProd = process.env.NODE_ENV === "production";
+  const sameSite = isProd ? "None" : "Lax";
+  const secure = isProd ? "; Secure" : "";
+  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
 function clearCookie(name: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+  const isProd = process.env.NODE_ENV === "production";
+  const sameSite = isProd ? "None" : "Lax";
+  const secure = isProd ? "; Secure" : "";
+  return `${name}=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0${secure}`;
 }
 
 function parseCookie(header: string | null): Map<string, string> {
@@ -119,7 +139,7 @@ export function getShopSessionFromRequest(request: Request): ShopSession | null 
   const [payloadEncoded, signature] = value.split(".");
   if (!payloadEncoded || !signature) return null;
 
-  const secret = process.env.SHOPIFY_API_SECRET?.trim() ?? "";
+  const secret = resolveSessionSecret();
   if (!secret) return null;
 
   const expectedSignature = signWithSecret(payloadEncoded, secret);
@@ -129,17 +149,29 @@ export function getShopSessionFromRequest(request: Request): ShopSession | null 
     const payloadJson = Buffer.from(payloadEncoded, "base64url").toString("utf8");
     const payload = JSON.parse(payloadJson) as ShopSession;
     if (!payload.shopId || !payload.shopDomain) return null;
+    // Server-side expiry: cookie Max-Age alone is client-controlled, so the
+    // signed payload carries the authoritative expiry timestamp.
+    if (typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)) {
+      return null;
+    }
     return payload;
   } catch {
     return null;
   }
 }
 
-export function setShopSessionCookie(session: ShopSession): string {
-  const secret = process.env.SHOPIFY_API_SECRET?.trim() ?? "";
+export function setShopSessionCookie(
+  session: Pick<ShopSession, "shopId" | "shopDomain">,
+): string {
+  const secret = resolveSessionSecret();
   if (!secret) throw new Error("SHOPIFY_API_SECRET is required to sign shop session.");
 
-  const payloadEncoded = Buffer.from(JSON.stringify(session), "utf8").toString(
+  const fullSession: ShopSession = {
+    shopId: session.shopId,
+    shopDomain: session.shopDomain,
+    exp: Math.floor(Date.now() / 1000) + SHOP_SESSION_TTL_SECONDS,
+  };
+  const payloadEncoded = Buffer.from(JSON.stringify(fullSession), "utf8").toString(
     "base64url",
   );
   const signature = signWithSecret(payloadEncoded, secret);
