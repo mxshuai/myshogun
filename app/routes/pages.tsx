@@ -59,7 +59,10 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    await setPublishedByPath(ctx, shopId, pagePath);
+    const result = await setPublishedByPath(ctx, shopId, pagePath);
+    if (!result.ok) {
+      return data({ ok: false as const, error: result.error }, { status: 400 });
+    }
     return data({ ok: true as const });
   }
 
@@ -77,9 +80,18 @@ export async function action({ request }: Route.ActionArgs) {
     if (!Array.isArray(paths)) {
       return data({ ok: false as const, error: "Invalid paths" }, { status: 400 });
     }
+    const errors: string[] = [];
     for (const p of paths) {
       const pagePath = typeof p === "string" ? normalizePagePath(p) : null;
-      if (pagePath) await setPublishedByPath(ctx, shopId, pagePath);
+      if (!pagePath) continue;
+      const result = await setPublishedByPath(ctx, shopId, pagePath);
+      if (!result.ok) errors.push(`${pagePath}: ${result.error}`);
+    }
+    if (errors.length > 0) {
+      return data(
+        { ok: false as const, error: errors.join("; ") },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }

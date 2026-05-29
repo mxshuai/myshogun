@@ -164,6 +164,8 @@ export async function publishPageNow(
 
   index.status = "published";
   index.lastPublishedAt = now;
+  index.updatedAt = now;
+  index.scheduledPublishAt = null;
   index.pendingJobId = null;
   await repo.putPageIndex(index);
 

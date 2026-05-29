@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { newId, normalizeHandle } from "./page-ops";
+import { publishPageNow } from "./publish";
 import type { PageIndex, PageStatus, ServerContext } from "./types";
 
 /** Shape consumed by the /pages list UI (mirrors the legacy file-based summary). */
@@ -268,19 +269,29 @@ export async function duplicatePageByPath(
   return newPath;
 }
 
+/**
+ * Publish a page to Shopify (pageCreate on first publish, pageUpdate after) and
+ * mark it published locally. Previously this only flipped the local status,
+ * which is why published pages never showed up in the Shopify admin.
+ */
 export async function setPublishedByPath(
   ctx: ServerContext,
   shopId: string,
   path: string,
-): Promise<boolean> {
+): Promise<SaveResult> {
   const idx = await findIndexByPath(ctx, shopId, path);
-  if (!idx) return false;
-  idx.status = "published";
-  idx.scheduledPublishAt = null;
-  idx.lastPublishedAt = new Date().toISOString();
-  idx.updatedAt = idx.lastPublishedAt;
-  await ctx.repo.putPageIndex(idx);
-  return true;
+  if (!idx) return { ok: false, error: "Page not found" };
+
+  const body = await ctx.repo.getPageBody(idx.pageId);
+  const data: Data =
+    body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
+
+  try {
+    await publishPageNow(idx.pageId, ctx, data);
+    return { ok: true, path };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function setScheduledByPath(
