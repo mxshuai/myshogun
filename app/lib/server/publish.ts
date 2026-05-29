@@ -246,6 +246,8 @@ export async function schedulePageUpdate(
 
   index.status = "scheduled";
   index.pendingJobId = jobId;
+  index.scheduledPublishAt = runAt.toISOString();
+  index.updatedAt = now;
   await ctx.repo.putPageIndex(index);
 
   return jobId;

@@ -102,11 +102,22 @@ export async function action({ request }: Route.ActionArgs) {
     if (!pagePath || typeof at !== "string" || !at.trim()) {
       return data({ ok: false as const, error: "Invalid input" }, { status: 400 });
     }
-    const scheduledPublishAt = new Date(at).toISOString();
-    if (Number.isNaN(Date.parse(scheduledPublishAt))) {
+    const parsed = new Date(at);
+    if (Number.isNaN(parsed.getTime())) {
       return data({ ok: false as const, error: "Invalid date" }, { status: 400 });
     }
-    await setScheduledByPath(ctx, shopId, pagePath, scheduledPublishAt);
+    const tzRaw = form.get("timezone");
+    const timezone = typeof tzRaw === "string" && tzRaw.trim() ? tzRaw : "UTC";
+    const result = await setScheduledByPath(
+      ctx,
+      shopId,
+      pagePath,
+      parsed.toISOString(),
+      timezone,
+    );
+    if (!result.ok) {
+      return data({ ok: false as const, error: result.error }, { status: 400 });
+    }
     return data({ ok: true as const });
   }
 

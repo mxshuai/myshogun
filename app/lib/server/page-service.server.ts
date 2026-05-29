@@ -1,7 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { newId, normalizeHandle } from "./page-ops";
-import { publishPageNow } from "./publish";
+import { publishPageNow, schedulePageUpdate } from "./publish";
 import type { PageIndex, PageStatus, ServerContext } from "./types";
 
 /** Shape consumed by the /pages list UI (mirrors the legacy file-based summary). */
@@ -294,17 +294,37 @@ export async function setPublishedByPath(
   }
 }
 
+/**
+ * Schedule a real Shopify publish for (shop, path): creates a PublishJob and an
+ * EventBridge schedule via schedulePageUpdate. Previously this only flipped the
+ * local status, so the scheduled time never actually pushed to Shopify.
+ *
+ * Requires the page to have been published to Shopify at least once (it needs a
+ * shopifyPageGid); otherwise returns a friendly error.
+ */
 export async function setScheduledByPath(
   ctx: ServerContext,
   shopId: string,
   path: string,
   scheduledPublishAt: string,
-): Promise<boolean> {
+  timezone = "UTC",
+): Promise<SaveResult> {
   const idx = await findIndexByPath(ctx, shopId, path);
-  if (!idx) return false;
-  idx.status = "scheduled";
-  idx.scheduledPublishAt = scheduledPublishAt;
-  idx.updatedAt = new Date().toISOString();
-  await ctx.repo.putPageIndex(idx);
-  return true;
+  if (!idx) return { ok: false, error: "Page not found" };
+
+  const runAt = new Date(scheduledPublishAt);
+  if (Number.isNaN(runAt.getTime())) {
+    return { ok: false, error: "Invalid schedule time" };
+  }
+
+  const body = await ctx.repo.getPageBody(idx.pageId);
+  const data: Data =
+    body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
+
+  try {
+    await schedulePageUpdate(idx.pageId, ctx, data, runAt, timezone);
+    return { ok: true, path };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
