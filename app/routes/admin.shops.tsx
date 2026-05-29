@@ -1,4 +1,4 @@
-import { Form, Link, data, useLoaderData } from "react-router";
+import { Form, Link, data, redirect, useLoaderData } from "react-router";
 
 import type { Route } from "./+types/admin.shops";
 import { requireAdmin } from "~/lib/server/auth.server";
@@ -8,16 +8,17 @@ import { createAdminClient } from "~/lib/server/shopify";
 
 export async function loader({ request }: Route.LoaderArgs) {
   try {
-    requireAdmin(request);
+    const session = requireAdmin(request);
     const ctx = await ensureServerContext();
     const shops = await ctx.repo.listShops();
-    return { shops, loadError: null as string | null };
+    return { shops, loadError: null as string | null, session };
   } catch (error) {
     if (error instanceof Response) throw error;
     const message = error instanceof Error ? error.message : String(error);
     return {
       shops: [],
       loadError: `Server context init failed: ${message}`,
+      session: null,
     };
   }
 }
@@ -31,15 +32,16 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "create") {
     const domain = String(form.get("domain") ?? "");
     const name = String(form.get("name") ?? "");
-    const token = String(form.get("accessToken") ?? "").trim();
+    const next = String(form.get("next") ?? "/admin/shops");
     if (!domain) {
       return data({ error: "Domain is required" }, { status: 400 });
     }
-    const shop = await upsertShopRecord(ctx.repo, { domain, name });
-    if (token) {
-      await ctx.secrets.setShopToken(shop.id, token);
-    }
-    return data({ ok: true });
+    await upsertShopRecord(ctx.repo, { domain, name });
+    return redirect(
+      `/auth/shopify/start?shop=${encodeURIComponent(
+        normalizeShopDomain(domain),
+      )}&next=${encodeURIComponent(next)}`,
+    );
   }
 
   if (intent === "delete") {
@@ -69,21 +71,24 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
-  if (intent === "updateToken") {
+  if (intent === "reconnect") {
     const id = String(form.get("shopId") ?? "");
-    const token = String(form.get("accessToken") ?? "").trim();
-    if (!id || !token) {
-      return data({ error: "Shop and token required" }, { status: 400 });
+    const shop = id ? await ctx.repo.getShop(id) : null;
+    if (!shop) {
+      return data({ error: "Shop not found" }, { status: 404 });
     }
-    await ctx.secrets.setShopToken(id, token);
-    return data({ ok: true });
+    return redirect(
+      `/auth/shopify/start?shop=${encodeURIComponent(
+        normalizeShopDomain(shop.domain),
+      )}&next=${encodeURIComponent("/admin/shops")}`,
+    );
   }
 
   return data({ error: "Unknown intent" }, { status: 400 });
 }
 
 export default function AdminShops() {
-  const { shops, loadError } = useLoaderData<typeof loader>();
+  const { shops, loadError, session } = useLoaderData<typeof loader>();
 
   return (
     <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 960 }}>
@@ -94,6 +99,10 @@ export default function AdminShops() {
           <Link to="/">Site</Link>
         </nav>
       </header>
+      <div style={{ marginTop: 8, color: "#444", fontSize: 14 }}>
+        Active session:{" "}
+        {session ? `${session.shopDomain} (${session.shopId.slice(0, 8)}…)` : "none"}
+      </div>
       {loadError ? (
         <div
           role="alert"
@@ -122,15 +131,8 @@ export default function AdminShops() {
             Display name
             <input name="name" style={{ display: "block", width: "100%" }} />
           </label>
-          <label>
-            Admin API access token
-            <input
-              name="accessToken"
-              type="password"
-              style={{ display: "block", width: "100%" }}
-            />
-          </label>
-          <button type="submit">Create shop</button>
+          <input type="hidden" name="next" value="/admin/shops" />
+          <button type="submit">Create & connect via Shopify OAuth</button>
         </Form>
       </section>
 
@@ -166,18 +168,12 @@ export default function AdminShops() {
                     <input type="hidden" name="shopId" value={shop.id} />
                     <button type="submit">Delete</button>
                   </Form>
+                  <Form method="post" style={{ display: "inline" }}>
+                    <input type="hidden" name="intent" value="reconnect" />
+                    <input type="hidden" name="shopId" value={shop.id} />
+                    <button type="submit">Reconnect OAuth</button>
+                  </Form>
                 </div>
-                <Form method="post" style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                  <input type="hidden" name="intent" value="updateToken" />
-                  <input type="hidden" name="shopId" value={shop.id} />
-                  <input
-                    name="accessToken"
-                    type="password"
-                    placeholder="Update token"
-                    style={{ flex: 1 }}
-                  />
-                  <button type="submit">Save token</button>
-                </Form>
               </li>
             ))}
           </ul>

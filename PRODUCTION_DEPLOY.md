@@ -229,12 +229,23 @@ npm run deploy:publish-lambda
 | `APP_TABLE_NAME` | `visbuild-shopify-app` | 步骤 1 创建的表名 |
 | `PUBLISH_LAMBDA_ARN` | 步骤 1 Output | 创建定时任务时指定触发哪个 Lambda |
 | `SCHEDULER_ROLE_ARN` | 步骤 1 Output | Scheduler 代你 Invoke Lambda 的角色 |
-| `ADMIN_API_KEY` | 你自建的随机串 | 保护 `/admin/*`（登录或 `X-Admin-Key` 头） |
 | `SHOPIFY_TOKEN_SECRET_PREFIX` | `visbuild-shopify/token` | Token 存入 Secrets Manager 时的名称前缀 |
+| `SHOPIFY_API_KEY` | Partners Client ID | Shopify OAuth 登录 |
+| `SHOPIFY_API_SECRET` | Partners Client secret | 校验 callback / 换取 access token |
+| `SCOPES` | `read_content,write_content` | OAuth 授权 scope |
+| `SHOPIFY_APP_URL` | `https://<domain>` | OAuth 回调基准域名（仅 origin） |
+| `ADMIN_AUTH_MODE` | *(可选)* `legacy` | 回滚开关：启用旧 `ADMIN_API_KEY` 登录 |
 
-**不要**把 Shopify Admin Token 写进 Amplify 变量；应在 `/admin/shops` 保存（会进 Secrets Manager）。
+**不要**把 Shopify Admin Token 写进 Amplify 变量；OAuth callback 会自动写入 Secrets Manager。
 
 **可选（全链路不强制）：** `ASSETS_BUCKET_NAME` — 不配则不用 S3 预签上传。
+
+### Shopify Partners（非内嵌登录）配置
+
+- **App URL**：`https://<你的域名>/auth/shopify/start`
+- **Redirect URL**：`https://<你的域名>/auth/shopify/callback`
+- **Embedded app**：关闭（non-embedded）
+- OAuth 成功后会按 `state.next` 跳回站内路径（默认 `/`）。
 
 ### 重新部署时命令在 AWS 上做什么（Amplify 自动）
 
@@ -261,7 +272,7 @@ npm run deploy:publish-lambda
 **控制台如何确认：**
 
 - Amplify → 最近一次 Deploy → Succeed
-- 访问 `https://<默认域名>/admin/shops`（若已设 `ADMIN_API_KEY` 会先跳登录）
+- 访问 `https://<默认域名>/admin/shops`（默认会跳 Shopify OAuth，完成后回到站点）
 
 ### 本地环境会发生什么
 
@@ -410,14 +421,28 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 
 ## 你需要提前准备（勿提交 Git）
 
-1. Shopify **Custom App** + **Admin API Access Token**（`read_content` / `write_content`）
-2. **`ADMIN_API_KEY`** 随机长字符串
+1. Shopify App（Partners）配置好 `App URL=/auth/shopify/start` 和 callback
+2. Amplify 环境变量：`SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` / `SCOPES` / `SHOPIFY_APP_URL`
 3. 本机 AWS CLI 已登录账号 `124074140777`，Region `ap-southeast-2`：
 
    ```powershell
    aws sts get-caller-identity
    aws configure set region ap-southeast-2
    ```
+
+---
+
+## OAuth 回归清单（上线前）
+
+- 从 Shopify Admin 的 App 入口访问后，跳到 Shopify 授权页并成功回到 `/`
+- `admin/shops` 可加载，且新授权店铺自动出现在列表中
+- `Verify token` 成功，`Secrets Manager` 中存在对应 shop token
+- callback 缺参数 / 错误 state / 错误 hmac 时返回 4xx，不出现循环重定向
+
+### 回滚开关
+
+- 设置 `ADMIN_AUTH_MODE=legacy` 并配置 `ADMIN_API_KEY`，可临时回滚到旧登录方式
+- 回滚后 `/admin/login` 重新启用本地 key 登录；排障完成后移除该变量恢复 OAuth
 
 ---
 

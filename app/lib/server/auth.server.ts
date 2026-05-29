@@ -1,12 +1,40 @@
 import { redirect } from "react-router";
 
 import { getAdminApiKey } from "./env";
+import {
+  clearShopSessionCookie,
+  getShopSessionFromRequest,
+} from "./shopify-oauth.server";
 
 const COOKIE_NAME = "admin_key";
 
-export function requireAdmin(request: Request): void {
+function useLegacyAdminAuth(): boolean {
+  return process.env.ADMIN_AUTH_MODE?.trim().toLowerCase() === "legacy";
+}
+
+export function requireShopSession(request: Request) {
+  const session = getShopSessionFromRequest(request);
+  if (!session) {
+    const url = safeParseUrl(request);
+    throw redirect(
+      `/auth/shopify/start?next=${encodeURIComponent(url.pathname + url.search)}`,
+    );
+  }
+  return session;
+}
+
+export function requireAdmin(request: Request) {
+  if (!useLegacyAdminAuth()) {
+    return requireShopSession(request);
+  }
+
   const expected = getAdminApiKey();
-  if (!expected) return;
+  if (!expected) {
+    const url = safeParseUrl(request);
+    throw redirect(
+      `/auth/shopify/start?next=${encodeURIComponent(url.pathname + url.search)}`,
+    );
+  }
 
   const header = request.headers.get("X-Admin-Key");
   const cookie = parseCookie(request.headers.get("Cookie")).get(COOKIE_NAME);
@@ -19,16 +47,17 @@ export function requireAdmin(request: Request): void {
 }
 
 export function adminLoginResponse(apiKey: string, next: string): Response {
+  if (!useLegacyAdminAuth()) {
+    return redirect(
+      `/auth/shopify/start?next=${encodeURIComponent(next || "/admin/shops")}`,
+    );
+  }
+
   const expected = getAdminApiKey();
   const safeNext = next.startsWith("/admin") ? next : "/admin/shops";
   // 与 requireAdmin 行为保持一致：未配置 ADMIN_API_KEY 时关闭鉴权，允许直接进入管理页。
   if (!expected) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: safeNext,
-      },
-    });
+    return redirect(`/auth/shopify/start?next=${encodeURIComponent(safeNext)}`);
   }
   if (apiKey !== expected) {
     return new Response("Invalid key", { status: 401 });
@@ -40,6 +69,17 @@ export function adminLoginResponse(apiKey: string, next: string): Response {
       "Set-Cookie": `${COOKIE_NAME}=${encodeURIComponent(apiKey)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
     },
   });
+}
+
+export function clearAuthCookies(): Headers {
+  const headers = new Headers();
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  headers.append(
+    "Set-Cookie",
+    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
+  );
+  headers.append("Set-Cookie", clearShopSessionCookie());
+  return headers;
 }
 
 function parseCookie(header: string | null): Map<string, string> {

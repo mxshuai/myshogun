@@ -3,6 +3,8 @@ import { route, index } from "@react-router/dev/routes";
 
 export default [
   index("routes/_index.tsx"),
+  route("auth/shopify/start", "routes/auth.shopify.start.tsx"),
+  route("auth/shopify/callback", "routes/auth.shopify.callback.tsx"),
   route("pages", "routes/pages.tsx"),
   route("admin/login", "routes/admin.login.tsx"),
   route("admin/shops", "routes/admin.shops.tsx"),

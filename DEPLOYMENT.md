@@ -85,12 +85,22 @@ npm run preview:amplify
 
 | 变量 | 说明 |
 |------|------|
-| `ADMIN_API_KEY` | 设置后访问 `/admin/*` 需登录或 `X-Admin-Key` 头 |
+| `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` | Shopify OAuth 登录 |
+| `SHOPIFY_APP_URL` | OAuth callback 基准域名（仅 origin） |
+| `SCOPES` | OAuth 授权 scope |
+| `ADMIN_AUTH_MODE=legacy` | 可选回滚到旧 `ADMIN_API_KEY` 登录 |
+| `ADMIN_API_KEY` | 仅 `ADMIN_AUTH_MODE=legacy` 时生效 |
 | `USE_AWS_DATA_LAYER` | `true` 时启用 DynamoDB / Secrets Manager / EventBridge |
 | `APP_TABLE_NAME` | DynamoDB 表名 |
 | `PUBLISH_LAMBDA_ARN` / `SCHEDULER_ROLE_ARN` | 定时发布 |
 | `ASSETS_BUCKET_NAME` | S3 预签上传 |
 | `SHOPIFY_WEBHOOK_SECRET` | Webhook HMAC（可选） |
+
+非内嵌 OAuth 入口：
+
+- Start: `/auth/shopify/start`
+- Callback: `/auth/shopify/callback`
+- 登录成功默认跳转：`/`
 
 基础设施模板见 [`infra/template.yaml`](infra/template.yaml)。
 
