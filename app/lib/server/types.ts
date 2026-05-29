@@ -100,7 +100,12 @@ export interface SecretsStore {
 }
 
 export interface Scheduler {
-  scheduleAt(params: { jobId: string; runAt: Date }): Promise<void>;
+  scheduleAt(params: {
+    jobId: string;
+    runAt: Date;
+    /** IANA timezone for the one-time `at()` expression, e.g. Asia/Shanghai */
+    timezone?: string;
+  }): Promise<void>;
   cancel(jobId: string): Promise<void>;
 }
 

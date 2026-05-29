@@ -176,6 +176,7 @@ export function PagesList({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleTarget, setScheduleTarget] = useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = useState("");
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [shopifyFilter, setShopifyFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
@@ -211,6 +212,21 @@ export function PagesList({
       setCreateError(d.error);
     }
   }, [fetcher.state, fetcher.data, createOpen]);
+
+  useEffect(() => {
+    if (fetcher.state !== "idle" || !scheduleOpen) return;
+    const d = fetcher.data as FetcherData | undefined;
+    if (d?.ok === true) {
+      setScheduleError(null);
+      setScheduleOpen(false);
+      setScheduleTarget(null);
+      revalidator.revalidate();
+      return;
+    }
+    if (d && d.ok === false && typeof d.error === "string") {
+      setScheduleError(d.error);
+    }
+  }, [fetcher.state, fetcher.data, scheduleOpen, revalidator]);
 
   const pathKeys = useMemo(() => shogunPages.map((r) => r.path), [shogunPages]);
 
@@ -290,22 +306,28 @@ export function PagesList({
         ? isoToDatetimeLocalValue(existingScheduledAt)
         : ""
     );
+    setScheduleError(null);
     setScheduleOpen(true);
     setMenuPath(null);
   };
 
   const confirmSchedule = () => {
     if (!scheduleTarget || !scheduleAt.trim()) return;
+    const local = new Date(scheduleAt);
+    if (Number.isNaN(local.getTime())) {
+      setScheduleError("Invalid date and time");
+      return;
+    }
+    setScheduleError(null);
     fetcher.submit(
       {
         intent: "schedule",
         pagePath: scheduleTarget,
-        scheduledAt: scheduleAt,
+        scheduledAt: local.toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       },
       { method: "post", action: PAGES_ACTION }
     );
-    setScheduleOpen(false);
-    setScheduleTarget(null);
   };
 
   const confirmDelete = (pagePath: string) => {
@@ -1044,9 +1066,21 @@ export function PagesList({
               Schedule publish
             </h2>
             <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#64748b" }}>
-              Choose date and time (local). Stored as scheduled; automatic publish
-              requires a future job.
+              Choose date and time (local). The page must be published to Shopify
+              first; schedule must be at least 1 minute in the future.
             </p>
+            {scheduleError ? (
+              <p
+                role="alert"
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: "0.875rem",
+                  color: "#b91c1c",
+                }}
+              >
+                {scheduleError}
+              </p>
+            ) : null}
             <input
               type="datetime-local"
               value={scheduleAt}

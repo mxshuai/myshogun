@@ -29,22 +29,37 @@ export function createEventBridgeScheduler(): Scheduler {
     async scheduleAt({ jobId, runAt }) {
       if (!lambdaArn || !roleArn) {
         throw new Error(
-          "PUBLISH_LAMBDA_ARN and SCHEDULER_ROLE_ARN must be set for EventBridge Scheduler"
+          "PUBLISH_LAMBDA_ARN and SCHEDULER_ROLE_ARN must be set in Amplify environment variables (see PRODUCTION_DEPLOY.md step 3)",
         );
       }
-      await client.send(
-        new CreateScheduleCommand({
-          Name: scheduleName(jobId),
-          ScheduleExpression: toAtExpression(runAt),
-          ScheduleExpressionTimezone: "UTC",
-          FlexibleTimeWindow: { Mode: "OFF" },
-          Target: {
-            Arn: lambdaArn,
-            RoleArn: roleArn,
-            Input: JSON.stringify({ jobId }),
-          },
-        })
-      );
+      if (roleArn.includes("REPLACE_ME")) {
+        throw new Error(
+          "SCHEDULER_ROLE_ARN is still a placeholder. Set it to the SchedulerInvokeRole ARN from the visbuild-shopify-data CloudFormation stack outputs",
+        );
+      }
+      const minLeadMs = 60_000;
+      if (runAt.getTime() < Date.now() + minLeadMs) {
+        throw new Error("Schedule time must be at least 1 minute in the future");
+      }
+      try {
+        await client.send(
+          new CreateScheduleCommand({
+            Name: scheduleName(jobId),
+            ScheduleExpression: toAtExpression(runAt),
+            // runAt is a UTC instant (ISO from the browser); keep expression in UTC.
+            ScheduleExpressionTimezone: "UTC",
+            FlexibleTimeWindow: { Mode: "OFF" },
+            Target: {
+              Arn: lambdaArn,
+              RoleArn: roleArn,
+              Input: JSON.stringify({ jobId }),
+            },
+          }),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(`EventBridge Scheduler failed: ${msg}`);
+      }
     },
 
     async cancel(jobId) {

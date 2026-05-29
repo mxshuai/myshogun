@@ -241,8 +241,10 @@ export async function schedulePageUpdate(
     updatedAt: now,
   };
 
-  await ctx.repo.putJob(job);
+  // Create the EventBridge schedule first so a failed schedule does not leave
+  // an orphaned pending job in DynamoDB (which previously caused 400s with no UI).
   await ctx.scheduler.scheduleAt({ jobId, runAt });
+  await ctx.repo.putJob(job);
 
   index.status = "scheduled";
   index.pendingJobId = jobId;

@@ -106,6 +106,12 @@ export async function action({ request }: Route.ActionArgs) {
     if (Number.isNaN(parsed.getTime())) {
       return data({ ok: false as const, error: "Invalid date" }, { status: 400 });
     }
+    if (parsed.getTime() < Date.now() + 60_000) {
+      return data(
+        { ok: false as const, error: "Schedule time must be at least 1 minute in the future" },
+        { status: 400 },
+      );
+    }
     const tzRaw = form.get("timezone");
     const timezone = typeof tzRaw === "string" && tzRaw.trim() ? tzRaw : "UTC";
     const result = await setScheduledByPath(
