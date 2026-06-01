@@ -37,6 +37,10 @@ export function getSchedulerRoleArn(): string | undefined {
   return process.env.SCHEDULER_ROLE_ARN?.trim() || undefined;
 }
 
+export function getScheduleLambdaArn(): string | undefined {
+  return process.env.SCHEDULE_LAMBDA_ARN?.trim() || undefined;
+}
+
 export function getAssetsBucket(): string | undefined {
   return process.env.ASSETS_BUCKET_NAME?.trim() || undefined;
 }

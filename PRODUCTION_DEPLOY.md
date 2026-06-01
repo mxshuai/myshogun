@@ -212,6 +212,27 @@ npm run deploy:publish-lambda
 
 ---
 
+## 步骤 2b：上传 Schedule Lambda 真实代码
+
+Amplify SSR **不能**直接 `iam:PassRole`（会话策略显式拒绝）。定时发布改为 SSR **Invoke** 本 Lambda，由它在独立执行角色下创建 EventBridge Schedule。
+
+### 你要执行的命令
+
+```powershell
+npm run deploy:schedule-lambda
+```
+
+（需先执行步骤 1 更新 CloudFormation 栈，创建 `visbuild-shopify-data-schedule` 函数骨架。）
+
+### AWS 上会发生什么
+
+| 变化 | 说明 |
+|------|------|
+| **`visbuild-shopify-data-schedule` 代码更新** | 可执行 `CreateSchedule` / `DeleteSchedule` + `PassRole` |
+| Lambda 环境变量（模板已配） | `PUBLISH_LAMBDA_ARN`、`SCHEDULER_ROLE_ARN`、`APP_AWS_REGION` |
+
+---
+
 ## 步骤 3：Amplify 环境变量 + 重新部署
 
 ### 你要做的操作（Amplify 控制台，无必跑 CLI）
@@ -227,8 +248,9 @@ npm run deploy:publish-lambda
 | `USE_AWS_DATA_LAYER` | `true` | SSR 使用 DynamoDB / Secrets / EventBridge，**不用**仓库内 JSON 当生产库 |
 | `APP_AWS_REGION` | `ap-southeast-2` | AWS SDK 区域（**勿**用 `AWS_REGION`，Amplify 保留前缀会报错） |
 | `APP_TABLE_NAME` | `visbuild-shopify-app` | 步骤 1 创建的表名 |
-| `PUBLISH_LAMBDA_ARN` | 步骤 1 Output | 创建定时任务时指定触发哪个 Lambda |
-| `SCHEDULER_ROLE_ARN` | 步骤 1 Output | Scheduler 代你 Invoke Lambda 的角色 |
+| `PUBLISH_LAMBDA_ARN` | 步骤 1 Output | Publish Lambda（到点执行发布）；Schedule Lambda 环境变量也需要 |
+| `SCHEDULER_ROLE_ARN` | 步骤 1 Output | EventBridge 调用 Publish Lambda 时使用的角色（配在 **Schedule Lambda** 环境，非 SSR PassRole） |
+| `SCHEDULE_LAMBDA_ARN` | 步骤 1 Output `ScheduleLambdaArn` | SSR **Invoke** 以创建/取消定时任务（**生产定时必配**） |
 | `SHOPIFY_TOKEN_SECRET_PREFIX` | `visbuild-shopify/token` | Token 存入 Secrets Manager 时的名称前缀 |
 | `SHOPIFY_API_KEY` | Partners Client ID | Shopify OAuth 登录 |
 | `SHOPIFY_API_SECRET` | Partners Client secret | 校验 callback / 换取 access token |
@@ -295,14 +317,15 @@ npm run deploy:publish-lambda
 - **Permissions**：先不挂托管策略，直接 **Next**
 - **Role name**：例如 `myshogun-amplify-compute-role` → **Create role**
 
-**2. 给该角色加两条内联策略**
+**2. 给该角色加一条内联策略**
 
-在同一角色上 **Add permissions** → **Create inline policy** → JSON，各建一条：
+在同一角色上 **Add permissions** → **Create inline policy** → JSON：
 
 | 策略名建议 | JSON 文件 |
 |------------|-----------|
 | `VisbuildSSRDataAccess` | [`infra/amplify-ssr-iam-policy.json`](infra/amplify-ssr-iam-policy.json) |
-| `VisbuildSSRPassSchedulerRole` | [`infra/amplify-compute-passrole-policy.json`](infra/amplify-compute-passrole-policy.json) |
+
+（已含 DDB、Secrets、`lambda:InvokeFunction` 到 `visbuild-shopify-data-schedule`。**勿**再给 compute 角色挂 `PassRole` / `scheduler:CreateSchedule`——Amplify 会话策略会拒绝 PassRole，且已由 Schedule Lambda 代为执行。）
 
 **3. Amplify 绑定 Compute role**
 
@@ -313,29 +336,7 @@ npm run deploy:publish-lambda
 
 ### 方式 B：在 Amplify 里点「Create new role」
 
-由 Amplify 自动创建角色后，再到 IAM 给该角色粘贴上述两份 JSON 内联策略（勿选 `PublishLambdaRole`）。
-
-### 方式 B 的补充说明
-
-1. Amplify → **App settings** → 找到 SSR / Compute 的 **Service role** 或 **Execution role** 名称  
-2. IAM → **Roles** → 打开该角色 → **Add permissions** → **Create inline policy** → JSON  
-3. 粘贴 [`infra/amplify-ssr-iam-policy.json`](infra/amplify-ssr-iam-policy.json)  
-4. 若步骤 5 创建 Schedule 时报 `PassRole`，再粘贴 [`infra/amplify-compute-passrole-policy.json`](infra/amplify-compute-passrole-policy.json)
-
-PassRole 示例（资源名请与 IAM 控制台实际角色 ARN 对齐）：
-
-```json
-{
-  "Effect": "Allow",
-  "Action": "iam:PassRole",
-  "Resource": "arn:aws:iam::124074140777:role/visbuild-shopify-data-SchedulerInvokeRole-*",
-  "Condition": {
-    "StringEquals": {
-      "iam:PassedToService": "scheduler.amazonaws.com"
-    }
-  }
-}
-```
+由 Amplify 自动创建角色后，再到 IAM 给该角色粘贴 [`infra/amplify-ssr-iam-policy.json`](infra/amplify-ssr-iam-policy.json)（勿选 `PublishLambdaRole` / `ScheduleLambdaRole`）。
 
 ### 在做什么
 
@@ -346,8 +347,7 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 |------|------|
 | DynamoDB 读写 `visbuild-shopify-app` | 店铺、页面、版本、任务 |
 | Secrets Manager `visbuild-shopify/token/*` | 存取 Shopify Token |
-| Scheduler Create/Delete/Get | 用户点「Schedule Update」时创建 schedule |
-| `iam:PassRole`（如需） | 把 `SchedulerInvokeRole` 交给 Scheduler 服务 |
+| `lambda:InvokeFunction` → `visbuild-shopify-data-schedule` | `/pages` 定时发布时创建/取消 EventBridge Schedule |
 
 ### AWS 上会发生什么
 
@@ -461,7 +461,8 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 |------|------|
 | 管理后台像「没数据」 | `USE_AWS_DATA_LAYER=true` 且 Amplify 已 Redeploy |
 | AccessDenied | 步骤 4 IAM 是否挂在 **Amplify SSR 角色**（不是 CLI 用户） |
-| 定时不到点 | `PUBLISH_LAMBDA_ARN`、`SCHEDULER_ROLE_ARN`；步骤 2 Lambda 是否已更新代码 |
+| `/pages` Schedule 400 PassRole | 确认已部署 Schedule Lambda（步骤 2b）、Amplify 配 `SCHEDULE_LAMBDA_ARN`、compute 角色有 `lambda:Invoke`（见 `amplify-ssr-iam-policy.json`） |
+| 定时不到点 | `SCHEDULE_LAMBDA_ARN`；步骤 2/2b 两个 Lambda 代码已更新；EventBridge 是否有 `visbuild-publish-<jobId>` |
 | Shopify 401/404 | Token、scope、店铺域名 `*.myshopify.com` |
 | 本地缺包 | `npm install`（含 `@aws-sdk/client-s3` 等） |
 
@@ -471,6 +472,7 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 
 - DynamoDB：`arn:aws:dynamodb:ap-southeast-2:124074140777:table/visbuild-shopify-app`
 - Secrets：`arn:aws:secretsmanager:ap-southeast-2:124074140777:secret:visbuild-shopify/token/*`
+- Schedule Lambda：`arn:aws:lambda:ap-southeast-2:124074140777:function:visbuild-shopify-data-schedule`
 - Scheduler schedule 名称前缀：`visbuild-publish-`
 
 ---

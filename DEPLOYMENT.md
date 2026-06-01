@@ -145,7 +145,8 @@ npm run preview:amplify
 | `ADMIN_API_KEY` | 仅 `ADMIN_AUTH_MODE=legacy` 时生效 |
 | `USE_AWS_DATA_LAYER` | `true` 时启用 DynamoDB / Secrets Manager / EventBridge |
 | `APP_TABLE_NAME` | DynamoDB 表名 |
-| `PUBLISH_LAMBDA_ARN` / `SCHEDULER_ROLE_ARN` | 定时发布 |
+| `PUBLISH_LAMBDA_ARN` / `SCHEDULER_ROLE_ARN` | Publish Lambda 与 Scheduler 调用角色（后者在 Schedule Lambda 环境内） |
+| `SCHEDULE_LAMBDA_ARN` | SSR Invoke，创建 EventBridge 定时任务（生产 `/pages` Schedule 必配） |
 | `ASSETS_BUCKET_NAME` | S3 预签上传 |
 | `SHOPIFY_WEBHOOK_SECRET` | Webhook HMAC（可选） |
 

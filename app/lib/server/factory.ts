@@ -19,8 +19,8 @@ async function loadAwsSecrets(): Promise<SecretsStore> {
 }
 
 async function loadAwsScheduler(): Promise<Scheduler> {
-  const mod = await import("./aws/scheduler.eb");
-  return mod.createEventBridgeScheduler();
+  const mod = await import("./aws/scheduler.invoke");
+  return mod.createInvokeScheduler();
 }
 
 let initPromise: Promise<void> | null = null;

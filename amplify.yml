@@ -12,7 +12,7 @@ frontend:
       commands:
         # Write selected env vars into runtime-readable .env.production for SSR compute
         - rm -f .env.production
-        - env | grep -E '^(SHOPIFY_|SCOPES=|HOST=|USE_AWS_|APP_|PUBLISH_|SCHEDULER_|SHOP_CUSTOM_DOMAIN|ADMIN_AUTH_MODE|ADMIN_API_KEY|ASSETS_BUCKET)' >> .env.production || true
+        - env | grep -E '^(SHOPIFY_|SCOPES=|HOST=|USE_AWS_|APP_|PUBLISH_|SCHEDULE_|SCHEDULER_|SHOP_CUSTOM_DOMAIN|ADMIN_AUTH_MODE|ADMIN_API_KEY|ASSETS_BUCKET)' >> .env.production || true
         - npm run build
   artifacts:
     baseDirectory: .amplify-hosting
