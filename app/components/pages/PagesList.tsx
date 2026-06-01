@@ -1075,8 +1075,9 @@ export function PagesList({
               Schedule publish
             </h2>
             <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#64748b" }}>
-              Choose date and time (local). The page must be published to Shopify
-              first; schedule must be at least 1 minute in the future.
+              Choose date and time (local). Draft pages will be created on Shopify
+              at the scheduled time if needed. Schedule must be at least 1 minute
+              in the future.
             </p>
             {scheduleError ? (
               <p

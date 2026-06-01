@@ -1,5 +1,6 @@
 import type { Data } from "@puckeditor/core";
 
+import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
 import { publishPageNow, schedulePageUpdate } from "./publish";
 import type { PageIndex, PageStatus, ServerContext } from "./types";
@@ -169,6 +170,11 @@ export async function createPageForShop(
     return { ok: false, error: "A page with this path already exists" };
   }
 
+  const handleCheck = await validatePageHandleForShop(ctx, shopId, path);
+  if (!handleCheck.ok) {
+    return { ok: false, error: handleCheck.error };
+  }
+
   const now = new Date().toISOString();
   const title = titleRaw.trim() || "Untitled";
   const rootProps = { title, pagePath: path };
@@ -299,8 +305,7 @@ export async function setPublishedByPath(
  * EventBridge schedule via schedulePageUpdate. Previously this only flipped the
  * local status, so the scheduled time never actually pushed to Shopify.
  *
- * Requires the page to have been published to Shopify at least once (it needs a
- * shopifyPageGid); otherwise returns a friendly error.
+ * At run time, Publish Lambda creates the Shopify page if shopifyPageGid is missing.
  */
 export async function setScheduledByPath(
   ctx: ServerContext,

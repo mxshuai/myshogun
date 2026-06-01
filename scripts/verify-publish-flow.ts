@@ -24,7 +24,6 @@ async function main() {
     shopId: shop.id,
     title: "Verify Page",
     handle: "verify-page",
-    shopifyPageGid: "gid://shopify/Page/999",
   });
 
   const visbuildData = {

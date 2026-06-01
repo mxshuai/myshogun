@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { convertToShopifyBody } from "~/lib/convert-to-shopify-body";
+import { validatePageHandleForShop } from "./handle-conflict.server";
 import { createAdminClient } from "./shopify";
 import type { PageVersion, PublishJob, ServerContext } from "./types";
 
@@ -8,6 +9,44 @@ const MAX_ATTEMPTS = 5;
 
 function backoffMs(attempts: number): number {
   return Math.min(60_000, 2 ** attempts * 1000);
+}
+
+/** Create on Shopify when no GID; otherwise update. Persists shopifyPageGid on create. */
+async function pushPageToShopify(
+  ctx: ServerContext,
+  index: NonNullable<Awaited<ReturnType<typeof ctx.repo.getPageIndex>>>,
+  html: string,
+): Promise<void> {
+  const shop = await ctx.repo.getShop(index.shopId);
+  if (!shop) throw new Error("Shop not found");
+
+  const token = await ctx.secrets.getShopToken(shop.id);
+  if (!token) throw new Error("Shop access token not configured");
+
+  const client = createAdminClient({
+    shopDomain: shop.domain,
+    accessToken: token,
+  });
+
+  let gid = index.shopifyPageGid;
+  if (!gid) {
+    const created = await client.pageCreate({
+      title: index.title,
+      handle: index.handle,
+      body: html,
+      isPublished: true,
+    });
+    gid = created.id;
+    index.shopifyPageGid = gid;
+  } else {
+    await client.pageUpdate({
+      id: gid,
+      title: index.title,
+      handle: index.handle,
+      body: html,
+      isPublished: true,
+    });
+  }
 }
 
 export async function publishPageVersion(
@@ -31,28 +70,7 @@ export async function publishPageVersion(
     const index = await repo.getPageIndex(job.pageId);
     if (!index) throw new Error("Page not found");
 
-    const shop = await repo.getShop(job.shopId);
-    if (!shop) throw new Error("Shop not found");
-
-    const token = await secrets.getShopToken(shop.id);
-    if (!token) throw new Error("Shop access token not configured");
-
-    const client = createAdminClient({
-      shopDomain: shop.domain,
-      accessToken: token,
-    });
-
-    if (!index.shopifyPageGid) {
-      throw new Error("Page is not linked to Shopify");
-    }
-
-    await client.pageUpdate({
-      id: index.shopifyPageGid,
-      title: index.title,
-      handle: index.handle,
-      body: version.html,
-      isPublished: true,
-    });
+    await pushPageToShopify(ctx, index, version.html);
 
     const publishedAt = new Date().toISOString();
     index.status = "published";
@@ -114,41 +132,12 @@ export async function publishPageNow(
   ctx: ServerContext,
   visbuildData: Data
 ): Promise<void> {
-  const { repo, secrets } = ctx;
+  const { repo } = ctx;
   const index = await repo.getPageIndex(pageId);
   if (!index) throw new Error("Page not found");
 
-  const shop = await repo.getShop(index.shopId);
-  if (!shop) throw new Error("Shop not found");
-
-  const token = await secrets.getShopToken(shop.id);
-  if (!token) throw new Error("Shop access token not configured");
-
   const html = convertToShopifyBody(visbuildData);
-  const client = createAdminClient({
-    shopDomain: shop.domain,
-    accessToken: token,
-  });
-
-  let gid = index.shopifyPageGid;
-  if (!gid) {
-    const created = await client.pageCreate({
-      title: index.title,
-      handle: index.handle,
-      body: html,
-      isPublished: true,
-    });
-    gid = created.id;
-    index.shopifyPageGid = gid;
-  } else {
-    await client.pageUpdate({
-      id: gid,
-      title: index.title,
-      handle: index.handle,
-      body: html,
-      isPublished: true,
-    });
-  }
+  await pushPageToShopify(ctx, index, html);
 
   const now = new Date().toISOString();
   const versionId = `${pageId}#${Date.now()}#publish`;
@@ -218,8 +207,18 @@ export async function schedulePageUpdate(
 ): Promise<string> {
   const index = await ctx.repo.getPageIndex(pageId);
   if (!index) throw new Error("Page not found");
-  if (!index.shopifyPageGid) {
-    throw new Error("Publish to Shopify once before scheduling an update");
+
+  const handleCheck = await validatePageHandleForShop(
+    ctx,
+    index.shopId,
+    index.pagePath,
+    {
+      excludePageId: pageId,
+      excludeShopifyGid: index.shopifyPageGid,
+    },
+  );
+  if (!handleCheck.ok) {
+    throw new Error(handleCheck.error);
   }
 
   const versionId = await savePageDraft(pageId, ctx, visbuildData);
