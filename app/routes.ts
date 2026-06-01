@@ -13,5 +13,10 @@ export default [
   route("admin/pages/:pageId", "routes/admin.pages.$pageId.tsx"),
   route("api/assets/upload-url", "routes/api.assets.upload-url.tsx"),
   route("api/shopify/webhook", "routes/api.shopify.webhook.tsx"),
+  route("shop/:shopDomain", "routes/shop.$shopDomain.tsx", [
+    index("routes/shop.$shopDomain._index.tsx"),
+    route("pages", "routes/shop.$shopDomain.pages.tsx"),
+    route("*", "routes/shop.$shopDomain.splat.tsx"),
+  ]),
   route("*", "routes/visbuild-splat.tsx"),
 ] satisfies RouteConfig;

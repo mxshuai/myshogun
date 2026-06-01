@@ -95,7 +95,13 @@ export default function AdminShops() {
       <header style={{ display: "flex", justifyContent: "space-between" }}>
         <h1>Shops</h1>
         <nav style={{ display: "flex", gap: 12 }}>
-          <Link to="/pages">Pages list</Link>
+          {session ? (
+            <Link to={`/shop/${encodeURIComponent(session.shopDomain)}/pages`}>
+              Pages list
+            </Link>
+          ) : (
+            <Link to="/pages">Pages list</Link>
+          )}
           <Link to="/">Site</Link>
         </nav>
       </header>

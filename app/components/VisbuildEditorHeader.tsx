@@ -5,14 +5,18 @@ import { Link } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { usePuck } from "@puckeditor/core";
 
+import { shopPagesPath } from "~/lib/shop-url";
+
 /**
  * 覆盖 Puck 顶栏中间标题：无边框输入，失焦时写入 Puck 并触发 onPersist（保存服务端）。
  * 不渲染 overrides.header 的 `actions`：其与 header 内 MenuBar 中的 Publish 重复。
  */
 export function VisbuildEditorHeader({
+  shopDomain,
   children,
   onPersist,
 }: {
+  shopDomain: string;
   children: React.ReactNode;
   onPersist: (data: Data) => void;
 }) {
@@ -57,7 +61,7 @@ export function VisbuildEditorHeader({
       </style>
       <div style={{ position: "relative", width: "100%" }}>
         <Link
-          to="/pages"
+          to={shopPagesPath(shopDomain)}
           title="Back to pages"
           aria-label="Back to pages"
           style={{

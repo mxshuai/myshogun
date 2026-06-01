@@ -4,6 +4,7 @@ import type { Route } from "./+types/auth.dev-login";
 import { isProductionRuntime } from "~/lib/server/env";
 import { ensureServerContext } from "~/lib/server/factory";
 import { normalizeShopDomain, upsertShopRecord } from "~/lib/server/page-ops";
+import { resolvePostAuthNext } from "~/lib/shop-url";
 import { setShopSessionCookie } from "~/lib/server/shopify-oauth.server";
 
 function devLoginEnabled(): boolean {
@@ -40,7 +41,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     name: shop,
   });
 
-  return redirect(next, {
+  const destination = resolvePostAuthNext(next, shopRecord.domain);
+  return redirect(destination, {
     headers: {
       "Set-Cookie": setShopSessionCookie({
         shopId: shopRecord.id,

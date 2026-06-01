@@ -12,16 +12,10 @@ import type { ShogunPageSummary } from "~/lib/pages.server";
 import type { PageStatus } from "~/lib/page-metadata.server";
 import type { ShopifyPageRow } from "~/lib/shopify-pages.server";
 import { formatPublishesIn } from "~/lib/relative-time";
+import { shopEditPath } from "~/lib/shop-url";
 
 const accent = "#7c3aed";
 const danger = "#7c3aed";
-
-/** 显式指定，避免 fetcher 在非预期路由下提交失败 */
-const PAGES_ACTION = "/pages";
-
-function editHref(pagePath: string) {
-  return pagePath === "/" ? "/edit" : `${pagePath}/edit`;
-}
 
 /** ISO 8601 → `<input type="datetime-local">` 值（本地时区） */
 function isoToDatetimeLocalValue(iso: string): string {
@@ -164,12 +158,17 @@ function ShogunRowMenu({
 }
 
 export function PagesList({
+  shopDomain,
+  pagesAction,
   shogunPages,
   shopifyPages,
 }: {
+  shopDomain: string;
+  pagesAction: string;
   shogunPages: ShogunRow[];
   shopifyPages: ShopifyPageRow[];
 }) {
+  const editHref = (pagePath: string) => shopEditPath(shopDomain, pagePath);
   const [tab, setTab] = useState<"shogun" | "shopify">("shogun");
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [menuPath, setMenuPath] = useState<string | null>(null);
@@ -296,13 +295,13 @@ export function PagesList({
         intent: "bulkPublish",
         paths: JSON.stringify(Array.from(selected)),
       },
-      { method: "post", action: PAGES_ACTION }
+      { method: "post", action: pagesAction }
     );
     setSelected(new Set());
   };
 
   const submitIntent = (intent: string, payload: Record<string, string>) => {
-    fetcher.submit({ intent, ...payload }, { method: "post", action: PAGES_ACTION });
+    fetcher.submit({ intent, ...payload }, { method: "post", action: pagesAction });
     setMenuPath(null);
   };
 
@@ -336,7 +335,7 @@ export function PagesList({
         scheduledAt: local.toISOString(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       },
-      { method: "post", action: PAGES_ACTION }
+      { method: "post", action: pagesAction }
     );
   };
 
@@ -359,7 +358,7 @@ export function PagesList({
         pageTitle: newPageTitle,
         pagePath: newPagePath,
       },
-      { method: "post", action: PAGES_ACTION }
+      { method: "post", action: pagesAction }
     );
   };
 
@@ -863,7 +862,7 @@ export function PagesList({
                                   intent: "importShopify",
                                   shopifyId: row.id,
                                 },
-                                { method: "post", action: PAGES_ACTION }
+                                { method: "post", action: pagesAction }
                               )
                             }
                             style={{

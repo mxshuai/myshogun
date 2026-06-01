@@ -3,6 +3,7 @@ import { redirect } from "react-router";
 
 import "~/lib/load-production-env.server";
 import { isProductionRuntime } from "./env";
+import { resolvePostAuthNext } from "~/lib/shop-url";
 import { normalizeShopDomain, upsertShopRecord } from "./page-ops";
 import { createAdminClient } from "./shopify";
 import type { ServerContext } from "./types";
@@ -308,7 +309,10 @@ export async function completeShopifyOAuth(
   });
   await ctx.secrets.setShopToken(shopRecord.id, accessToken);
 
-  const next = sanitizeNext(statePayload.next);
+  const next = resolvePostAuthNext(
+    sanitizeNext(statePayload.next),
+    shopRecord.domain,
+  );
   const headers = new Headers();
   headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
   headers.append(

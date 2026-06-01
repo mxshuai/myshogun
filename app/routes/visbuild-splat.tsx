@@ -1,288 +1,31 @@
-import { useCallback, useEffect, useState } from "react";
-import { data, useFetcher, useLoaderData, useNavigate } from "react-router";
-import type { Data } from "@puckeditor/core";
-import { Puck, Render } from "@puckeditor/core";
+import { redirect } from "react-router";
 
 import type { Route } from "./+types/visbuild-splat";
-import { config } from "../../visbuild.config";
 import { resolveVisbuildPath } from "~/lib/resolve-visbuild-path.server";
-import { requireShopSession } from "~/lib/server/auth.server";
-import { ensureServerContext } from "~/lib/server/factory";
-import {
-  getPageDataByPath,
-  savePageByPath,
-} from "~/lib/server/page-service.server";
-import editorStyles from "@puckeditor/core/puck.css?url";
-import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
-import { PreviewModal } from "~/components/PreviewModal";
-import { ViewPageModal } from "~/components/ViewPageModal";
+import { shopEditPath, shopPublicPath } from "~/lib/shop-url";
+import { getShopSessionFromRequest } from "~/lib/server/shopify-oauth.server";
 
-/** 编辑数据里补齐 URL path（属性面板展示）；旧数据无该字段时用当前路由 path */
-function ensureEditorRootProps(data: Data, urlPath: string): Data {
-  const props = { ...(data.root?.props as Record<string, unknown>) };
-  const existing =
-    typeof props.pagePath === "string" ? props.pagePath.trim() : "";
-  if (!existing) props.pagePath = urlPath;
-  return {
-    ...data,
-    root: { ...data.root, props },
-  };
-}
-
-/** 前台预览不暴露编辑用字段 */
-function stripPublicRootProps(data: Data): Data {
-  const props = { ...(data.root?.props as Record<string, unknown>) };
-  delete props.pagePath;
-  return {
-    ...data,
-    root: { ...data.root, props },
-  };
-}
-
+/** Legacy /* paths → /shop/:shopDomain/... */
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const session = requireShopSession(request);
-  const pathname = params["*"] ?? "/";
-  const { isEditorRoute, path } = resolveVisbuildPath(pathname);
-  const ctx = await ensureServerContext();
-  const page = await getPageDataByPath(ctx, session.shopId, path);
+  const session = getShopSessionFromRequest(request);
+  const raw = params["*"] ?? "";
+  const pathForResolve = raw.startsWith("/") ? raw : `/${raw}`;
+  const { isEditorRoute, path } = resolveVisbuildPath(pathForResolve);
 
-  // Throw a 404 if we're not rendering the editor and data for the page does not exist
-  if (!isEditorRoute && !page) {
-    throw new Response("Not Found", { status: 404 });
-  }
-
-  let resolved: Data;
-  if (page) {
-    resolved = isEditorRoute ? ensureEditorRootProps(page, path) : page;
-  } else {
-    // Empty shell for a brand new page in the editor.
-    resolved = ensureEditorRootProps(
-      { content: [], root: { props: { title: "" } } },
-      path,
+  if (!session) {
+    const url = new URL(request.url);
+    throw redirect(
+      `/auth/shopify/start?next=${encodeURIComponent(url.pathname + url.search)}`,
     );
   }
 
-  return {
-    isEditorRoute,
-    path,
-    data: resolved,
-  };
-}
-
-export function meta({ data: loaderData }: Route.MetaArgs) {
-  return [
-    {
-      title: loaderData.isEditorRoute
-        ? `Edit: ${loaderData.path}`
-        : loaderData.data.root.props?.title ?? "",
-    },
-  ];
-}
-
-type SaveBody = { data: Data };
-
-export async function action({ params, request }: Route.ActionArgs) {
-  const session = requireShopSession(request);
-  const pathname = params["*"] ?? "/";
-  const { path } = resolveVisbuildPath(pathname);
-  const ctx = await ensureServerContext();
-  const body = (await request.json()) as SaveBody;
-
-  const rootProps = body.data.root?.props as
-    | { pagePath?: string }
-    | undefined;
-  const desired =
-    typeof rootProps?.pagePath === "string" ? rootProps.pagePath : path;
-
-  const result = await savePageByPath(
-    ctx,
-    session.shopId,
-    path,
-    body.data,
-    desired
-  );
-  if (!result.ok) {
-    return data({ ok: false as const, error: result.error }, { status: 400 });
-  }
-  return data({ ok: true as const, path: result.path });
-}
-
-function editHref(pagePath: string) {
-  return pagePath === "/" ? "/edit" : `${pagePath}/edit`;
-}
-
-function Editor() {
-  const loaderData = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
-  const navigate = useNavigate();
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [editorData, setEditorData] = useState<Data>(loaderData.data);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setEditorData(loaderData.data);
-  }, [loaderData.data]);
-
-  useEffect(() => {
-    if (fetcher.state !== "idle") return;
-    const d = fetcher.data as
-      | { ok?: boolean; path?: string; error?: string }
-      | undefined;
-    if (d?.ok === false && typeof d.error === "string") {
-      setSaveError(d.error);
-    } else {
-      setSaveError(null);
-    }
-  }, [fetcher.state, fetcher.data]);
-
-  useEffect(() => {
-    if (fetcher.state !== "idle") return;
-    const d = fetcher.data as
-      | { ok?: boolean; path?: string; error?: string }
-      | undefined;
-    if (!d?.ok || !d.path || d.path === loaderData.path) return;
-    navigate(editHref(d.path));
-  }, [fetcher.state, fetcher.data, loaderData.path, navigate]);
-
-  const persistPage = useCallback(
-    (next: Data) => {
-      setEditorData(next);
-      fetcher.submit(
-        JSON.stringify({ data: next }),
-        {
-          action: "",
-          method: "post",
-          encType: "application/json",
-        }
-      );
-    },
-    [fetcher]
-  );
-
-  return (
-    <>
-      <link rel="stylesheet" href={editorStyles} id="visbuild-editor-css" />
-      {saveError ? (
-        <div
-          role="alert"
-          style={{
-            padding: "10px 16px",
-            backgroundColor: "#fef2f2",
-            color: "#b91c1c",
-            borderBottom: "1px solid #fecaca",
-            fontSize: "0.875rem",
-          }}
-        >
-          {saveError}
-        </div>
-      ) : null}
-      <Puck
-        config={config}
-        data={editorData}
-        onChange={(data) => {
-          setEditorData(data);
-        }}
-        onPublish={async (pubData) => {
-          await fetcher.submit(
-            JSON.stringify({ data: pubData }),
-            {
-              action: "",
-              method: "post",
-              encType: "application/json",
-            }
-          );
-        }}
-        overrides={{
-          header: ({ children }) => (
-            <VisbuildEditorHeader onPersist={persistPage}>
-              {children}
-            </VisbuildEditorHeader>
-          ),
-          headerActions: ({ children }) => (
-            <>
-              {/* View Page：按钮暂时隐藏；ViewPageModal、showViewModal 仍挂载，恢复显示改为 true 或删除包裹 */}
-              {false && (
-                <button
-                  type="button"
-                  onClick={() => setShowViewModal(true)}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#ffffff",
-                    color: "#333333",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    fontSize: "0.875rem",
-                    marginRight: "8px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#f8f9fa";
-                    e.currentTarget.style.borderColor = "#d0d0d0";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "#ffffff";
-                    e.currentTarget.style.borderColor = "#e0e0e0";
-                  }}
-                >
-                  View Page
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowPreviewModal(true)}
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#ffffff",
-                  color: "#333333",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                  fontSize: "0.875rem",
-                  marginRight: "8px",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f8f9fa";
-                  e.currentTarget.style.borderColor = "#d0d0d0";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "#ffffff";
-                  e.currentTarget.style.borderColor = "#e0e0e0";
-                }}
-              >
-                Preview
-              </button>
-              {children}
-            </>
-          ),
-        }}
-      />
-      <PreviewModal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        data={editorData}
-      />
-      <ViewPageModal
-        isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
-        data={editorData}
-      />
-    </>
+  throw redirect(
+    isEditorRoute
+      ? shopEditPath(session.shopDomain, path)
+      : shopPublicPath(session.shopDomain, path),
   );
 }
 
-export default function VisbuildSplatRoute({ loaderData }: Route.ComponentProps) {
-  return (
-    <div>
-      {loaderData.isEditorRoute ? (
-        <Editor />
-      ) : (
-        <Render config={config} data={stripPublicRootProps(loaderData.data)} />
-      )}
-    </div>
-  );
+export default function LegacyVisbuildSplatRedirect() {
+  return null;
 }
