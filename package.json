@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "react-router build && node scripts/sync-amplify-compute-assets.mjs",
-    "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node20 --outfile=infra/dist/publish/index.js --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node20 --outfile=infra/dist/publish/index.js --format=cjs",
     "build:lambda:schedule": "esbuild app/functions/schedule.ts --bundle --platform=node --target=node20 --outfile=infra/dist/schedule/index.js --format=cjs",
+    "verify:lambda-bundle": "node scripts/verify-lambda-bundle.mjs",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/server.mjs",
     "start:local-prod": "powershell -ExecutionPolicy Bypass -File scripts/start-local-prod.ps1",

@@ -1,4 +1,5 @@
 # Build and upload Publish Lambda bundle (ap-southeast-2)
+# REQUIRED: esbuild --format=cjs (see scripts/verify-lambda-bundle.mjs)
 $ErrorActionPreference = "Stop"
 $Region = "ap-southeast-2"
 $FunctionName = "visbuild-shopify-data-publish"
@@ -9,6 +10,9 @@ $ZipPath = Join-Path $Root "infra\dist\publish.zip"
 Push-Location $Root
 try {
   npm run build:lambda
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  npm run verify:lambda-bundle
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   if (-not (Test-Path $DistDir)) {

@@ -189,44 +189,54 @@ export function PagesList({
 
   const fetcher = useFetcher();
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
+  const { revalidate } = useRevalidator();
 
   const busy = fetcher.state !== "idle";
+  /** 同一轮 fetcher 成功响应只处理一次，避免 revalidate 触发重渲染后无限请求 pages.data */
+  const handledFetcherDataRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if (fetcher.state === "submitting" || fetcher.state === "loading") {
+      handledFetcherDataRef.current = null;
+    }
+  }, [fetcher.state]);
 
   useEffect(() => {
     const d = fetcher.data as FetcherData | undefined;
-    if (fetcher.state !== "idle" || !d?.ok) return;
-    if (d.newPath) {
+    if (fetcher.state !== "idle" || !d) return;
+    if (handledFetcherDataRef.current === d) return;
+    handledFetcherDataRef.current = d;
+
+    if (d.ok && d.newPath) {
       setCreateOpen(false);
       setCreateError(null);
       navigate(editHref(d.newPath));
       return;
     }
-    revalidator.revalidate();
-  }, [fetcher.state, fetcher.data, navigate, revalidator]);
 
-  useEffect(() => {
-    if (fetcher.state !== "idle" || !createOpen) return;
-    const d = fetcher.data as FetcherData | undefined;
-    if (d && d.ok === false && typeof d.error === "string") {
-      setCreateError(d.error);
+    if (scheduleOpen) {
+      if (d.ok === true) {
+        setScheduleError(null);
+        setScheduleOpen(false);
+        setScheduleTarget(null);
+        revalidate();
+        return;
+      }
+      if (d.ok === false && typeof d.error === "string") {
+        setScheduleError(d.error);
+        return;
+      }
     }
-  }, [fetcher.state, fetcher.data, createOpen]);
 
-  useEffect(() => {
-    if (fetcher.state !== "idle" || !scheduleOpen) return;
-    const d = fetcher.data as FetcherData | undefined;
-    if (d?.ok === true) {
-      setScheduleError(null);
-      setScheduleOpen(false);
-      setScheduleTarget(null);
-      revalidator.revalidate();
+    if (createOpen && d.ok === false && typeof d.error === "string") {
+      setCreateError(d.error);
       return;
     }
-    if (d && d.ok === false && typeof d.error === "string") {
-      setScheduleError(d.error);
+
+    if (d.ok) {
+      revalidate();
     }
-  }, [fetcher.state, fetcher.data, scheduleOpen, revalidator]);
+  }, [fetcher.state, fetcher.data, navigate, revalidate, scheduleOpen, createOpen]);
 
   const pathKeys = useMemo(() => shogunPages.map((r) => r.path), [shogunPages]);
 

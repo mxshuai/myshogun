@@ -3,8 +3,9 @@
 部署 [`template.yaml`](template.yaml) 可创建：
 
 - DynamoDB 单表 `AppTable`（PK/SK + GSI1 用于 pending jobs）
-- Publish Lambda（需 `npm run build:lambda` 后替换 ZipFile）
-- Schedule Lambda（需 `npm run build:lambda:schedule` 后替换 ZipFile；SSR Invoke，执行 PassRole + CreateSchedule）
+- Publish Lambda（`npm run build:lambda` → **`--format=cjs`** → `deploy:publish-lambda`）
+- Schedule Lambda（`npm run build:lambda:schedule` → CJS → `deploy:schedule-lambda`；SSR Invoke，执行 PassRole + CreateSchedule）
+- 打包约束：`.cursor/rules/lambda-cjs.mdc`、`npm run verify:lambda-bundle`（部署脚本已自动调用）
 - EventBridge Scheduler 调用角色
 - CloudWatch 告警（Lambda Errors）
 

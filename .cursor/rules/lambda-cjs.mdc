@@ -1,0 +1,34 @@
+---
+description: AWS Lambda bundles must use esbuild CJS (not ESM)
+globs: app/functions/**,package.json,scripts/deploy-*-lambda.ps1,scripts/verify-lambda-bundle.mjs,infra/dist/**
+alwaysApply: false
+---
+
+# Lambda 打包：必须 CommonJS (CJS)
+
+本项目独立 Lambda（`app/functions/publish.ts`、`schedule.ts`）部署到 **nodejs20.x**，Handler 为 **`index.handler`**，运行时按 **CommonJS** 加载，不是 Remix SSR。
+
+## 必须
+
+- `package.json` 中 `build:lambda` / `build:lambda:schedule` 使用 **`--format=cjs`**
+- **禁止** 改为 `--format=esm`（除非整套改为 `.mjs` + 实验性 ESM 运行时，本项目不采用）
+- 修改打包或部署脚本后运行：`npm run verify:lambda-bundle`
+- 部署前：`npm run deploy:publish-lambda` / `deploy:schedule-lambda`（脚本内已含校验）
+
+## 根目录 `"type": "module"` 不适用 Lambda zip
+
+仅影响 Remix/Vite；**不能**据此把 Lambda 打成 ESM。
+
+## 失败现象
+
+CloudWatch：`SyntaxError: Cannot use import statement outside a module`
+
+## 修复
+
+```bash
+npm run build:lambda
+npm run build:lambda:schedule
+npm run verify:lambda-bundle
+npm run deploy:publish-lambda
+npm run deploy:schedule-lambda
+```
