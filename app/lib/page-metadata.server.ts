@@ -5,7 +5,7 @@ import {
   getPageMetadataPath,
 } from "./data-paths.server";
 
-export type PageStatus = "draft" | "published" | "scheduled";
+export type PageStatus = "draft" | "published" | "scheduled" | "outdated";
 
 export type PageMetaEntry = {
   status: PageStatus;

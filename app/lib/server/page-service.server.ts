@@ -10,14 +10,36 @@ export type ShopPageSummary = {
   path: string;
   title: string;
   displayPath: string;
-  status: "draft" | "published" | "scheduled";
+  status: "draft" | "published" | "scheduled" | "outdated";
   updatedAt: string;
   scheduledPublishAt: string | null;
 };
 
 export type SaveResult =
-  | { ok: true; path: string }
+  | { ok: true; path: string; pageId?: string; status?: PageStatus }
   | { ok: false; error: string };
+
+export type EditorPageMeta = {
+  pageId: string;
+  status: PageStatus;
+  scheduledPublishAt: string | null;
+  pendingJobId: string | null;
+};
+
+export async function getEditorPageMeta(
+  ctx: ServerContext,
+  shopId: string,
+  path: string,
+): Promise<EditorPageMeta | null> {
+  const idx = await findIndexByPath(ctx, shopId, path);
+  if (!idx) return null;
+  return {
+    pageId: idx.pageId,
+    status: idx.status,
+    scheduledPublishAt: idx.scheduledPublishAt,
+    pendingJobId: idx.pendingJobId,
+  };
+}
 
 /** Leading /, no .. or //, no trailing slash (except root). */
 export function normalizePagePath(raw: string): string | null {
@@ -49,6 +71,7 @@ function titleFromData(data: Data, path: string): string {
 function listStatus(status: PageStatus): ShopPageSummary["status"] {
   if (status === "published") return "published";
   if (status === "scheduled") return "scheduled";
+  if (status === "dirty") return "outdated";
   return "draft";
 }
 
@@ -143,6 +166,9 @@ export async function savePageByPath(
     idx.handle = handleFromPath(desired);
     idx.title = title;
     idx.updatedAt = now;
+    if (idx.status === "published") {
+      idx.status = "dirty";
+    }
   }
 
   await ctx.repo.putPageIndex(idx);
@@ -151,7 +177,7 @@ export async function savePageByPath(
     currentVisbuildData: data,
     currentHtml: null,
   });
-  return { ok: true, path: desired };
+  return { ok: true, path: desired, pageId: idx.pageId, status: idx.status };
 }
 
 export async function createPageForShop(

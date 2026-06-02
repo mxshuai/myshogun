@@ -33,6 +33,8 @@ function statusLabel(s: PageStatus): string {
       return "Published";
     case "scheduled":
       return "Scheduled";
+    case "outdated":
+      return "Outdated";
     default:
       return s;
   }
@@ -46,6 +48,8 @@ function statusDotColor(s: PageStatus): string {
       return "#16a34a";
     case "scheduled":
       return "#14b8a6";
+    case "outdated":
+      return "#dc2626";
     default:
       return "#94a3b8";
   }
@@ -669,6 +673,9 @@ export function PagesList({
                               alignItems: "center",
                               gap: 8,
                               fontSize: "0.875rem",
+                              color:
+                                row.status === "outdated" ? "#dc2626" : undefined,
+                              fontWeight: row.status === "outdated" ? 600 : undefined,
                             }}
                           >
                             <span
