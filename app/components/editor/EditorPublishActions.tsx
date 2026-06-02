@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Data } from "@puckeditor/core";
 
-const accent = "#7c3aed";
+import {
+  editorActionButtonStyle,
+  SplitActionDropdown,
+} from "~/components/ui/SplitActionDropdown";
 
 export type EditorPageMeta = {
   pageId: string;
@@ -33,8 +36,8 @@ function resolveMode(
   isDirty: boolean,
 ): PublishUiMode {
   if (meta?.status === "scheduled") return "scheduled-split";
-  if (meta?.status === "published") return "published-badge";
   if (isDirty) return "save";
+  if (meta?.status === "published") return "published-badge";
   return "publish-split";
 }
 
@@ -44,133 +47,6 @@ function isoToDatetimeLocalValue(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function SplitButton({
-  label,
-  busy,
-  onPrimary,
-  menuItems,
-}: {
-  label: string;
-  busy: boolean;
-  onPrimary: () => void;
-  menuItems: { label: string; icon?: "calendar"; onClick: () => void }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  return (
-    <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
-      <div
-        style={{
-          display: "inline-flex",
-          borderRadius: 8,
-          overflow: "hidden",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-        }}
-      >
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onPrimary}
-          style={{
-            padding: "8px 18px",
-            border: "none",
-            background: accent,
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: "0.875rem",
-            cursor: busy ? "wait" : "pointer",
-          }}
-        >
-          {label}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          aria-expanded={open}
-          aria-label="More actions"
-          onClick={() => setOpen((v) => !v)}
-          style={{
-            padding: "8px 10px",
-            border: "none",
-            borderLeft: "1px solid rgba(255,255,255,0.25)",
-            background: accent,
-            color: "#fff",
-            cursor: busy ? "wait" : "pointer",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M7 10l5 5 5-5H7z" />
-          </svg>
-        </button>
-      </div>
-      {open ? (
-        <div
-          role="menu"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "100%",
-            marginTop: 6,
-            minWidth: 200,
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-            border: "1px solid #f1f5f9",
-            padding: "6px 0",
-            zIndex: 50,
-          }}
-        >
-          {menuItems.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                item.onClick();
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                width: "100%",
-                padding: "10px 14px",
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                textAlign: "left",
-                color: "#334155",
-              }}
-            >
-              {item.icon === "calendar" ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-              ) : null}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export function EditorPublishActions({
@@ -258,7 +134,8 @@ export function EditorPublishActions({
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
-          padding: "8px 16px",
+          height: 36,
+          padding: "0 16px",
           borderRadius: 8,
           background: "#ede9fe",
           color: "#64748b",
@@ -266,8 +143,9 @@ export function EditorPublishActions({
           fontSize: "0.875rem",
           cursor: "not-allowed",
           userSelect: "none",
+          flexShrink: 0,
         }}
-        title="Already published. Publish updates from the pages list."
+        title="Already published"
       >
         <span
           style={{
@@ -297,15 +175,8 @@ export function EditorPublishActions({
         disabled={busy}
         onClick={onSave}
         style={{
-          padding: "8px 18px",
-          borderRadius: 8,
-          border: "none",
-          background: accent,
-          color: "#fff",
-          fontWeight: 600,
-          fontSize: "0.875rem",
+          ...editorActionButtonStyle,
           cursor: busy ? "wait" : "pointer",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
         }}
       >
         Save
@@ -316,12 +187,13 @@ export function EditorPublishActions({
   if (mode === "scheduled-split") {
     return (
       <>
-        <SplitButton
+        <SplitActionDropdown
           label="Scheduled"
           busy={busy}
           onPrimary={() => openScheduleDialog(true)}
-          menuItems={[
+          items={[
             {
+              key: "edit-scheduling",
               label: "Edit scheduling",
               icon: "calendar",
               onClick: () => openScheduleDialog(true),
@@ -345,12 +217,13 @@ export function EditorPublishActions({
 
   return (
     <>
-      <SplitButton
+      <SplitActionDropdown
         label="Publish"
         busy={busy}
         onPrimary={onPublish}
-        menuItems={[
+        items={[
           {
+            key: "schedule-publish",
             label: "Schedule publish",
             icon: "calendar",
             onClick: () => openScheduleDialog(false),
@@ -371,6 +244,8 @@ export function EditorPublishActions({
     </>
   );
 }
+
+const accent = "#7c3aed";
 
 function ScheduleDialog({
   title,

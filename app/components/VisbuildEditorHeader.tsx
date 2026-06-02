@@ -53,6 +53,20 @@ export function VisbuildEditorHeader({
     <>
       <style>
         {`
+          [class*="PuckHeader"] {
+            overflow-y: hidden !important;
+            min-height: 0 !important;
+          }
+          [class*="PuckHeader-inner"],
+          [class*="PuckHeader-actions"],
+          [class*="PuckHeader-right"] {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
+            gap: 8px;
+            overflow: visible !important;
+            max-height: 100%;
+          }
           [class*="PuckHeader-title"] {
             visibility: hidden !important;
             min-height: 1.35rem;

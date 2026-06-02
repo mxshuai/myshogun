@@ -152,12 +152,22 @@ export function ShopPageEditor({
             </VisbuildEditorHeader>
           ),
           headerActions: () => (
-            <>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                flexWrap: "nowrap",
+                gap: 8,
+                flexShrink: 0,
+                height: 36,
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setShowPreviewModal(true)}
                 style={{
-                  padding: "8px 16px",
+                  padding: "0 16px",
+                  height: 36,
                   backgroundColor: "#ffffff",
                   color: "#333333",
                   border: "1px solid #e0e0e0",
@@ -165,7 +175,8 @@ export function ShopPageEditor({
                   cursor: "pointer",
                   fontWeight: 500,
                   fontSize: "0.875rem",
-                  marginRight: "8px",
+                  lineHeight: 1,
+                  flexShrink: 0,
                 }}
               >
                 Preview
@@ -197,7 +208,7 @@ export function ShopPageEditor({
                   })
                 }
               />
-            </>
+            </div>
           ),
         }}
       />
