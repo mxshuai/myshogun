@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
 
+import { devLoginUrl, shopDomainFromPathname } from "~/lib/shop-url";
 import { getAdminApiKey, isProductionRuntime } from "./env";
 import {
   clearShopSessionCookie,
@@ -16,9 +17,13 @@ export function requireShopSession(request: Request) {
   const session = getShopSessionFromRequest(request);
   if (!session) {
     const url = safeParseUrl(request);
-    throw redirect(
-      `/auth/shopify/start?next=${encodeURIComponent(url.pathname + url.search)}`,
-    );
+    const next = url.pathname + url.search;
+    if (!isProductionRuntime()) {
+      throw redirect(
+        devLoginUrl(shopDomainFromPathname(url.pathname), next),
+      );
+    }
+    throw redirect(`/auth/shopify/start?next=${encodeURIComponent(next)}`);
   }
   return session;
 }

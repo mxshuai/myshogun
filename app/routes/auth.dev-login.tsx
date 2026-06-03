@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 
 import type { Route } from "./+types/auth.dev-login";
+import { DEV_LOCAL_SHOP_TOKEN } from "~/lib/server/dev-auth.server";
 import { isProductionRuntime } from "~/lib/server/env";
 import { ensureServerContext } from "~/lib/server/factory";
 import { normalizeShopDomain, upsertShopRecord } from "~/lib/server/page-ops";
@@ -40,6 +41,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     domain: shop,
     name: shop,
   });
+
+  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
+  const envToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const token =
+    envToken &&
+    envShop &&
+    normalizeShopDomain(envShop) === shop
+      ? envToken
+      : DEV_LOCAL_SHOP_TOKEN;
+  await ctx.secrets.setShopToken(shopRecord.id, token);
 
   const destination = resolvePostAuthNext(next, shopRecord.domain);
   return redirect(destination, {

@@ -2,7 +2,7 @@ import type { Data } from "@puckeditor/core";
 
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
-import { publishPageNow, schedulePageUpdate } from "./publish";
+import { cancelPendingJob, publishPageNow, schedulePageUpdate } from "./publish";
 import type { PageIndex, PageStatus, ServerContext } from "./types";
 
 /** Shape consumed by the /pages list UI (mirrors the legacy file-based summary). */
@@ -230,6 +230,18 @@ export async function createPageForShop(
   return { ok: true, path };
 }
 
+/** Cancel EventBridge / dev timer and mark job cancelled, then remove page records. */
+export async function deletePageForShop(
+  ctx: ServerContext,
+  pageId: string,
+): Promise<boolean> {
+  const idx = await ctx.repo.getPageIndex(pageId);
+  if (!idx) return false;
+  await cancelPendingJob(pageId, ctx);
+  await ctx.repo.deletePage(pageId);
+  return true;
+}
+
 export async function deletePageByPath(
   ctx: ServerContext,
   shopId: string,
@@ -237,8 +249,7 @@ export async function deletePageByPath(
 ): Promise<boolean> {
   const idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return false;
-  await ctx.repo.deletePage(idx.pageId);
-  return true;
+  return deletePageForShop(ctx, idx.pageId);
 }
 
 function nextDuplicatePath(path: string, existing: Set<string>): string {
@@ -333,6 +344,17 @@ export async function setPublishedByPath(
  *
  * At run time, Publish Lambda creates the Shopify page if shopifyPageGid is missing.
  */
+export async function unschedulePageByPath(
+  ctx: ServerContext,
+  shopId: string,
+  path: string,
+): Promise<SaveResult> {
+  const idx = await findIndexByPath(ctx, shopId, path);
+  if (!idx) return { ok: false, error: "Page not found" };
+  await cancelPendingJob(idx.pageId, ctx);
+  return { ok: true, path };
+}
+
 export async function setScheduledByPath(
   ctx: ServerContext,
   shopId: string,
@@ -340,8 +362,14 @@ export async function setScheduledByPath(
   scheduledPublishAt: string,
   timezone = "UTC",
 ): Promise<SaveResult> {
-  const idx = await findIndexByPath(ctx, shopId, path);
+  let idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return { ok: false, error: "Page not found" };
+
+  if (idx.pendingJobId) {
+    await cancelPendingJob(idx.pageId, ctx);
+    idx = await findIndexByPath(ctx, shopId, path);
+    if (!idx) return { ok: false, error: "Page not found" };
+  }
 
   const runAt = new Date(scheduledPublishAt);
   if (Number.isNaN(runAt.getTime())) {

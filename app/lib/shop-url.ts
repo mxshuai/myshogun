@@ -8,6 +8,24 @@ export function decodeShopDomainParam(param: string): string {
   return decodeURIComponent(param);
 }
 
+/** `/shop/:shopDomain/...` → domain, or null. */
+export function shopDomainFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/shop\/([^/]+)/);
+  if (!match) return null;
+  try {
+    return decodeShopDomainParam(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+export function devLoginUrl(shopDomain: string | null, next: string): string {
+  const params = new URLSearchParams();
+  if (shopDomain) params.set("shop", shopDomain);
+  params.set("next", next);
+  return `/auth/dev-login?${params.toString()}`;
+}
+
 export function shopBasePath(domain: string): string {
   return `/shop/${encodeShopDomainParam(domain)}`;
 }

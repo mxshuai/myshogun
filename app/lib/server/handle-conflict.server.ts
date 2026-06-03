@@ -1,4 +1,6 @@
-import { createAdminClient } from "./shopify";
+import { isDevPlaceholderShopToken } from "./dev-auth.server";
+import { isProductionRuntime } from "./env";
+import { createAdminClient, ShopifyApiError } from "./shopify";
 import { normalizeHandle } from "./page-ops";
 import type { PageIndex, ServerContext } from "./types";
 
@@ -33,26 +35,35 @@ async function findShopifyPageByHandle(
   const shop = await ctx.repo.getShop(shopId);
   if (!shop) return null;
   const token = await ctx.secrets.getShopToken(shopId);
-  if (!token) return null;
+  if (!token || isDevPlaceholderShopToken(token)) return null;
 
   const client = createAdminClient({
     shopDomain: shop.domain,
     accessToken: token,
   });
 
-  let after: string | undefined;
-  do {
-    const batch = await client.listPages({ first: 50, after });
-    for (const node of batch.nodes) {
-      if (node.handle === handle) {
-        return { id: node.id, title: node.title };
+  try {
+    let after: string | undefined;
+    do {
+      const batch = await client.listPages({ first: 50, after });
+      for (const node of batch.nodes) {
+        if (node.handle === handle) {
+          return { id: node.id, title: node.title };
+        }
       }
+      if (!batch.pageInfo.hasNextPage) break;
+      after = batch.pageInfo.endCursor ?? undefined;
+    } while (after);
+    return null;
+  } catch (e) {
+    if (!isProductionRuntime() && e instanceof ShopifyApiError) {
+      console.warn(
+        `[handle-conflict] Shopify lookup skipped (${e.status ?? "error"}): ${e.message}`,
+      );
+      return null;
     }
-    if (!batch.pageInfo.hasNextPage) break;
-    after = batch.pageInfo.endCursor ?? undefined;
-  } while (after);
-
-  return null;
+    throw e;
+  }
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   listPagesForShop,
   setPublishedByPath,
   setScheduledByPath,
+  unschedulePageByPath,
 } from "~/lib/server/page-service.server";
 import { requireShopRouteContext } from "~/lib/server/shop-route.server";
 import {
@@ -102,6 +103,18 @@ export async function action({ params, request }: Route.ActionArgs) {
         { ok: false as const, error: errors.join("; ") },
         { status: 400 },
       );
+    }
+    return data({ ok: true as const });
+  }
+
+  if (intent === "unschedule") {
+    const pagePath = normalizePagePath(form.get("pagePath"));
+    if (!pagePath) {
+      return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
+    }
+    const result = await unschedulePageByPath(ctx, shopId, pagePath);
+    if (!result.ok) {
+      return data({ ok: false as const, error: result.error }, { status: 400 });
     }
     return data({ ok: true as const });
   }

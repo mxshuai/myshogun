@@ -57,19 +57,31 @@ export function VisbuildEditorHeader({
             overflow-y: hidden !important;
             min-height: 0 !important;
           }
-          [class*="PuckHeader-inner"],
-          [class*="PuckHeader-actions"],
-          [class*="PuckHeader-right"] {
+          /* 保持 Puck 默认 grid：left | middle | right，避免工具栏挤到左侧 */
+          [class*="PuckHeader-inner"] {
+            display: grid !important;
+            align-items: center !important;
+            overflow: visible !important;
+          }
+          [class*="PuckHeader-toggle"] {
+            grid-area: left;
+          }
+          [class*="PuckHeader-title"] {
+            grid-area: middle;
+            visibility: hidden !important;
+            min-height: 1.35rem;
+          }
+          [class*="PuckHeader-tools"] {
+            grid-area: right;
+            justify-self: end;
             display: flex !important;
             align-items: center !important;
             flex-wrap: nowrap !important;
-            gap: 8px;
             overflow: visible !important;
-            max-height: 100%;
           }
-          [class*="PuckHeader-title"] {
-            visibility: hidden !important;
-            min-height: 1.35rem;
+          [class*="MenuBar-inner"] {
+            flex-wrap: nowrap !important;
+            justify-content: flex-end !important;
           }
         `}
       </style>

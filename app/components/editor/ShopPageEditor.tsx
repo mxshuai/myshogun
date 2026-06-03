@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useFetcher, useNavigate, useRevalidator } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFetcher, useNavigate } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { Puck } from "@puckeditor/core";
 
@@ -30,7 +30,6 @@ export function ShopPageEditor({
 }) {
   const fetcher = useFetcher();
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
   const [showViewModal, setShowViewModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [editorData, setEditorData] = useState<Data>(initialData);
@@ -40,24 +39,38 @@ export function ShopPageEditor({
 
   const busy = fetcher.state !== "idle";
   const editHref = (pagePath: string) => shopEditPath(shopDomain, pagePath);
+  /** 同一轮 fetcher 响应只处理一次，避免 revalidate 后重复请求 edit.data */
+  const handledFetcherDataRef = useRef<unknown>(null);
+  const editorDataRef = useRef(editorData);
+  editorDataRef.current = editorData;
 
   useEffect(() => {
     setEditorData(initialData);
     setSavedData(initialData);
     setPageMeta(initialPageMeta);
-  }, [initialData, initialPageMeta]);
+  }, [path]);
+
+  useEffect(() => {
+    if (fetcher.state === "submitting" || fetcher.state === "loading") {
+      handledFetcherDataRef.current = null;
+    }
+  }, [fetcher.state]);
 
   useEffect(() => {
     if (fetcher.state !== "idle") return;
     const d = fetcher.data as EditorActionResult | undefined;
     if (!d) return;
+    if (handledFetcherDataRef.current === d) return;
+    handledFetcherDataRef.current = d;
+
     if (d.ok === false && typeof d.error === "string") {
       setActionError(d.error);
       return;
     }
     if (d.ok) {
       setActionError(null);
-      setSavedData(editorData);
+      const snapshot = editorDataRef.current;
+      setSavedData(snapshot);
       if (d.status === "published") {
         setPageMeta((m) =>
           m
@@ -81,6 +94,21 @@ export function ShopPageEditor({
               }
             : m,
         );
+      } else if (
+        d.status === "dirty" ||
+        d.status === "draft" ||
+        d.status === "published"
+      ) {
+        setPageMeta((m) =>
+          m
+            ? {
+                ...m,
+                status: d.status!,
+                scheduledPublishAt: null,
+                pendingJobId: null,
+              }
+            : m,
+        );
       } else if (d.pageId && d.status) {
         setPageMeta({
           pageId: d.pageId,
@@ -91,20 +119,11 @@ export function ShopPageEditor({
       } else if (d.status) {
         setPageMeta((m) => (m ? { ...m, status: d.status! } : m));
       }
-      revalidator.revalidate();
       if (d.path && d.path !== path) {
         navigate(editHref(d.path));
       }
     }
-  }, [
-    fetcher.state,
-    fetcher.data,
-    editorData,
-    path,
-    navigate,
-    shopDomain,
-    revalidator,
-  ]);
+  }, [fetcher.state, fetcher.data, path, navigate, shopDomain]);
 
   const submitAction = useCallback(
     (payload: Record<string, unknown>) => {
@@ -115,6 +134,10 @@ export function ShopPageEditor({
     },
     [fetcher],
   );
+
+  const saveEditor = useCallback(() => {
+    submitAction({ intent: "save", data: editorDataRef.current });
+  }, [submitAction]);
 
   const persistPage = useCallback(
     (next: Data) => {
@@ -187,7 +210,7 @@ export function ShopPageEditor({
                 savedData={savedData}
                 busy={busy}
                 actionError={actionError}
-                onSave={() => submitAction({ intent: "save", data: editorData })}
+                onSave={saveEditor}
                 onPublish={() =>
                   submitAction({ intent: "publish", data: editorData })
                 }
@@ -206,6 +229,9 @@ export function ShopPageEditor({
                     runAt,
                     timezone,
                   })
+                }
+                onUnschedule={() =>
+                  submitAction({ intent: "unschedule", data: editorData })
                 }
               />
             </div>

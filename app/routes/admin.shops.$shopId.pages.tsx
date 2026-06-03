@@ -8,6 +8,7 @@ import {
   normalizeHandle,
   visbuildDataFromShopifyBody,
 } from "~/lib/server/page-ops";
+import { deletePageForShop } from "~/lib/server/page-service.server";
 import { savePageDraft } from "~/lib/server/publish";
 import { createAdminClient } from "~/lib/server/shopify";
 
@@ -107,7 +108,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === "delete") {
     const pageId = String(form.get("pageId") ?? "");
-    if (pageId) await ctx.repo.deletePage(pageId);
+    if (pageId) await deletePageForShop(ctx, pageId);
     return data({ ok: true });
   }
 

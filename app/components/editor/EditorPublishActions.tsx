@@ -41,12 +41,20 @@ function resolveMode(
   return "publish-split";
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function nowDatetimeLocalValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 function isoToDatetimeLocalValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 export function EditorPublishActions({
@@ -59,6 +67,7 @@ export function EditorPublishActions({
   onPublish,
   onSchedule,
   onReschedule,
+  onUnschedule,
 }: {
   pageMeta: EditorPageMeta | null;
   editorData: Data;
@@ -69,11 +78,13 @@ export function EditorPublishActions({
   onPublish: () => void;
   onSchedule: (runAtIso: string, timezone: string) => void;
   onReschedule: (runAtIso: string, timezone: string) => void;
+  onUnschedule: () => void;
 }) {
   const isDirty = !dataEquals(editorData, savedData);
   const mode = resolveMode(pageMeta, isDirty);
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [publishOn, setPublishOn] = useState(true);
   const [scheduleAt, setScheduleAt] = useState("");
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [rescheduleMode, setRescheduleMode] = useState(false);
@@ -81,18 +92,46 @@ export function EditorPublishActions({
   const openScheduleDialog = useCallback(
     (forReschedule: boolean) => {
       setRescheduleMode(forReschedule);
-      setScheduleAt(
-        forReschedule && pageMeta?.scheduledPublishAt
-          ? isoToDatetimeLocalValue(pageMeta.scheduledPublishAt)
-          : "",
-      );
+      const hasSchedule =
+        forReschedule &&
+        Boolean(pageMeta?.scheduledPublishAt || pageMeta?.status === "scheduled");
+      if (hasSchedule) {
+        setPublishOn(true);
+        setScheduleAt(
+          pageMeta?.scheduledPublishAt
+            ? isoToDatetimeLocalValue(pageMeta.scheduledPublishAt)
+            : nowDatetimeLocalValue(),
+        );
+      } else {
+        setPublishOn(true);
+        setScheduleAt(nowDatetimeLocalValue());
+      }
       setScheduleError(null);
       setScheduleOpen(true);
     },
-    [pageMeta?.scheduledPublishAt],
+    [pageMeta?.scheduledPublishAt, pageMeta?.status],
   );
 
+  const handlePublishOnChange = (checked: boolean) => {
+    setPublishOn(checked);
+    if (checked) {
+      setScheduleAt((prev) => prev.trim() || nowDatetimeLocalValue());
+    } else {
+      setScheduleAt("");
+    }
+    setScheduleError(null);
+  };
+
   const confirmSchedule = () => {
+    if (!publishOn) {
+      if (pageMeta?.status === "scheduled" || pageMeta?.pendingJobId) {
+        onUnschedule();
+      }
+      setScheduleOpen(false);
+      setScheduleError(null);
+      return;
+    }
+
     if (!scheduleAt.trim()) {
       setScheduleError("Choose date and time");
       return;
@@ -113,6 +152,7 @@ export function EditorPublishActions({
       onSchedule(local.toISOString(), tz);
     }
     setScheduleOpen(false);
+    setScheduleError(null);
   };
 
   useEffect(() => {
@@ -126,6 +166,23 @@ export function EditorPublishActions({
   useEffect(() => {
     if (actionError) setScheduleError(actionError);
   }, [actionError]);
+
+  const scheduleDialog = scheduleOpen ? (
+    <ScheduleDialog
+      title={rescheduleMode ? "Edit scheduling" : "Schedule publish"}
+      publishOn={publishOn}
+      scheduleAt={scheduleAt}
+      scheduleError={scheduleError}
+      busy={busy}
+      onPublishOnChange={handlePublishOnChange}
+      onChange={setScheduleAt}
+      onClose={() => {
+        setScheduleOpen(false);
+        setScheduleError(null);
+      }}
+      onConfirm={confirmSchedule}
+    />
+  ) : null;
 
   if (mode === "published-badge") {
     return (
@@ -200,17 +257,7 @@ export function EditorPublishActions({
             },
           ]}
         />
-        {scheduleOpen ? (
-          <ScheduleDialog
-            title="Edit scheduling"
-            scheduleAt={scheduleAt}
-            scheduleError={scheduleError}
-            busy={busy}
-            onChange={setScheduleAt}
-            onClose={() => setScheduleOpen(false)}
-            onConfirm={confirmSchedule}
-          />
-        ) : null}
+        {scheduleDialog}
       </>
     );
   }
@@ -230,17 +277,7 @@ export function EditorPublishActions({
           },
         ]}
       />
-      {scheduleOpen ? (
-        <ScheduleDialog
-          title="Schedule publish"
-          scheduleAt={scheduleAt}
-          scheduleError={scheduleError}
-          busy={busy}
-          onChange={setScheduleAt}
-          onClose={() => setScheduleOpen(false)}
-          onConfirm={confirmSchedule}
-        />
-      ) : null}
+      {scheduleDialog}
     </>
   );
 }
@@ -249,21 +286,27 @@ const accent = "#7c3aed";
 
 function ScheduleDialog({
   title,
+  publishOn,
   scheduleAt,
   scheduleError,
   busy,
+  onPublishOnChange,
   onChange,
   onClose,
   onConfirm,
 }: {
   title: string;
+  publishOn: boolean;
   scheduleAt: string;
   scheduleError: string | null;
   busy: boolean;
+  onPublishOnChange: (checked: boolean) => void;
   onChange: (v: string) => void;
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const confirmDisabled = busy || (publishOn && !scheduleAt.trim());
+
   return (
     <div
       style={{
@@ -290,9 +333,27 @@ function ScheduleDialog({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: "0 0 12px", fontSize: "1.1rem" }}>{title}</h2>
-        <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#64748b" }}>
-          Local time. Must be at least 1 minute in the future.
+        <h2 style={{ margin: "0 0 16px", fontSize: "1.1rem" }}>{title}</h2>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 12,
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={publishOn}
+            onChange={(e) => onPublishOnChange(e.target.checked)}
+          />
+          Publish page on…
+        </label>
+        <p style={{ margin: "0 0 8px", fontSize: "0.875rem", color: "#64748b" }}>
+          Your page will be published on the day and time you specify.
         </p>
         {scheduleError ? (
           <p role="alert" style={{ color: "#b91c1c", fontSize: "0.875rem" }}>
@@ -302,6 +363,8 @@ function ScheduleDialog({
         <input
           type="datetime-local"
           value={scheduleAt}
+          disabled={!publishOn}
+          required={publishOn}
           onChange={(e) => onChange(e.target.value)}
           style={{
             width: "100%",
@@ -310,6 +373,9 @@ function ScheduleDialog({
             border: "1px solid #e5e7eb",
             marginBottom: 16,
             boxSizing: "border-box",
+            background: publishOn ? "#fff" : "#f8fafc",
+            color: publishOn ? "#111827" : "#94a3b8",
+            cursor: publishOn ? "text" : "not-allowed",
           }}
         />
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -318,7 +384,7 @@ function ScheduleDialog({
           </button>
           <button
             type="button"
-            disabled={!scheduleAt.trim() || busy}
+            disabled={confirmDisabled}
             onClick={onConfirm}
             style={{
               padding: "8px 14px",
@@ -327,7 +393,7 @@ function ScheduleDialog({
               background: accent,
               color: "#fff",
               fontWeight: 600,
-              cursor: !scheduleAt.trim() || busy ? "not-allowed" : "pointer",
+              cursor: confirmDisabled ? "not-allowed" : "pointer",
             }}
           >
             Confirm

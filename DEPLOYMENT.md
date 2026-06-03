@@ -126,6 +126,83 @@ npm run preview:amplify
 
 会按 `?shop=` upsert 一个 dev 店铺到 dev repo 并下发 `shop_session`，随后即可在本地增删改页面。
 
+若 `.env.production.local` 中 `SHOPIFY_SHOP_DOMAIN` 与 `SHOPIFY_ACCESS_TOKEN` 与 `?shop=` 一致，dev-login 会写入真实 token，列表「Shopify」标签可拉取线上页面；否则使用占位 token，仅验证本应用内页面流程。
+
+---
+
+## 本地环境验证方案（场景 A，`npm run dev`）
+
+**前置**
+
+1. `.env.production.local` 中设置 `USE_AWS_DATA_LAYER=false`。
+2. `Ctrl+C` 后执行 `npm run dev`，确认终端无 `Missing Shopify OAuth env`。
+3. 浏览器登录（店铺域名与后续 URL 一致）：
+
+```
+http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
+```
+
+**页面列表 `/shop/<shop>/pages`**
+
+| 步骤 | 操作 | 预期 |
+|------|------|------|
+| L1 | 新建页面并进入编辑 | 创建成功，跳转编辑 URL |
+| L2 | 行菜单 → **Schedule**，勾选 **Publish page on…**，选未来 1 分钟以上时间 → Save | 状态 **Scheduled**，列表显示定时时间 |
+| L3 | 再次打开 Schedule，**取消勾选** → Save | 状态回到 Draft / Outdated 等，定时取消 |
+| L4 | 对已发布页再 **Schedule** 并保存 | 可重新变为 Scheduled |
+| L5 | 删除 **Scheduled** 行 | 删除成功；到点 **不应** 再触发 Publish（本地为 dev 定时器，删除后 timer 已取消） |
+| L6 | Network：保存或定时后 | **不应** 连续刷 `pages.data` / `edit.data` |
+
+**编辑页顶栏 `/shop/<shop>/…/edit`**
+
+| 步骤 | 操作 | 预期 |
+|------|------|------|
+| E1 | 有未保存改动，非 scheduled / 非 published | 主按钮 **Save** |
+| E2 | 保存后（draft） | **Publish** 分裂按钮 +「Schedule publish」 |
+| E3 | 已 **Published** 且无未保存改动 | 灰色 **Published** 徽章，不可点 |
+| E4 | 已 **Published** 且有未保存改动 | **Save**（非 Published 徽章） |
+| E5 | **Scheduled** 且有改动 | **Scheduled** 分裂按钮；约 800ms 自动保存 |
+| E6 | **Edit scheduling** / **Schedule publish** 弹框 | 提示语固定为 *Your page will be published on the day and time you specify.*；勾选才可填时间，默认当前时间；取消勾选并 Confirm 取消定时 |
+| E7 | Preview、Publish 等按钮 | 位于顶栏**右侧**，无纵向滚动条 |
+
+**可选（场景 B）**：`USE_AWS_DATA_LAYER=true` + 本机 AWS 凭证，重复 L2/L5，在 DynamoDB 与 CloudWatch 中确认 job 与 Schedule 行为与生产一致。
+
+---
+
+## 线上环境验证方案（场景 D，Amplify 生产）
+
+**前置**
+
+1. 代码已 push 到部署分支，Amplify 构建 **Succeeded**。
+2. 控制台环境变量已配置（至少）：`USE_AWS_DATA_LAYER=true`、`SHOPIFY_*`、`SCOPES`、`APP_TABLE_NAME`、`PUBLISH_LAMBDA_ARN`、`SCHEDULE_LAMBDA_ARN`、compute 角色对 Schedule Lambda 的 `lambda:Invoke`。详见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md)。
+3. Publish / Schedule Lambda 已为 **CJS** 包（见 `npm run verify:lambda-bundle` 与部署脚本）。
+
+**登录与隔离**
+
+| 步骤 | 操作 | 预期 |
+|------|------|------|
+| P0 | 访问生产 URL，完成 Shopify OAuth | 进入 `/shop/<shop>/pages` |
+| P1 | 多标签打开不同 `shop` 的 URL | 页面数据按 URL 店铺隔离，不串店 |
+| P2 | 访问 `/auth/dev-login` | **404**（生产后门关闭） |
+
+**功能（与本地表格 L1–L6、E1–E7 相同，在生产域名执行）**
+
+| 重点 | 生产额外确认 |
+|------|----------------|
+| 定时发布 | Schedule 后 DynamoDB 页面 `status=scheduled`、`pendingJobId` 有值；EventBridge 存在对应 schedule；到点 Publish Lambda 执行成功，Shopify 可见页面 |
+| 取消定时 | 列表/编辑弹框取消勾选并保存，或删除 Scheduled 页面前，EventBridge schedule 已删除，job 为 `cancelled` |
+| 发布 | **Publish** 立即推 Shopify；已发布再编辑保存为 **Outdated**（列表红色） |
+| 构建 | 浏览器 Network 无 `edit.data` / `pages.data` 无限轮询 |
+
+**发布后冒烟（建议顺序）**
+
+1. OAuth 登录 → 新建页 → 保存 → Publish → Shopify Admin 可见页面。
+2. Schedule 2–3 分钟后 → 等待 → 刷新 Shopify 与列表状态为 Published。
+3. 编辑 Scheduled 页取消勾选定时 → 列表状态恢复非 Scheduled。
+4. 删除带定时的页面 → 确认 CloudWatch 无持续失败的 Publish 调用。
+
+**回滚**：Amplify 控制台 Redeploy 上一成功构建，或 Git revert 后重新部署。
+
 ---
 
 ## Shopify 管理后台（阶段一）

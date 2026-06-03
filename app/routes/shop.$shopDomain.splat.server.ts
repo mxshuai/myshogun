@@ -83,7 +83,8 @@ type EditorActionBody =
       data: Data;
       runAt: string;
       timezone: string;
-    };
+    }
+  | { intent: "unschedule"; data: Data };
 
 function parseEditorBody(raw: unknown): EditorActionBody | null {
   if (!raw || typeof raw !== "object") return null;
@@ -94,12 +95,13 @@ function parseEditorBody(raw: unknown): EditorActionBody | null {
     intent !== "save" &&
     intent !== "publish" &&
     intent !== "schedule" &&
-    intent !== "reschedule"
+    intent !== "reschedule" &&
+    intent !== "unschedule"
   ) {
     return null;
   }
   if (!payload || typeof payload !== "object") return null;
-  if (intent === "save" || intent === "publish") {
+  if (intent === "save" || intent === "publish" || intent === "unschedule") {
     return { intent, data: payload as Data };
   }
   const runAt = typeof b.runAt === "string" ? b.runAt : "";
@@ -211,6 +213,18 @@ export async function action({ params, request }: Route.ActionArgs) {
         status: "scheduled" as const,
         jobId,
         runAt: runAt.toISOString(),
+      });
+    }
+
+    if (body.intent === "unschedule") {
+      await savePageByPath(ctx, shop.id, path, body.data, desired);
+      await cancelPendingJob(meta.pageId, ctx);
+      const updated = await getEditorPageMeta(ctx, shop.id, desired);
+      return data({
+        ok: true as const,
+        path: desired,
+        pageId: meta.pageId,
+        status: updated?.status ?? ("dirty" as const),
       });
     }
   } catch (e) {

@@ -17,12 +17,20 @@ import { shopEditPath } from "~/lib/shop-url";
 const accent = "#7c3aed";
 const danger = "#7c3aed";
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function nowDatetimeLocalValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 /** ISO 8601 → `<input type="datetime-local">` 值（本地时区） */
 function isoToDatetimeLocalValue(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 function statusLabel(s: PageStatus): string {
@@ -178,6 +186,8 @@ export function PagesList({
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleTarget, setScheduleTarget] = useState<string | null>(null);
+  const [scheduleHadPending, setScheduleHadPending] = useState(false);
+  const [publishOn, setPublishOn] = useState(true);
   const [scheduleAt, setScheduleAt] = useState("");
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [shopifyFilter, setShopifyFilter] = useState<string>("all");
@@ -311,24 +321,62 @@ export function PagesList({
 
   const openSchedule = (
     pagePath: string,
-    existingScheduledAt?: string | null
+    existingScheduledAt?: string | null,
+    isScheduled?: boolean,
   ) => {
+    const hadPending = Boolean(isScheduled || existingScheduledAt?.trim());
     setScheduleTarget(pagePath);
+    setScheduleHadPending(hadPending);
+    setPublishOn(true);
     setScheduleAt(
       existingScheduledAt?.trim()
         ? isoToDatetimeLocalValue(existingScheduledAt)
-        : ""
+        : nowDatetimeLocalValue(),
     );
     setScheduleError(null);
     setScheduleOpen(true);
     setMenuPath(null);
   };
 
+  const handlePublishOnChange = (checked: boolean) => {
+    setPublishOn(checked);
+    if (checked) {
+      setScheduleAt((prev) => prev.trim() || nowDatetimeLocalValue());
+    } else {
+      setScheduleAt("");
+    }
+    setScheduleError(null);
+  };
+
   const confirmSchedule = () => {
-    if (!scheduleTarget || !scheduleAt.trim()) return;
+    if (!scheduleTarget) return;
+
+    if (!publishOn) {
+      if (scheduleHadPending) {
+        setScheduleError(null);
+        fetcher.submit(
+          { intent: "unschedule", pagePath: scheduleTarget },
+          { method: "post", action: pagesAction },
+        );
+      } else {
+        setScheduleOpen(false);
+        setScheduleTarget(null);
+        setScheduleError(null);
+      }
+      return;
+    }
+
+    if (!scheduleAt.trim()) {
+      setScheduleError("Choose date and time");
+      return;
+    }
     const local = new Date(scheduleAt);
     if (Number.isNaN(local.getTime())) {
       setScheduleError("Invalid date and time");
+      return;
+    }
+    if (local.getTime() < Date.now() + 60_000) {
+      setScheduleError("Schedule must be at least 1 minute in the future");
       return;
     }
     setScheduleError(null);
@@ -339,7 +387,7 @@ export function PagesList({
         scheduledAt: local.toISOString(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       },
-      { method: "post", action: pagesAction }
+      { method: "post", action: pagesAction },
     );
   };
 
@@ -734,7 +782,11 @@ export function PagesList({
                             submitIntent("publish", { pagePath: row.path })
                           }
                           onSchedule={() =>
-                            openSchedule(row.path, row.scheduledPublishAt)
+                            openSchedule(
+                              row.path,
+                              row.scheduledPublishAt,
+                              row.status === "scheduled",
+                            )
                           }
                           onDuplicate={() =>
                             submitIntent("duplicate", {
@@ -1078,13 +1130,29 @@ export function PagesList({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ margin: "0 0 12px", fontSize: "1.1rem" }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: "1.1rem" }}>
               Schedule publish
             </h2>
-            <p style={{ margin: "0 0 12px", fontSize: "0.875rem", color: "#64748b" }}>
-              Choose date and time (local). Draft pages will be created on Shopify
-              at the scheduled time if needed. Schedule must be at least 1 minute
-              in the future.
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 12,
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={publishOn}
+                onChange={(e) => handlePublishOnChange(e.target.checked)}
+              />
+              Publish page on…
+            </label>
+            <p style={{ margin: "0 0 8px", fontSize: "0.875rem", color: "#64748b" }}>
+              Your page will be published on the day and time you specify.
             </p>
             {scheduleError ? (
               <p
@@ -1101,6 +1169,8 @@ export function PagesList({
             <input
               type="datetime-local"
               value={scheduleAt}
+              disabled={!publishOn}
+              required={publishOn}
               onChange={(e) => setScheduleAt(e.target.value)}
               style={{
                 width: "100%",
@@ -1108,6 +1178,10 @@ export function PagesList({
                 borderRadius: 6,
                 border: "1px solid #e5e7eb",
                 marginBottom: 16,
+                boxSizing: "border-box",
+                background: publishOn ? "#fff" : "#f8fafc",
+                color: publishOn ? "#111827" : "#94a3b8",
+                cursor: publishOn ? "text" : "not-allowed",
               }}
             />
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -1127,7 +1201,7 @@ export function PagesList({
               <button
                 type="button"
                 onClick={confirmSchedule}
-                disabled={!scheduleAt.trim() || busy}
+                disabled={busy || (publishOn && !scheduleAt.trim())}
                 style={{
                   padding: "8px 14px",
                   borderRadius: 6,
@@ -1135,7 +1209,10 @@ export function PagesList({
                   background: accent,
                   color: "#fff",
                   fontWeight: 600,
-                  cursor: !scheduleAt.trim() || busy ? "not-allowed" : "pointer",
+                  cursor:
+                    busy || (publishOn && !scheduleAt.trim())
+                      ? "not-allowed"
+                      : "pointer",
                 }}
               >
                 Save

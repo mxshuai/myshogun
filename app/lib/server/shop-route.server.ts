@@ -1,4 +1,7 @@
-import { decodeShopDomainParam } from "~/lib/shop-url";
+import { redirect } from "react-router";
+
+import { decodeShopDomainParam, devLoginUrl } from "~/lib/shop-url";
+import { isProductionRuntime } from "./env";
 import { requireShopSession } from "./auth.server";
 import { normalizeShopDomain } from "./page-ops";
 import { beginShopifyOAuth } from "./shopify-oauth.server";
@@ -33,11 +36,11 @@ export async function requireShopRouteContext(
   const token = await ctx.secrets.getShopToken(shop.id);
   if (!token) {
     const url = new URL(request.url);
-    return beginShopifyOAuth(
-      request,
-      shop.domain,
-      url.pathname + url.search,
-    ) as never;
+    const next = url.pathname + url.search;
+    if (!isProductionRuntime()) {
+      throw redirect(devLoginUrl(shop.domain, next));
+    }
+    return beginShopifyOAuth(request, shop.domain, next) as never;
   }
 
   return { shop, session };

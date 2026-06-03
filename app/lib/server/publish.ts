@@ -259,12 +259,15 @@ export async function cancelPendingJob(
   ctx: ServerContext
 ): Promise<void> {
   const index = await ctx.repo.getPageIndex(pageId);
-  if (!index?.pendingJobId) return;
+  if (!index) return;
 
-  await ctx.repo.cancelJob(index.pendingJobId);
-  await ctx.scheduler.cancel(index.pendingJobId);
+  if (index.pendingJobId) {
+    await ctx.repo.cancelJob(index.pendingJobId);
+    await ctx.scheduler.cancel(index.pendingJobId);
+    index.pendingJobId = null;
+  }
 
-  index.pendingJobId = null;
+  index.scheduledPublishAt = null;
   if (index.status === "scheduled") index.status = "dirty";
   await ctx.repo.putPageIndex(index);
 }
