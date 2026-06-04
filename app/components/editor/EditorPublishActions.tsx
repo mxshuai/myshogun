@@ -311,7 +311,6 @@ function ScheduleDialog({
         zIndex: 200,
       }}
       role="presentation"
-      onClick={onClose}
     >
       <div
         role="dialog"
@@ -323,7 +322,6 @@ function ScheduleDialog({
           minWidth: 320,
           boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         <h2 style={{ margin: "0 0 16px", fontSize: "1.1rem" }}>{title}</h2>
         <label

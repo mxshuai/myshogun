@@ -1116,7 +1116,6 @@ export function PagesList({
             zIndex: 100,
           }}
           role="presentation"
-          onClick={() => setScheduleOpen(false)}
         >
           <div
             role="dialog"
@@ -1128,7 +1127,6 @@ export function PagesList({
               minWidth: 320,
               boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ margin: "0 0 16px", fontSize: "1.1rem" }}>
               Schedule publish

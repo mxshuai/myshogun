@@ -35,7 +35,6 @@ function ModalShell({
         zIndex: 300,
       }}
       role="presentation"
-      onClick={onClose}
       data-puck-rte-menu
     >
       <div
