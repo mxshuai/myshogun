@@ -22,6 +22,18 @@
   height: auto;
 }
 
+.visbuild-text a,
+.visbuild-text--editing .ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.visbuild-text a.visbuild-link-no-underline,
+.visbuild-text--editing .ProseMirror a.visbuild-link-no-underline {
+  text-decoration: none !important;
+}
+
 /* 画布 inline 编辑：确保可点击、可选中 */
 .visbuild-text--editing,
 .visbuild-text--editing .rich-text,

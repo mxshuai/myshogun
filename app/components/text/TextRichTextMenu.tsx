@@ -14,12 +14,16 @@ import {
   readTextEditorUiState,
   runEditorChainOnScope,
   setTextStyleMark,
+  toggleTextUnderline,
 } from "./text-tiptap-extensions";
 import {
   ImageInsertModal,
   LinkInsertModal,
   SourceCodeModal,
 } from "./TextInsertModals";
+import { readLinkFormFromEditor } from "./text-link-utils";
+import { useSyncTextHtmlToPuck } from "./text-puck-sync";
+import { resolveTextEditor } from "./use-active-text-editor";
 
 const sectionLabel: React.CSSProperties = {
   fontSize: "0.75rem",
@@ -127,24 +131,34 @@ function SidebarPxInput({
   );
 }
 
-export function TextRichTextMenu({ children, editor, editorState }: MenuProps) {
+export function TextRichTextMenu({ children, editor: sidebarEditor, editorState }: MenuProps) {
   const [modal, setModal] = useState<"link" | "image" | "code" | null>(null);
+  const linkSnapshotRef = useRef<ReturnType<typeof readLinkFormFromEditor> | null>(
+    null,
+  );
   const [, refresh] = useReducer((n: number) => n + 1, 0);
+  const syncHtmlToPuck = useSyncTextHtmlToPuck();
+  const editor = resolveTextEditor(sidebarEditor);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || modal) return;
     const onUpdate = () => refresh();
     editor.on("selectionUpdate", onUpdate);
     return () => {
       editor.off("selectionUpdate", onUpdate);
     };
-  }, [editor]);
+  }, [editor, modal]);
 
   const st = editor ? readTextEditorUiState(editor) : emptyTextEditorUiState();
   const readOnly = Boolean(
     (editorState as { readOnly?: boolean } | null)?.readOnly,
   );
   const canEdit = Boolean(editor) && !readOnly;
+
+  const afterModalApply = (ed: Editor) => {
+    syncHtmlToPuck(ed);
+    refresh();
+  };
 
   if (!editor) {
     return <RichTextMenu>{children}</RichTextMenu>;
@@ -175,12 +189,14 @@ export function TextRichTextMenu({ children, editor, editorState }: MenuProps) {
           />
           <RichTextMenu.Control
             title="Underline"
-            active={editor.isActive("underline")}
+            active={Boolean(st.isUnderline)}
             disabled={!canEdit}
             icon={<span style={{ textDecoration: "underline" }}>U</span>}
-            onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleUnderline())
-            }
+            onClick={() => {
+              toggleTextUnderline(editor);
+              syncHtmlToPuck(editor);
+              refresh();
+            }}
           />
           <RichTextMenu.Control
             title="Strikethrough"
@@ -385,7 +401,12 @@ export function TextRichTextMenu({ children, editor, editorState }: MenuProps) {
           <button
             type="button"
             disabled={!canEdit}
-            onClick={() => setModal("link")}
+            onClick={() => {
+              if (editor) {
+                linkSnapshotRef.current = readLinkFormFromEditor(editor);
+              }
+              setModal("link");
+            }}
             style={toolBtn}
           >
             Link
@@ -427,14 +448,29 @@ export function TextRichTextMenu({ children, editor, editorState }: MenuProps) {
         </button>
       </div>
 
-      {modal === "link" ? (
-        <LinkInsertModal editor={editor} onClose={() => setModal(null)} />
+      {modal === "link" && linkSnapshotRef.current ? (
+        <LinkInsertModal
+          key={`link-${linkSnapshotRef.current.form.url}-${linkSnapshotRef.current.range?.from ?? 0}`}
+          editor={editor}
+          initial={linkSnapshotRef.current}
+          onClose={() => setModal(null)}
+          onApplied={afterModalApply}
+        />
       ) : null}
       {modal === "image" ? (
-        <ImageInsertModal editor={editor} onClose={() => setModal(null)} />
+        <ImageInsertModal
+          editor={editor}
+          onClose={() => setModal(null)}
+        />
       ) : null}
       {modal === "code" ? (
-        <SourceCodeModal editor={editor} onClose={() => setModal(null)} />
+        <SourceCodeModal
+          editor={editor}
+          onClose={() => {
+            syncHtmlToPuck(editor);
+            setModal(null);
+          }}
+        />
       ) : null}
     </>
   );

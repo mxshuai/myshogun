@@ -1093,6 +1093,8 @@ body {
 .visbuild-text p:last-child { margin-bottom: 0; }
 .visbuild-text ul.visbuild-list-dash { list-style-type: "– "; padding-left: 1.25em; }
 .visbuild-text img { max-width: 100%; height: auto; }
+.visbuild-text a { color: #2563eb; text-decoration: underline; }
+.visbuild-text a.visbuild-link-no-underline { text-decoration: none; }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

@@ -1,4 +1,5 @@
 import { isValidElement, type ReactNode } from "react";
+import type { Editor } from "@tiptap/react";
 import type { ComponentConfig } from "@puckeditor/core";
 import { RichTextMenu } from "@puckeditor/core";
 
@@ -6,6 +7,7 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
 import { DEFAULT_TEXT_HTML } from "./text/text-defaults";
+import { TextInlineEditorBridge } from "./text/TextInlineEditorBridge";
 import { TextRichTextMenu } from "./text/TextRichTextMenu";
 import { textTiptapExtensions } from "./text/text-tiptap-extensions";
 
@@ -60,10 +62,7 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
       contentEditable: true,
       options: {
         heading: { levels: [1, 2, 3, 4, 5, 6] },
-        link: {
-          openOnClick: false,
-          HTMLAttributes: { rel: "noopener noreferrer" },
-        },
+        link: false,
       },
       tiptap: {
         extensions: textTiptapExtensions,
@@ -71,8 +70,10 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
       renderMenu: ({ editor, editorState }) => (
         <TextRichTextMenu editor={editor} editorState={editorState} />
       ),
-      renderInlineMenu: ({ children }: { children?: ReactNode }) => (
-        <RichTextMenu>{children}</RichTextMenu>
+      renderInlineMenu: ({ editor, children }: { editor: Editor | null; children?: ReactNode }) => (
+        <TextInlineEditorBridge editor={editor}>
+          <RichTextMenu>{children}</RichTextMenu>
+        </TextInlineEditorBridge>
       ),
     },
     maxWidth: { type: "text" },

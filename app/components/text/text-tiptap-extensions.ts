@@ -2,7 +2,13 @@ import { Extension } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
 import { FontFamily } from "@tiptap/extension-font-family";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
+
+import {
+  DEFAULT_LINK_TEXT_COLOR,
+  getLinkMarkRangeReadOnly,
+} from "./text-link-utils";
 
 const styleAttribute = (name: string, cssName: string) => ({
   default: null as string | null,
@@ -11,6 +17,29 @@ const styleAttribute = (name: string, cssName: string) => ({
     const v = attributes[name];
     if (!v) return {};
     return { style: `${cssName}: ${v}` };
+  },
+});
+
+/** 链接下划线可开关（否则仅靠 CSS 无法取消） */
+export const VisbuildLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      showUnderline: {
+        default: true,
+        parseHTML: (el) => el.getAttribute("data-show-underline") !== "false",
+        renderHTML: (attrs) => {
+          if (attrs.showUnderline === false) {
+            return {
+              "data-show-underline": "false",
+              class: "visbuild-link-no-underline",
+              style: "text-decoration: none",
+            };
+          }
+          return {};
+        },
+      },
+    };
   },
 });
 
@@ -47,6 +76,10 @@ export const DashList = Extension.create({
 });
 
 export const textTiptapExtensions = [
+  VisbuildLink.configure({
+    openOnClick: false,
+    HTMLAttributes: { rel: "noopener noreferrer" },
+  }),
   ExtendedTextStyle,
   Color.configure({ types: ["textStyle"] }),
   FontFamily.configure({ types: ["textStyle"] }),
@@ -66,6 +99,8 @@ export const emptyTextEditorUiState = (): TextEditorUiState => ({
   backgroundColor: "",
   paragraphStyle: "paragraph",
   isDashList: false,
+  isLink: false,
+  isUnderline: false,
 });
 
 function hasTextRangeSelection(editor: import("@tiptap/react").Editor) {
@@ -141,17 +176,69 @@ export function readTextEditorUiState(editor: import("@tiptap/react").Editor) {
     editor.isActive("bulletList") &&
     editor.getAttributes("bulletList")?.class === "visbuild-list-dash";
 
+  const textColor =
+    (ts.color as string) ??
+    (editor.isActive("link") ? DEFAULT_LINK_TEXT_COLOR : "#374151");
+
   return {
     fontFamily: (ts.fontFamily as string) ?? "",
     fontSize: (ts.fontSize as string) ?? "16px",
     fontWeight: (ts.fontWeight as string) ?? "400",
     lineHeight: (ts.lineHeight as string) ?? "",
     letterSpacing: (ts.letterSpacing as string) ?? "",
-    textColor: (ts.color as string) ?? "#374151",
+    textColor,
     backgroundColor: (ts.backgroundColor as string) ?? "",
     paragraphStyle,
     isDashList,
+    isLink: editor.isActive("link"),
+    isUnderline: isUnderlineActive(editor),
   };
+}
+
+export function isUnderlineActive(editor: import("@tiptap/react").Editor) {
+  if (editor.isActive("underline")) return true;
+  if (!editor.isActive("link")) return false;
+  const link = editor.getAttributes("link") as { showUnderline?: boolean };
+  return link.showUnderline !== false;
+}
+
+/** 链接内只改链接范围；无选区且非链接时改全文 */
+export function toggleTextUnderline(editor: import("@tiptap/react").Editor) {
+  const { empty, from, to } = editor.state.selection;
+  const hasRange = !empty && from < to;
+  const linkRange = editor.isActive("link")
+    ? getLinkMarkRangeReadOnly(editor)
+    : null;
+  const shouldRemove = isUnderlineActive(editor);
+
+  const run = (
+    chain: ReturnType<import("@tiptap/react").Editor["chain"]>,
+  ) => {
+    if (editor.isActive("link")) {
+      if (shouldRemove) {
+        return chain
+          .extendMarkRange("link")
+          .updateAttributes("link", { showUnderline: false })
+          .unsetMark("underline");
+      }
+      return chain
+        .extendMarkRange("link")
+        .updateAttributes("link", { showUnderline: true })
+        .setMark("underline");
+    }
+    return shouldRemove
+      ? chain.unsetMark("underline")
+      : chain.setMark("underline");
+  };
+
+  if (hasRange || linkRange) {
+    const range = hasRange ? { from, to } : linkRange!;
+    editor.chain().setTextSelection(range).run();
+    run(editor.chain()).run();
+    return;
+  }
+
+  runEditorChainOnScope(editor, run);
 }
 
 /** 侧栏改样式时不要 focus() 回画布，否则数字输入框会失焦 */

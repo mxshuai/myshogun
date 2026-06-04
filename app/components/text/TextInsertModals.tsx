@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 
-import { DEFAULT_IMAGE_FORM, DEFAULT_LINK_FORM } from "./text-defaults";
+import { DEFAULT_IMAGE_FORM } from "./text-defaults";
+import {
+  applyLinkForm,
+  type LinkFormSnapshot,
+  type LinkMarkRange,
+} from "./text-link-utils";
 
 const accent = "#7c3aed";
 
@@ -31,10 +36,12 @@ function ModalShell({
       }}
       role="presentation"
       onClick={onClose}
+      data-puck-rte-menu
     >
       <div
         role="dialog"
         aria-modal="true"
+        data-puck-rte-menu
         style={{
           background: "#fff",
           borderRadius: 10,
@@ -94,38 +101,26 @@ const inputStyle: React.CSSProperties = {
 
 export function LinkInsertModal({
   editor,
+  initial,
   onClose,
+  onApplied,
 }: {
   editor: Editor;
+  initial: LinkFormSnapshot;
   onClose: () => void;
+  onApplied?: (editor: Editor) => void;
 }) {
-  const [form, setForm] = useState({ ...DEFAULT_LINK_FORM });
+  const [form, setForm] = useState(initial.form);
+  const [editingExisting] = useState(initial.editingExisting);
+  const linkRangeRef = useRef<LinkMarkRange | null>(initial.range);
 
   const submit = () => {
-    const href = form.url.trim() || "http://";
-    const label = form.text.trim() || href;
-    const attrs = {
-      href,
-      title: form.title.trim() || undefined,
-      target: form.openInNewWindow ? "_blank" : undefined,
-      rel: form.openInNewWindow ? "noopener noreferrer" : undefined,
-    };
-    const { empty } = editor.state.selection;
-    if (empty) {
-      const target = form.openInNewWindow ? ' target="_blank" rel="noopener noreferrer"' : "";
-      const titleAttr = form.title.trim()
-        ? ` title="${form.title.trim().replace(/"/g, "&quot;")}"`
-        : "";
-      editor
-        .chain()
-        .focus()
-        .insertContent(
-          `<a href="${href.replace(/"/g, "&quot;")}"${titleAttr}${target}>${label}</a>`,
-        )
-        .run();
-    } else {
-      editor.chain().focus().extendMarkRange("link").setLink(attrs).run();
-    }
+    applyLinkForm(editor, form, {
+      editingExisting,
+      range: linkRangeRef.current,
+    });
+    editor.chain().focus().run();
+    onApplied?.(editor);
     onClose();
   };
 
@@ -148,11 +143,16 @@ export function LinkInsertModal({
               cursor: "pointer",
             }}
           >
-            Insert link
+            {editingExisting ? "Update link" : "Insert link"}
           </button>
         </div>
       }
     >
+      {editingExisting ? (
+        <p style={{ fontSize: "0.8rem", color: "#64748b", margin: "0 0 12px" }}>
+          清空 URL 并保存可移除链接及蓝色下划线样式。
+        </p>
+      ) : null}
       <label style={labelStyle}>URL</label>
       <input
         style={inputStyle}
