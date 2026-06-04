@@ -123,30 +123,22 @@ function generateHeading(props: any, layout: any, spaces: string): string {
 }
 
 /**
- * 生成 Text HTML
+ * 生成 Text HTML（富文本 html 字段，原样嵌入已消毒片段）
  */
 function generateText(props: any, layout: any, spaces: string): string {
-  const sizeMap: Record<string, string> = {
-    s: '16px',
-    m: '20px',
-  };
-  
-  const fontSize = sizeMap[props.size] || '20px';
-  const textAlign = props.align || 'left';
-  const color = props.color === 'muted' ? '#6c757d' : 'inherit';
-  const maxWidth = props.maxWidth ? `max-width: ${props.maxWidth};` : '';
-  
-  let justifyContent = 'flex-start';
-  if (textAlign === 'center') justifyContent = 'center';
-  else if (textAlign === 'right') justifyContent = 'flex-end';
-  
-  const inner = `<div style="display: flex; text-align: ${textAlign}; width: 100%;">
-<span style="color: ${color}; font-size: ${fontSize}; font-weight: 300; justify-content: ${justifyContent}; ${maxWidth}">
-${escapeHtml(props.text || 'Text')}
-</span>
-</div>
-`;
+  const raw =
+    typeof props.html === "string"
+      ? props.html
+      : "<p>Text</p>";
+  const inner = `${spaces}  <div class="visbuild-text">${sanitizeRichTextHtml(raw)}</div>\n`;
   return wrapLayoutLayers(layout, inner, spaces, props.maxWidth);
+}
+
+/** 导出前移除 script/事件，保留富文本标签 */
+function sanitizeRichTextHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
 
 /**
@@ -1095,6 +1087,12 @@ body {
   margin: 0 auto;
   padding: 0 16px;
 }
+
+.visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; }
+.visbuild-text p { margin: 0 0 0.75em; }
+.visbuild-text p:last-child { margin-bottom: 0; }
+.visbuild-text ul.visbuild-list-dash { list-style-type: "– "; padding-left: 1.25em; }
+.visbuild-text img { max-width: 100%; height: auto; }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

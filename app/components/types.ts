@@ -10,11 +10,11 @@ export type Components = {
     align: "left" | "center" | "right";
   }>;
   Text: WithLayout<{
-    text: string;
-    size: "s" | "m";
-    align: "left" | "center" | "right";
-    color: "default" | "muted";
+    /** Puck richtext：存 TipTap 导出的 HTML 字符串 */
+    html: string;
     maxWidth?: string;
+    /** @deprecated 旧字段，仅 render 回退读取 */
+    text?: string;
   }>;
   Button: {
     label: string;
@@ -245,10 +245,7 @@ export const initialData: Data = {
               {
                 type: "Text",
                 props: {
-                  text: "张三",
-                  size: "m",
-                  align: "left",
-                  color: "default",
+                  html: '<p style="font-size:16px">张三</p>',
                 },
               },
             ],
@@ -259,10 +256,7 @@ export const initialData: Data = {
               {
                 type: "Text",
                 props: {
-                  text: "25",
-                  size: "m",
-                  align: "center",
-                  color: "default",
+                  html: '<p style="font-size:16px;text-align:center">25</p>',
                 },
               },
             ],

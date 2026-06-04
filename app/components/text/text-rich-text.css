@@ -1,0 +1,75 @@
+.visbuild-text {
+  width: 100%;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.visbuild-text p {
+  margin: 0 0 0.75em;
+}
+
+.visbuild-text p:last-child {
+  margin-bottom: 0;
+}
+
+.visbuild-text ul.visbuild-list-dash {
+  list-style-type: "– ";
+  padding-left: 1.25em;
+}
+
+.visbuild-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 画布 inline 编辑：确保可点击、可选中 */
+.visbuild-text--editing,
+.visbuild-text--editing .rich-text,
+.visbuild-text--editing .ProseMirror,
+.visbuild-text--editing .tiptap {
+  pointer-events: auto !important;
+  user-select: text !important;
+  min-height: 1.5em;
+}
+
+.visbuild-text-inspector {
+  width: 100%;
+}
+
+/**
+ * 仅侧栏 Formatting：工具栏后的重复 TipTap 区域隐藏，并取消固定高度滚动。
+ * 使用 .visbuild-text-inspector 兄弟选择器，不影响画布 inline 编辑器。
+ */
+[class*="RichTextEditor--editor"]:not([class*="inline"]) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[class*="RichTextEditor--editor"]:not([class*="inline"])
+  .visbuild-text-inspector
+  ~ .rich-text,
+[class*="RichTextEditor--editor"]:not([class*="inline"])
+  .visbuild-text-inspector
+  ~ .ProseMirror,
+[class*="RichTextEditor--editor"]:not([class*="inline"])
+  .visbuild-text-inspector
+  ~ [class*="tiptap"] {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  border: none !important;
+}
+
+[class*="RichTextMenu--form"] {
+  flex-wrap: wrap;
+  overflow: visible !important;
+}
