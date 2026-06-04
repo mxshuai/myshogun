@@ -64,31 +64,42 @@ export async function publishPageVersion(
   await repo.putJob(job);
 
   try {
-    const version = await repo.getPageVersion(job.payloadVersionId);
-    if (!version) throw new Error("Version snapshot not found");
-
     const index = await repo.getPageIndex(job.pageId);
     if (!index) throw new Error("Page not found");
 
-    await pushPageToShopify(ctx, index, version.html);
+    const body = await repo.getPageBody(job.pageId);
+    let visbuildData: Data;
+    let html: string;
+    if (body?.currentVisbuildData) {
+      visbuildData = body.currentVisbuildData;
+      html = body.currentHtml ?? convertToShopifyBody(visbuildData);
+    } else {
+      const version = await repo.getPageVersion(job.payloadVersionId);
+      if (!version) throw new Error("Version snapshot not found");
+      visbuildData = version.visbuildData;
+      html = version.html;
+    }
+
+    await pushPageToShopify(ctx, index, html);
 
     const publishedAt = new Date().toISOString();
     index.status = "published";
     index.lastPublishedAt = publishedAt;
     index.pendingJobId = null;
+    index.scheduledPublishAt = null;
     await repo.putPageIndex(index);
 
-    const body = await repo.getPageBody(job.pageId);
     if (body) {
-      body.currentHtml = version.html;
+      body.currentHtml = html;
+      body.currentVisbuildData = visbuildData;
       await repo.putPageBody(body);
     }
 
     await repo.appendPageVersion({
       versionId: `${job.pageId}#${Date.now()}#scheduled`,
       pageId: job.pageId,
-      visbuildData: version.visbuildData,
-      html: version.html,
+      visbuildData,
+      html,
       source: "scheduled_publish",
       createdAt: publishedAt,
     });

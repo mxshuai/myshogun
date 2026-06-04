@@ -161,7 +161,7 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 | E2 | 保存后（draft） | **Publish** 分裂按钮 +「Schedule publish」 |
 | E3 | 已 **Published** 且无未保存改动 | 灰色 **Published** 徽章，不可点 |
 | E4 | 已 **Published** 且有未保存改动 | **Save**（非 Published 徽章） |
-| E5 | **Scheduled** 且有改动 | **Scheduled** 分裂按钮；约 800ms 自动保存 |
+| E5 | **Scheduled** 且有改动 | 主按钮 **Save**；保存后恢复 **Scheduled** 分裂按钮；到点发布最新已保存内容 |
 | E6 | **Edit scheduling** / **Schedule publish** 弹框 | 提示语固定为 *Your page will be published on the day and time you specify.*；勾选才可填时间，默认当前时间；取消勾选并 Confirm 取消定时 |
 | E7 | Preview、Publish 等按钮 | 位于顶栏**右侧**，无纵向滚动条 |
 

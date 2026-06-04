@@ -35,8 +35,8 @@ function resolveMode(
   meta: EditorPageMeta | null,
   isDirty: boolean,
 ): PublishUiMode {
-  if (meta?.status === "scheduled") return "scheduled-split";
   if (isDirty) return "save";
+  if (meta?.status === "scheduled") return "scheduled-split";
   if (meta?.status === "published") return "published-badge";
   return "publish-split";
 }
@@ -154,14 +154,6 @@ export function EditorPublishActions({
     setScheduleOpen(false);
     setScheduleError(null);
   };
-
-  useEffect(() => {
-    if (pageMeta?.status !== "scheduled" || !isDirty || busy) return;
-    const t = window.setTimeout(() => {
-      onSave();
-    }, 800);
-    return () => window.clearTimeout(t);
-  }, [pageMeta?.status, isDirty, busy, editorData, onSave]);
 
   useEffect(() => {
     if (actionError) setScheduleError(actionError);
