@@ -72,7 +72,8 @@ export async function publishPageVersion(
     let html: string;
     if (body?.currentVisbuildData) {
       visbuildData = body.currentVisbuildData;
-      html = body.currentHtml ?? convertToShopifyBody(visbuildData);
+      // Always rebuild HTML from editor data; cached currentHtml may be from schedule time.
+      html = convertToShopifyBody(visbuildData);
     } else {
       const version = await repo.getPageVersion(job.payloadVersionId);
       if (!version) throw new Error("Version snapshot not found");

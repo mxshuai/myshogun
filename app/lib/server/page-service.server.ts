@@ -2,7 +2,12 @@ import type { Data } from "@puckeditor/core";
 
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
-import { cancelPendingJob, publishPageNow, schedulePageUpdate } from "./publish";
+import {
+  cancelPendingJob,
+  publishPageNow,
+  savePageDraft,
+  schedulePageUpdate,
+} from "./publish";
 import type { PageIndex, PageStatus, ServerContext } from "./types";
 
 /** Shape consumed by the /pages list UI (mirrors the legacy file-based summary). */
@@ -172,11 +177,18 @@ export async function savePageByPath(
   }
 
   await ctx.repo.putPageIndex(idx);
-  await ctx.repo.putPageBody({
-    pageId: idx.pageId,
-    currentVisbuildData: data,
-    currentHtml: null,
-  });
+
+  const versionId = await savePageDraft(idx.pageId, ctx, data);
+
+  if (idx.pendingJobId) {
+    const job = await ctx.repo.getJob(idx.pendingJobId);
+    if (job?.pageId === idx.pageId && job.status === "pending") {
+      job.payloadVersionId = versionId;
+      job.updatedAt = now;
+      await ctx.repo.putJob(job);
+    }
+  }
+
   return { ok: true, path: desired, pageId: idx.pageId, status: idx.status };
 }
 
