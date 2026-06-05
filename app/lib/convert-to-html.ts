@@ -1,6 +1,11 @@
 import type { Data } from "@puckeditor/core";
 
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
+import {
+  BUTTON_EXPORT_CSS,
+  serializeButtonInlineStyle,
+  type ButtonRenderProps,
+} from "~/components/button-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -59,7 +64,7 @@ function generateComponentHTML(component: any, indent: number = 2): string {
     case 'Text':
       return generateText(props, layout, spaces);
     case 'Button':
-      return generateButton(props, spaces);
+      return generateButton(props, layout, spaces);
     case 'Card':
       return generateCard(props, layout, spaces);
     case 'CustomHtml':
@@ -184,19 +189,17 @@ function sanitizeRichTextHtml(html: string): string {
 /**
  * 生成 Button HTML
  */
-function generateButton(props: any, spaces: string): string {
-  const variantStyles: Record<string, string> = {
-    primary: 'background-color: #0070f3; color: #ffffff; border: none;',
-    secondary: 'background-color: #6c757d; color: #ffffff; border: none;',
-  };
-  
-  const style = variantStyles[props.variant] || variantStyles.primary;
-  
-  return `${spaces}<div>
-${spaces}  <a href="${props.href || '#'}" style="display: inline-block; padding: 16px 32px; ${style} border-radius: 6px; text-decoration: none; font-weight: 500;">
-${spaces}    ${escapeHtml(props.label || 'Button')}
-${spaces}  </a>
-${spaces}</div>\n`;
+function generateButton(props: any, layout: any, spaces: string): string {
+  const href = props.href?.trim() || "#";
+  const target = props.openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
+  const inlineStyle = serializeButtonInlineStyle(props as ButtonRenderProps);
+
+  const inner = `<a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
+${spaces}  ${escapeHtml(props.label || "Text")}
+${spaces}</a>
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**
@@ -1135,6 +1138,8 @@ body {
 .visbuild-text img { max-width: 100%; height: auto; }
 .visbuild-text a { color: #2563eb; text-decoration: underline; }
 .visbuild-text a.visbuild-link-no-underline { text-decoration: none; }
+
+${BUTTON_EXPORT_CSS}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

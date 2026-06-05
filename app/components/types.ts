@@ -25,11 +25,51 @@ export type Components = {
     /** @deprecated 旧字段，仅 render 回退读取 */
     text?: string;
   }>;
-  Button: {
+  Button: WithLayout<{
     label: string;
     href: string;
-    variant: "primary" | "secondary";
-  };
+    openInSameTab: boolean;
+    font: string;
+    fontSize: number;
+    lineHeight?: number;
+    letterSpacing?: number;
+    fullWidth: boolean;
+    maxWidth?: number;
+    minHeight?: number;
+    textColor: string;
+    backgroundColor: string;
+    borderThickness?: number;
+    borderRadius?: number;
+    borderColor?: string;
+    boxShadow: boolean;
+    boxShadowColor?: string;
+    boxShadowOffsetX?: number;
+    boxShadowOffsetY?: number;
+    boxShadowBlur?: number;
+    boxShadowSpread?: number;
+    hoverTextColor: string;
+    hoverBackgroundColor: string;
+    hoverBorderThickness?: number;
+    hoverBorderRadius?: number;
+    hoverBorderColor?: string;
+    hoverBoxShadow: boolean;
+    hoverBoxShadowColor?: string;
+    hoverBoxShadowOffsetX?: number;
+    hoverBoxShadowOffsetY?: number;
+    hoverBoxShadowBlur?: number;
+    hoverBoxShadowSpread?: number;
+    activeTextColor: string;
+    activeBackgroundColor: string;
+    activeBorderThickness?: number;
+    activeBorderRadius?: number;
+    activeBorderColor?: string;
+    activeBoxShadow: boolean;
+    activeBoxShadowColor?: string;
+    activeBoxShadowOffsetX?: number;
+    activeBoxShadowOffsetY?: number;
+    activeBoxShadowBlur?: number;
+    activeBoxShadowSpread?: number;
+  }>;
   Card: WithLayout<{
     title: string;
     description: string;
