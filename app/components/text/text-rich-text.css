@@ -46,6 +46,9 @@
 
 .visbuild-text-inspector {
   width: 100%;
+  position: relative;
+  z-index: 2;
+  background: var(--puck-color-white, #fff);
 }
 
 .visbuild-text-inspector > p {
@@ -88,36 +91,38 @@
 }
 
 /**
- * 仅侧栏 Formatting：工具栏后的重复 TipTap 区域隐藏，并取消固定高度滚动。
- * 使用 .visbuild-text-inspector 兄弟选择器，不影响画布 inline 编辑器。
+ * 侧栏 richtext（contentEditable）：只显示 Formatting 面板，隐藏重复的 TipTap 编辑区。
+ * DOM：RichTextEditor--editor > [menu 含 visbuild-text-inspector] + .rich-text（兄弟，非 inspector 子节点）
  */
 [class*="RichTextEditor--editor"]:not([class*="inline"]) {
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   border: none !important;
-  background: transparent !important;
+  background: var(--puck-color-white, #fff) !important;
   box-shadow: none !important;
 }
 
 [class*="RichTextEditor--editor"]:not([class*="inline"])
-  .visbuild-text-inspector
-  ~ .rich-text,
-[class*="RichTextEditor--editor"]:not([class*="inline"])
-  .visbuild-text-inspector
-  ~ .ProseMirror,
-[class*="RichTextEditor--editor"]:not([class*="inline"])
-  .visbuild-text-inspector
-  ~ [class*="tiptap"] {
+  [class*="RichTextEditor-menu"] {
+  background: var(--puck-color-white, #fff);
+  position: relative;
+  z-index: 2;
+}
+
+[class*="RichTextEditor--editor"]:not([class*="inline"]) > .rich-text {
   display: none !important;
+  visibility: hidden !important;
   height: 0 !important;
   min-height: 0 !important;
+  max-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
   pointer-events: none !important;
   border: none !important;
+  opacity: 0 !important;
 }
 
 [class*="RichTextMenu--form"] {

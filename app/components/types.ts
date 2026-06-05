@@ -6,8 +6,17 @@ export type Components = {
   Heading: WithLayout<{
     text: string;
     level: 1 | 2 | 3 | 4 | 5 | 6;
-    size: "xxxl" | "xxl" | "xl" | "l" | "m" | "s" | "xs";
+    font: string;
+    fontSize: number;
+    textColor: string;
+    lineHeight?: number;
+    letterSpacing?: number;
+    addLink: boolean;
+    linkHref: string;
+    openInNewWindow: boolean;
     align: "left" | "center" | "right";
+    /** @deprecated 旧字段，resolveData / render 回退 */
+    size?: "xxxl" | "xxl" | "xl" | "l" | "m" | "s" | "xs";
   }>;
   Text: WithLayout<{
     /** Puck richtext：存 TipTap 导出的 HTML 字符串 */

@@ -101,22 +101,62 @@ function generateComponentHTML(component: any, indent: number = 2): string {
  * 生成 Heading HTML
  */
 function generateHeading(props: any, layout: any, spaces: string): string {
-  const level = props.level || 2;
-  const sizeMap: Record<string, string> = {
-    xxxl: '3.5rem',
-    xxl: '3rem',
-    xl: '2.5rem',
-    l: '2rem',
-    m: '1.5rem',
-    s: '1.25rem',
-    xs: '1rem',
+  const level = Math.min(6, Math.max(1, Number(props.level) || 1));
+  const sizeMap: Record<string, number> = {
+    xxxl: 56,
+    xxl: 48,
+    xl: 40,
+    l: 32,
+    m: 24,
+    s: 20,
+    xs: 16,
   };
-  
-  const fontSize = sizeMap[props.size] || '1.5rem';
-  const textAlign = props.align || 'left';
+  const levelSizeMap: Record<number, number> = {
+    1: 32,
+    2: 24,
+    3: 18.7,
+    4: 16,
+    5: 13.2,
+    6: 12,
+  };
+  const fontSizePx =
+    typeof props.fontSize === 'number' && Number.isFinite(props.fontSize)
+      ? props.fontSize
+      : props.size && sizeMap[props.size] != null
+        ? sizeMap[props.size]
+        : levelSizeMap[level] ?? 32;
 
-  const inner = `<h${level} style="font-size: ${fontSize}; text-align: ${textAlign}; margin: 0; font-weight: 600; line-height: 1.2;">
-<span style="display: block; width: 100%;">${escapeHtml(props.text || 'Heading')}</span>
+  const textAlign = props.align || 'center';
+  const fontFamily = props.font?.trim() ? props.font.trim() : '';
+  const color = props.textColor?.trim() ? props.textColor.trim() : '';
+
+  const styleParts = [
+    `font-size: ${fontSizePx}px`,
+    `text-align: ${textAlign}`,
+    'margin: 0',
+    'font-weight: 600',
+    fontFamily ? `font-family: ${fontFamily}` : '',
+    color ? `color: ${color}` : '',
+    props.lineHeight != null && Number.isFinite(Number(props.lineHeight))
+      ? `line-height: ${props.lineHeight}`
+      : '',
+    props.letterSpacing != null && Number.isFinite(Number(props.letterSpacing))
+      ? `letter-spacing: ${props.letterSpacing}px`
+      : '',
+  ].filter(Boolean);
+
+  const textHtml = escapeHtml(props.text || 'Heading');
+  const spanInner = `<span style="display: block; width: 100%;">${textHtml}</span>`;
+
+  let body = spanInner;
+  if (props.addLink && props.linkHref?.trim()) {
+    const href = escapeHtml(props.linkHref.trim());
+    const target = props.openInNewWindow ? ' target="_blank" rel="noopener noreferrer"' : '';
+    body = `<a href="${href}" style="color: inherit; text-decoration: none;"${target}>${spanInner}</a>`;
+  }
+
+  const inner = `<h${level} style="${styleParts.join('; ')};">
+${body}
 </h${level}>
 `;
   return wrapLayoutLayers(layout, inner, spaces);
