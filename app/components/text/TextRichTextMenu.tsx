@@ -25,17 +25,18 @@ import { readLinkFormFromEditor } from "./text-link-utils";
 import { useSyncTextHtmlToPuck } from "./text-puck-sync";
 import { resolveTextEditor } from "./use-active-text-editor";
 
+/** 与 Puck 字段标签（Formatting）一致：--puck-font-size-xxs ≈ 14px */
 const sectionLabel: React.CSSProperties = {
-  fontSize: "0.75rem",
+  fontSize: "var(--puck-font-size-xxs, 0.875rem)",
   fontWeight: 600,
-  color: "#64748b",
+  color: "var(--puck-color-grey-04, #64748b)",
   margin: "12px 0 6px",
 };
 
 const row: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 6,
+  gap: 8,
   alignItems: "center",
 };
 
@@ -168,7 +169,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
     <>
       <div className="visbuild-text-inspector">
         <p style={sectionLabel}>Text decoration</p>
-        <div style={row}>
+        <div className="visbuild-tool-row">
           <RichTextMenu.Control
             title="Bold"
             active={editor.isActive("bold")}
@@ -300,7 +301,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
         </div>
 
         <p style={sectionLabel}>Alignment</p>
-        <div style={row}>
+        <div className="visbuild-tool-row">
           <RichTextMenu.Control
             title="Align left"
             active={editor.isActive({ textAlign: "left" })}
@@ -332,7 +333,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
         </div>
 
         <p style={sectionLabel}>List and indentation</p>
-        <div style={row}>
+        <div className="visbuild-tool-row">
           <RichTextMenu.Control
             title="Dash list"
             active={Boolean(st.isDashList)}
@@ -397,7 +398,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
         </div>
 
         <p style={sectionLabel}>Insert…</p>
-        <div style={row}>
+        <div className="visbuild-tool-row visbuild-tool-row--insert">
           <button
             type="button"
             disabled={!canEdit}
@@ -477,7 +478,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
 }
 
 const toolBtn: React.CSSProperties = {
-  padding: "8px 12px",
+  padding: "10px 16px",
   borderRadius: 6,
   border: "1px solid #e5e7eb",
   background: "#fff",

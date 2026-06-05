@@ -48,6 +48,45 @@
   width: 100%;
 }
 
+.visbuild-text-inspector > p {
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-weight: 600;
+  color: var(--puck-color-grey-04, #64748b);
+}
+
+/* 装饰 / 对齐 / 列表等图标按钮：更大、间距更宽 */
+.visbuild-text-inspector .visbuild-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row [class*="IconButton"] {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px !important;
+  border-radius: 6px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row [class*="IconButton"] span {
+  font-size: 1.125rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visbuild-text-inspector .visbuild-tool-row--insert {
+  gap: 12px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row--insert button[type="button"] {
+  padding: 10px 18px;
+  font-size: 0.875rem;
+}
+
 /**
  * 仅侧栏 Formatting：工具栏后的重复 TipTap 区域隐藏，并取消固定高度滚动。
  * 使用 .visbuild-text-inspector 兄弟选择器，不影响画布 inline 编辑器。
