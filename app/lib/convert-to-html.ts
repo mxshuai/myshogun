@@ -3,8 +3,8 @@ import type { Data } from "@puckeditor/core";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
 import {
   BUTTON_EXPORT_CSS,
+  flattenButtonProps,
   serializeButtonInlineStyle,
-  type ButtonRenderProps,
 } from "~/components/button-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
@@ -192,7 +192,7 @@ function sanitizeRichTextHtml(html: string): string {
 function generateButton(props: any, layout: any, spaces: string): string {
   const href = props.href?.trim() || "#";
   const target = props.openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
-  const inlineStyle = serializeButtonInlineStyle(props as ButtonRenderProps);
+  const inlineStyle = serializeButtonInlineStyle(flattenButtonProps(props));
 
   const inner = `<a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
 ${spaces}  ${escapeHtml(props.label || "Text")}

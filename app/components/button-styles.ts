@@ -50,7 +50,20 @@ export function resolveBoxShadow(config: ButtonShadowConfig): string {
   return `${x}px ${y}px ${blur}px ${spread}px ${color}`;
 }
 
-export type ButtonStyleProps = {
+export type ButtonTextGroup = {
+  font: string;
+  fontSize: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+};
+
+export type ButtonDimensionsGroup = {
+  fullWidth: boolean;
+  maxWidth?: number;
+  minHeight?: number;
+};
+
+export type ButtonStyleGroup = {
   textColor: string;
   backgroundColor: string;
   borderThickness?: number;
@@ -63,6 +76,9 @@ export type ButtonStyleProps = {
   boxShadowBlur?: number;
   boxShadowSpread?: number;
 };
+
+/** @deprecated 扁平字段别名，供 flattenButtonProps 内部使用 */
+export type ButtonStyleProps = ButtonStyleGroup;
 
 export type ButtonRenderProps = ButtonStyleProps & {
   hoverTextColor: string;
@@ -218,6 +234,122 @@ export function serializeButtonInlineStyle(props: ButtonRenderProps): string {
     .filter(([, value]) => value != null && value !== "")
     .map(([key, value]) => `${camelToKebab(key)}: ${value}`)
     .join("; ");
+}
+
+const DEFAULT_TEXT: ButtonTextGroup = { font: "", fontSize: 14 };
+const DEFAULT_DIMENSIONS: ButtonDimensionsGroup = { fullWidth: false };
+const DEFAULT_STYLE: ButtonStyleGroup = {
+  textColor: "#ffffff",
+  backgroundColor: "#000000",
+  borderRadius: 2,
+  borderColor: "#e5e7eb",
+  boxShadow: false,
+  boxShadowOffsetX: 0,
+  boxShadowOffsetY: 0,
+  boxShadowBlur: 0,
+  boxShadowSpread: 0,
+};
+const DEFAULT_HOVER_STYLE: ButtonStyleGroup = {
+  textColor: "#ffffff",
+  backgroundColor: "#444444",
+  borderColor: "#eeeeee",
+  boxShadow: false,
+  boxShadowOffsetX: 0,
+  boxShadowOffsetY: 0,
+  boxShadowBlur: 0,
+  boxShadowSpread: 0,
+};
+const DEFAULT_ACTIVE_STYLE: ButtonStyleGroup = {
+  textColor: "#ffffff",
+  backgroundColor: "#000000",
+  borderColor: "#e5e7eb",
+  boxShadow: false,
+  boxShadowOffsetX: 0,
+  boxShadowOffsetY: 0,
+  boxShadowBlur: 0,
+  boxShadowSpread: 0,
+};
+
+function styleFromGroup(
+  group: Partial<ButtonStyleGroup> | undefined,
+  fallback: ButtonStyleGroup
+): ButtonStyleGroup {
+  return { ...fallback, ...group };
+}
+
+/** 将嵌套（或历史扁平）Button props 转为 render / 导出用的扁平结构 */
+export function flattenButtonProps(props: Record<string, unknown>): ButtonRenderProps {
+  const nested =
+    props.defaultStyle != null ||
+    props.hoverStyle != null ||
+    props.activeStyle != null ||
+    props.text != null ||
+    props.dimensions != null;
+
+  if (nested) {
+    const text = { ...DEFAULT_TEXT, ...(props.text as Partial<ButtonTextGroup>) };
+    const dimensions = {
+      ...DEFAULT_DIMENSIONS,
+      ...(props.dimensions as Partial<ButtonDimensionsGroup>),
+    };
+    const defaultStyle = styleFromGroup(
+      props.defaultStyle as Partial<ButtonStyleGroup>,
+      DEFAULT_STYLE
+    );
+    const hoverStyle = styleFromGroup(
+      props.hoverStyle as Partial<ButtonStyleGroup>,
+      DEFAULT_HOVER_STYLE
+    );
+    const activeStyle = styleFromGroup(
+      props.activeStyle as Partial<ButtonStyleGroup>,
+      DEFAULT_ACTIVE_STYLE
+    );
+
+    return {
+      font: text.font,
+      fontSize: text.fontSize,
+      lineHeight: text.lineHeight,
+      letterSpacing: text.letterSpacing,
+      fullWidth: dimensions.fullWidth,
+      maxWidth: dimensions.maxWidth,
+      minHeight: dimensions.minHeight,
+      textColor: defaultStyle.textColor,
+      backgroundColor: defaultStyle.backgroundColor,
+      borderThickness: defaultStyle.borderThickness,
+      borderRadius: defaultStyle.borderRadius,
+      borderColor: defaultStyle.borderColor,
+      boxShadow: defaultStyle.boxShadow,
+      boxShadowColor: defaultStyle.boxShadowColor,
+      boxShadowOffsetX: defaultStyle.boxShadowOffsetX,
+      boxShadowOffsetY: defaultStyle.boxShadowOffsetY,
+      boxShadowBlur: defaultStyle.boxShadowBlur,
+      boxShadowSpread: defaultStyle.boxShadowSpread,
+      hoverTextColor: hoverStyle.textColor,
+      hoverBackgroundColor: hoverStyle.backgroundColor,
+      hoverBorderThickness: hoverStyle.borderThickness,
+      hoverBorderRadius: hoverStyle.borderRadius,
+      hoverBorderColor: hoverStyle.borderColor,
+      hoverBoxShadow: hoverStyle.boxShadow,
+      hoverBoxShadowColor: hoverStyle.boxShadowColor,
+      hoverBoxShadowOffsetX: hoverStyle.boxShadowOffsetX,
+      hoverBoxShadowOffsetY: hoverStyle.boxShadowOffsetY,
+      hoverBoxShadowBlur: hoverStyle.boxShadowBlur,
+      hoverBoxShadowSpread: hoverStyle.boxShadowSpread,
+      activeTextColor: activeStyle.textColor,
+      activeBackgroundColor: activeStyle.backgroundColor,
+      activeBorderThickness: activeStyle.borderThickness,
+      activeBorderRadius: activeStyle.borderRadius,
+      activeBorderColor: activeStyle.borderColor,
+      activeBoxShadow: activeStyle.boxShadow,
+      activeBoxShadowColor: activeStyle.boxShadowColor,
+      activeBoxShadowOffsetX: activeStyle.boxShadowOffsetX,
+      activeBoxShadowOffsetY: activeStyle.boxShadowOffsetY,
+      activeBoxShadowBlur: activeStyle.boxShadowBlur,
+      activeBoxShadowSpread: activeStyle.boxShadowSpread,
+    };
+  }
+
+  return props as ButtonRenderProps;
 }
 
 export const BUTTON_EXPORT_CSS = `.visbuild-button {

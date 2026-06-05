@@ -1,4 +1,9 @@
 import type { Config, Data, Slot } from "@puckeditor/core";
+import type {
+  ButtonDimensionsGroup,
+  ButtonStyleGroup,
+  ButtonTextGroup,
+} from "./button-styles";
 import type { WithLayout } from "./Layout";
 
 // 定义所有组件的 Props 类型
@@ -29,46 +34,11 @@ export type Components = {
     label: string;
     href: string;
     openInSameTab: boolean;
-    font: string;
-    fontSize: number;
-    lineHeight?: number;
-    letterSpacing?: number;
-    fullWidth: boolean;
-    maxWidth?: number;
-    minHeight?: number;
-    textColor: string;
-    backgroundColor: string;
-    borderThickness?: number;
-    borderRadius?: number;
-    borderColor?: string;
-    boxShadow: boolean;
-    boxShadowColor?: string;
-    boxShadowOffsetX?: number;
-    boxShadowOffsetY?: number;
-    boxShadowBlur?: number;
-    boxShadowSpread?: number;
-    hoverTextColor: string;
-    hoverBackgroundColor: string;
-    hoverBorderThickness?: number;
-    hoverBorderRadius?: number;
-    hoverBorderColor?: string;
-    hoverBoxShadow: boolean;
-    hoverBoxShadowColor?: string;
-    hoverBoxShadowOffsetX?: number;
-    hoverBoxShadowOffsetY?: number;
-    hoverBoxShadowBlur?: number;
-    hoverBoxShadowSpread?: number;
-    activeTextColor: string;
-    activeBackgroundColor: string;
-    activeBorderThickness?: number;
-    activeBorderRadius?: number;
-    activeBorderColor?: string;
-    activeBoxShadow: boolean;
-    activeBoxShadowColor?: string;
-    activeBoxShadowOffsetX?: number;
-    activeBoxShadowOffsetY?: number;
-    activeBoxShadowBlur?: number;
-    activeBoxShadowSpread?: number;
+    text: ButtonTextGroup;
+    dimensions: ButtonDimensionsGroup;
+    defaultStyle: ButtonStyleGroup;
+    hoverStyle: ButtonStyleGroup;
+    activeStyle: ButtonStyleGroup;
   }>;
   Card: WithLayout<{
     title: string;
