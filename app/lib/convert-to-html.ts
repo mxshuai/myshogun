@@ -1,5 +1,6 @@
 import type { Data } from "@puckeditor/core";
 
+import { effectiveSectionSides } from "~/components/Layout";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
 import {
@@ -561,6 +562,8 @@ function generateContainer(props: any, spaces: string, indent: number): string {
   const verticalPositionValue = props.verticalPositionValue || 0;
   const parallaxEffect = props.parallaxEffect || false;
   const content = props.content || [];
+  const layout = props.layout || {};
+  const sectionPadding = effectiveSectionSides(layout).padding;
   
   const alignMap: Record<string, string> = {
     top: 'flex-start',
@@ -568,7 +571,14 @@ function generateContainer(props: any, spaces: string, indent: number): string {
     bottom: 'flex-end',
   };
   
-  let backgroundStyle = 'display: flex; flex-direction: column; justify-content: ' + alignMap[verticalAlign] + '; position: relative;';
+  let backgroundStyle =
+    'display: flex; flex-direction: column; justify-content: ' +
+    alignMap[verticalAlign] +
+    '; position: relative;' +
+    ` padding-top: ${sectionPadding.top};` +
+    ` padding-right: ${sectionPadding.right};` +
+    ` padding-bottom: ${sectionPadding.bottom};` +
+    ` padding-left: ${sectionPadding.left};`;
   
   if (backgroundType === 'image' && backgroundImage) {
     backgroundStyle += ` background-image: url('${backgroundImage}');`;

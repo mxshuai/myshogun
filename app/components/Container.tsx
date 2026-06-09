@@ -2,7 +2,12 @@ import type { ComponentConfig, Slot } from "@puckeditor/core";
 import type { Components } from "./types";
 import { resolveBackgroundSizeCss } from "./container-background-size";
 import { Section } from "./Section";
-import { defaultLayoutSpacing, withLayout } from "./Layout";
+import {
+  defaultLayoutSpacing,
+  effectiveSectionSides,
+  type LayoutFieldProps,
+  withLayout,
+} from "./Layout";
 
 const ContainerInternal: ComponentConfig<Components["Container"]> = {
   fields: {
@@ -60,6 +65,10 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     content: [],
     layout: {
       ...defaultLayoutSpacing,
+      dimensions: {
+        ...defaultLayoutSpacing.dimensions,
+        minHeight: 50,
+      },
       sectionPadding: {
         top: "40px",
         right: "0",
@@ -269,6 +278,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     loading,
     parallaxEffect,
     content: Content,
+    layout,
   }) => {
     // 垂直对齐映射
     const alignMap: Record<string, string> = {
@@ -277,12 +287,20 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
       bottom: "flex-end",
     };
 
+    const sectionPadding = effectiveSectionSides(
+      layout as LayoutFieldProps | undefined
+    ).padding;
+
     // 背景样式
     const getBackgroundStyle = () => {
       const baseStyle: React.CSSProperties = {
         display: "flex",
         flexDirection: "column",
         justifyContent: alignMap[verticalAlign],
+        paddingTop: sectionPadding.top,
+        paddingRight: sectionPadding.right,
+        paddingBottom: sectionPadding.bottom,
+        paddingLeft: sectionPadding.left,
       };
 
       if (backgroundType === "image" && backgroundImage) {
@@ -339,7 +357,12 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     };
 
     return (
-      <Section>
+      <Section
+        sectionPaddingTop="0"
+        sectionPaddingRight="0"
+        sectionPaddingBottom="0"
+        sectionPaddingLeft="0"
+      >
         <div
           style={{ ...getBackgroundStyle(), ...containerStyle }}
           onClick={handleClick}
