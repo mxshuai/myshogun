@@ -34,14 +34,20 @@
   text-decoration: none !important;
 }
 
-/* 画布 inline 编辑：确保可点击、可选中 */
+/* 画布 inline 编辑：确保 TipTap 区域可见、可点击（勿与侧栏隐藏规则冲突） */
 .visbuild-text--editing,
+[class*="RichTextEditor--inline"] .rich-text,
 .visbuild-text--editing .rich-text,
 .visbuild-text--editing .ProseMirror,
 .visbuild-text--editing .tiptap {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   pointer-events: auto !important;
   user-select: text !important;
   min-height: 1.5em;
+  height: auto !important;
+  max-height: none !important;
 }
 
 .visbuild-text-inspector {
@@ -91,10 +97,10 @@
 }
 
 /**
- * 侧栏 richtext（contentEditable）：只显示 Formatting 面板，隐藏重复的 TipTap 编辑区。
- * DOM：RichTextEditor--editor > [menu 含 visbuild-text-inspector] + .rich-text（兄弟，非 inspector 子节点）
+ * 仅侧栏 PuckFields 内 richtext：只显示 Formatting 面板，隐藏重复的 TipTap 编辑区。
+ * 必须限定在侧栏，避免影响画布 inline 编辑器（选中/拖动）。
  */
-[class*="RichTextEditor--editor"]:not([class*="inline"]) {
+[class*="PuckFields"] [class*="RichTextEditor--editor"]:not([class*="inline"]) {
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
@@ -104,14 +110,17 @@
   box-shadow: none !important;
 }
 
-[class*="RichTextEditor--editor"]:not([class*="inline"])
+[class*="PuckFields"]
+  [class*="RichTextEditor--editor"]:not([class*="inline"])
   [class*="RichTextEditor-menu"] {
   background: var(--puck-color-white, #fff);
   position: relative;
   z-index: 2;
 }
 
-[class*="RichTextEditor--editor"]:not([class*="inline"]) > .rich-text {
+[class*="PuckFields"]
+  [class*="RichTextEditor--editor"]:not([class*="inline"])
+  > .rich-text {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;

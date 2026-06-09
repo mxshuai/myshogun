@@ -1,4 +1,4 @@
-import { isValidElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactNode } from "react";
 import type { Editor } from "@tiptap/react";
 import type { ComponentConfig } from "@puckeditor/core";
 import { RichTextMenu } from "@puckeditor/core";
@@ -33,10 +33,17 @@ function staticHtmlFromProps(props: {
   return DEFAULT_TEXT_HTML;
 }
 
+function mergeClassNames(...parts: Array<string | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
 function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
-  /** 编辑态：Puck 将 html 替换为 inline TipTap 组件，必须原样渲染 */
+  /** 编辑态：Puck 将 html 替换为 inline TipTap（含 overlay portal），避免再包一层 div 阻断选中 */
   if (isValidElement(htmlProp)) {
-    return <div className="visbuild-text visbuild-text--editing">{htmlProp}</div>;
+    const existing = (htmlProp.props as { className?: string }).className;
+    return cloneElement(htmlProp, {
+      className: mergeClassNames(existing, "visbuild-text", "visbuild-text--editing"),
+    });
   }
 
   const raw =
@@ -55,6 +62,7 @@ function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
 }
 
 const TextInternal: ComponentConfig<Components["Text"]> = {
+  inline: true,
   fields: {
     html: {
       type: "richtext",
@@ -80,7 +88,10 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
   },
   defaultProps: {
     html: DEFAULT_TEXT_HTML,
-    layout: defaultLayoutSpacing,
+    layout: {
+      padding: "16px",
+      ...defaultLayoutSpacing,
+    },
   },
   render: (props) => (
     <Section maxWidth={props.maxWidth}>
