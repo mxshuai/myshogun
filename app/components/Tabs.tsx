@@ -85,9 +85,6 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     borderThickness: 1,
     font: "",
     fontSize: 16,
-    layout: {
-      padding: "0px",
-    },
   },
   render: ({
     tabs,

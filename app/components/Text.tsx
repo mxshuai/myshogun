@@ -89,8 +89,13 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
   defaultProps: {
     html: DEFAULT_TEXT_HTML,
     layout: {
-      padding: "16px",
       ...defaultLayoutSpacing,
+      sectionPadding: {
+        top: "16px",
+        right: "0",
+        bottom: "16px",
+        left: "0",
+      },
     },
   },
   render: (props) => (

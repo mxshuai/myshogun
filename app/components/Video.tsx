@@ -143,9 +143,6 @@ const VideoInternal: ComponentConfig<Components["Video"]> = {
     autoplay: false,
     muteAudio: false,
     relatedVideosFromOtherChannels: true,
-    layout: {
-      padding: "0px",
-    },
   },
   render: ({
     videoUrl,

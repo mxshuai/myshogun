@@ -1,7 +1,6 @@
 import React, { forwardRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ComponentConfig, DefaultComponentProps, ObjectField } from "@puckeditor/core";
-import { spacingOptions } from "./options";
 import {
   SectionSpacingProvider,
   type SectionSpacingValue,
@@ -25,6 +24,7 @@ export type LayoutDimensionsFields = {
 
 /** Puck layout 字段（嵌套分组：Dimensions、Section margin/padding） */
 export type LayoutFieldProps = {
+  /** @deprecated 仅用于读取旧页面数据，已并入 sectionPadding */
   padding?: string;
   spanCol?: number;
   spanRow?: number;
@@ -78,9 +78,38 @@ const sectionSides = (label: string) =>
     },
   }) satisfies ObjectField<SectionSidesFields>;
 
-function resolveSectionLayout(layout?: LayoutFieldProps): SectionSpacingValue {
+/** 将已废弃的 layout.padding（仅上下）并入 sectionPadding，画布与导出共用 */
+export function effectiveSectionSides(layout?: LayoutFieldProps): {
+  margin: SectionSidesFields;
+  padding: SectionSidesFields;
+} {
   const m = layout?.sectionMargin;
   const p = layout?.sectionPadding;
+  const legacy = (layout?.padding ?? "").trim();
+  const legacyY =
+    legacy && legacy !== "0" && legacy !== "0px" ? legacy : "";
+
+  const top = normalizeSectionSide(p?.top);
+  const bottom = normalizeSectionSide(p?.bottom);
+
+  return {
+    margin: {
+      top: normalizeSectionSide(m?.top),
+      right: normalizeSectionSide(m?.right),
+      bottom: normalizeSectionSide(m?.bottom),
+      left: normalizeSectionSide(m?.left),
+    },
+    padding: {
+      top: top !== "0" ? top : legacyY || "0",
+      right: normalizeSectionSide(p?.right),
+      bottom: bottom !== "0" ? bottom : legacyY || "0",
+      left: normalizeSectionSide(p?.left),
+    },
+  };
+}
+
+function resolveSectionLayout(layout?: LayoutFieldProps): SectionSpacingValue {
+  const { margin, padding } = effectiveSectionSides(layout);
   const dim = layout?.dimensions;
   const maxW =
     dim?.maxWidth != null && dim.maxWidth > 0 ? `${dim.maxWidth}px` : undefined;
@@ -88,14 +117,14 @@ function resolveSectionLayout(layout?: LayoutFieldProps): SectionSpacingValue {
     dim?.minHeight != null && dim.minHeight > 0 ? `${dim.minHeight}px` : undefined;
 
   return {
-    sectionMarginTop: normalizeSectionSide(m?.top),
-    sectionMarginRight: normalizeSectionSide(m?.right),
-    sectionMarginBottom: normalizeSectionSide(m?.bottom),
-    sectionMarginLeft: normalizeSectionSide(m?.left),
-    sectionPaddingTop: normalizeSectionSide(p?.top),
-    sectionPaddingRight: normalizeSectionSide(p?.right),
-    sectionPaddingBottom: normalizeSectionSide(p?.bottom),
-    sectionPaddingLeft: normalizeSectionSide(p?.left),
+    sectionMarginTop: margin.top!,
+    sectionMarginRight: margin.right!,
+    sectionMarginBottom: margin.bottom!,
+    sectionMarginLeft: margin.left!,
+    sectionPaddingTop: padding.top!,
+    sectionPaddingRight: padding.right!,
+    sectionPaddingBottom: padding.bottom!,
+    sectionPaddingLeft: padding.left!,
     sectionMinHeight: minH,
     sectionMaxWidth: maxW,
   };
@@ -139,11 +168,6 @@ export const layoutField: ObjectField<LayoutFieldProps> = {
         { label: "false", value: false },
       ],
     },
-    padding: {
-      type: "select",
-      label: "Vertical Padding",
-      options: [{ label: "0px", value: "0px" }, ...spacingOptions],
-    },
     dimensions: dimensionsField,
     sectionSpacingAdvanced: sectionSpacingToggleField,
     sectionMargin: sectionSides("Section margin"),
@@ -171,8 +195,6 @@ export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
           gridRow: layout?.spanRow
             ? `span ${Math.max(Math.min(layout.spanRow, 12), 1)}`
             : undefined,
-          paddingTop: layout?.padding,
-          paddingBottom: layout?.padding,
           flex: layout?.grow ? "1 1 0" : undefined,
           ...style,
         }}
@@ -201,7 +223,6 @@ function layoutFieldsForParent(
     return {
       spanCol: layoutField.objectFields.spanCol,
       spanRow: layoutField.objectFields.spanRow,
-      padding: layoutField.objectFields.padding,
       dimensions: dimensionsField,
       sectionSpacingAdvanced: sectionSpacingToggleField,
       ...spacingBlocks,
@@ -210,14 +231,12 @@ function layoutFieldsForParent(
   if (parentType === "Flex") {
     return {
       grow: layoutField.objectFields.grow,
-      padding: layoutField.objectFields.padding,
       dimensions: dimensionsField,
       sectionSpacingAdvanced: sectionSpacingToggleField,
       ...spacingBlocks,
     };
   }
   return {
-    padding: layoutField.objectFields.padding,
     dimensions: dimensionsField,
     sectionSpacingAdvanced: sectionSpacingToggleField,
     ...spacingBlocks,
@@ -240,7 +259,6 @@ export function withLayout<
       layout: {
         spanCol: 1,
         spanRow: 1,
-        padding: "0px",
         grow: false,
         ...defaultLayoutSpacing,
         ...componentConfig.defaultProps?.layout,

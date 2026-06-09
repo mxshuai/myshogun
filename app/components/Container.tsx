@@ -1,7 +1,8 @@
 import type { ComponentConfig, Slot } from "@puckeditor/core";
 import type { Components } from "./types";
+import { resolveBackgroundSizeCss } from "./container-background-size";
 import { Section } from "./Section";
-import { withLayout } from "./Layout";
+import { defaultLayoutSpacing, withLayout } from "./Layout";
 
 const ContainerInternal: ComponentConfig<Components["Container"]> = {
   fields: {
@@ -58,7 +59,13 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     parallaxEffect: false,
     content: [],
     layout: {
-      padding: "40px",
+      ...defaultLayoutSpacing,
+      sectionPadding: {
+        top: "40px",
+        right: "0",
+        bottom: "40px",
+        left: "0",
+      },
     },
   },
   resolveFields: (data, params) => {
@@ -134,6 +141,20 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
           { label: "Custom", value: "custom" },
         ],
       };
+      if (props.backgroundSize === "custom") {
+        fields.backgroundWidth = {
+          type: "number",
+          label: "Background width",
+          min: 0,
+          step: 1,
+        };
+        fields.backgroundHeight = {
+          type: "number",
+          label: "Background height",
+          min: 0,
+          step: 1,
+        };
+      }
       fields.backgroundRepeat = {
         type: "radio",
         label: "Background repeat",
@@ -237,6 +258,8 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     backgroundVideo,
     videoMuted,
     backgroundSize,
+    backgroundWidth,
+    backgroundHeight,
     backgroundRepeat,
     horizontalPosition,
     horizontalPositionValue,
@@ -257,22 +280,19 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     // 背景样式
     const getBackgroundStyle = () => {
       const baseStyle: React.CSSProperties = {
-        minHeight: "200px",
         display: "flex",
         flexDirection: "column",
         justifyContent: alignMap[verticalAlign],
-        padding: "40px 16px",
       };
 
       if (backgroundType === "image" && backgroundImage) {
         baseStyle.backgroundImage = `url(${backgroundImage})`;
         
-        // Background size
-        if (backgroundSize === "custom") {
-          baseStyle.backgroundSize = "auto";
-        } else {
-          baseStyle.backgroundSize = backgroundSize;
-        }
+        baseStyle.backgroundSize = resolveBackgroundSizeCss(
+          backgroundSize,
+          backgroundWidth,
+          backgroundHeight
+        );
         
         // Background repeat
         baseStyle.backgroundRepeat = backgroundRepeat;

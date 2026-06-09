@@ -72,8 +72,13 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     hoverStyle: { ...defaultHoverStyle },
     activeStyle: { ...defaultActiveStyle },
     layout: {
-      padding: "8px",
       ...defaultLayoutSpacing,
+      sectionPadding: {
+        top: "8px",
+        right: "0",
+        bottom: "8px",
+        left: "0",
+      },
     },
   },
   render: (props) => {

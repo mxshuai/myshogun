@@ -176,9 +176,6 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
     headerTextColor: "#000000",
     innerBackgroundColor: "#ffffff",
     borderColor: "#dddddd",
-    layout: {
-      padding: "0px",
-    },
   },
   render: ({
     items,

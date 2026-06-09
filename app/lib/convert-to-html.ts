@@ -1,5 +1,6 @@
 import type { Data } from "@puckeditor/core";
 
+import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
 import {
   BUTTON_EXPORT_CSS,
@@ -551,6 +552,8 @@ function generateContainer(props: any, spaces: string, indent: number): string {
   const backgroundVideo = props.backgroundVideo || '';
   const videoMuted = props.videoMuted !== false;
   const backgroundSize = props.backgroundSize || 'cover';
+  const backgroundWidth = props.backgroundWidth;
+  const backgroundHeight = props.backgroundHeight;
   const backgroundRepeat = props.backgroundRepeat || 'no-repeat';
   const horizontalPosition = props.horizontalPosition || 'center';
   const horizontalPositionValue = props.horizontalPositionValue || 0;
@@ -565,17 +568,16 @@ function generateContainer(props: any, spaces: string, indent: number): string {
     bottom: 'flex-end',
   };
   
-  let backgroundStyle = 'min-height: 200px; display: flex; flex-direction: column; justify-content: ' + alignMap[verticalAlign] + '; padding: 40px 16px; position: relative;';
+  let backgroundStyle = 'display: flex; flex-direction: column; justify-content: ' + alignMap[verticalAlign] + '; position: relative;';
   
   if (backgroundType === 'image' && backgroundImage) {
     backgroundStyle += ` background-image: url('${backgroundImage}');`;
     
-    // Background size
-    if (backgroundSize === 'custom') {
-      backgroundStyle += ' background-size: auto;';
-    } else {
-      backgroundStyle += ` background-size: ${backgroundSize};`;
-    }
+    backgroundStyle += ` background-size: ${resolveBackgroundSizeCss(
+      backgroundSize,
+      backgroundWidth,
+      backgroundHeight
+    )};`;
     
     // Background repeat
     backgroundStyle += ` background-repeat: ${backgroundRepeat};`;

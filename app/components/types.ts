@@ -147,6 +147,8 @@ export type Components = {
     backgroundVideo: string;
     videoMuted: boolean;
     backgroundSize: "cover" | "contain" | "custom";
+    backgroundWidth?: number;
+    backgroundHeight?: number;
     backgroundRepeat: "no-repeat" | "repeat";
     horizontalPosition: "left" | "center" | "right" | "custom";
     horizontalPositionValue: number;

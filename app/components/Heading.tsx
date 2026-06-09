@@ -148,8 +148,13 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
     openInNewWindow: false,
     align: "center",
     layout: {
-      padding: "8px",
       ...defaultLayoutSpacing,
+      sectionPadding: {
+        top: "8px",
+        right: "0",
+        bottom: "8px",
+        left: "0",
+      },
     },
   },
   render: ({

@@ -1,5 +1,6 @@
 import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
+import { Section } from "./Section";
 import { withLayout } from "./Layout";
 
 const RawHTMLInternal: ComponentConfig<Components["RawHTML"]> = {
@@ -11,13 +12,14 @@ const RawHTMLInternal: ComponentConfig<Components["RawHTML"]> = {
   },
   defaultProps: {
     html: "<p>Imported HTML</p>",
-    layout: { padding: "0" },
   },
   render: ({ html }) => (
-    <div
-      className="visbuild-raw-html"
-      dangerouslySetInnerHTML={{ __html: html ?? "" }}
-    />
+    <Section>
+      <div
+        className="visbuild-raw-html"
+        dangerouslySetInnerHTML={{ __html: html ?? "" }}
+      />
+    </Section>
   ),
 };
 

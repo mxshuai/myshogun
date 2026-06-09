@@ -16,7 +16,6 @@ export function visbuildDataFromShopifyBody(
         type: "RawHTML",
         props: {
           html: body || "",
-          layout: { padding: "0" },
         },
       },
     ],

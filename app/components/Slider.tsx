@@ -291,9 +291,6 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     dotsLocation: "center",
     spaceBetweenDots: 8,
     items: [{ slot: [] }],
-    layout: {
-      padding: "0px",
-    },
   },
   render: ({
     mode,

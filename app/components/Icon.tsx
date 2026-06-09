@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
-import { withLayout } from "./Layout";
+import { defaultLayoutSpacing, withLayout } from "./Layout";
 import {
   ICON_OPTIONS,
   iconFontSizeFromHeight,
@@ -168,7 +168,13 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
     linkHref: "",
     openInNewWindow: false,
     layout: {
-      padding: "8px",
+      ...defaultLayoutSpacing,
+      sectionPadding: {
+        top: "8px",
+        right: "0",
+        bottom: "8px",
+        left: "0",
+      },
     },
   },
   render: ({
