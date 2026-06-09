@@ -30,8 +30,6 @@ export type LayoutFieldProps = {
   spanRow?: number;
   grow?: boolean;
   dimensions?: LayoutDimensionsFields;
-  /** false：侧边栏仅显示开关；true：展开 margin / padding 四边编辑 */
-  sectionSpacingAdvanced?: boolean;
   sectionMargin?: SectionSidesFields;
   sectionPadding?: SectionSidesFields;
 };
@@ -55,15 +53,6 @@ const dimensionsField = {
       min: 0,
     },
   },
-};
-
-const sectionSpacingToggleField = {
-  type: "radio" as const,
-  label: "Section spacing",
-  options: [
-    { label: "Default (0)", value: false },
-    { label: "Custom margins & padding", value: true },
-  ],
 };
 
 const sectionSides = (label: string) =>
@@ -140,7 +129,6 @@ const defaultSectionSides = {
 /** 供各组件 defaultProps.layout 与 withLayout 合并 */
 export const defaultLayoutSpacing = {
   dimensions: { minHeight: 0, maxWidth: 1280 },
-  sectionSpacingAdvanced: false,
   sectionMargin: { ...defaultSectionSides },
   sectionPadding: { ...defaultSectionSides },
 } satisfies Partial<LayoutFieldProps>;
@@ -169,7 +157,6 @@ export const layoutField: ObjectField<LayoutFieldProps> = {
       ],
     },
     dimensions: dimensionsField,
-    sectionSpacingAdvanced: sectionSpacingToggleField,
     sectionMargin: sectionSides("Section margin"),
     sectionPadding: sectionSides("Section padding"),
   },
@@ -208,38 +195,30 @@ export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
 
 Layout.displayName = "Layout";
 
-function layoutFieldsForParent(
-  parentType: string | undefined,
-  showSpacingSides: boolean
-) {
-  const spacingBlocks = showSpacingSides
-    ? {
-        sectionMargin: sectionSides("Section margin"),
-        sectionPadding: sectionSides("Section padding"),
-      }
-    : {};
+const sectionSpacingFields = {
+  sectionMargin: sectionSides("Section margin"),
+  sectionPadding: sectionSides("Section padding"),
+};
 
+function layoutFieldsForParent(parentType: string | undefined) {
   if (parentType === "Grid") {
     return {
       spanCol: layoutField.objectFields.spanCol,
       spanRow: layoutField.objectFields.spanRow,
       dimensions: dimensionsField,
-      sectionSpacingAdvanced: sectionSpacingToggleField,
-      ...spacingBlocks,
+      ...sectionSpacingFields,
     };
   }
   if (parentType === "Flex") {
     return {
       grow: layoutField.objectFields.grow,
       dimensions: dimensionsField,
-      sectionSpacingAdvanced: sectionSpacingToggleField,
-      ...spacingBlocks,
+      ...sectionSpacingFields,
     };
   }
   return {
     dimensions: dimensionsField,
-    sectionSpacingAdvanced: sectionSpacingToggleField,
-    ...spacingBlocks,
+    ...sectionSpacingFields,
   };
 }
 
@@ -269,16 +248,12 @@ export function withLayout<
         ? originalResolveFields(data, params)
         : { ...componentConfig.fields };
 
-      const layoutState = (data as { props?: { layout?: LayoutFieldProps } }).props
-        ?.layout;
-      const showSides = layoutState?.sectionSpacingAdvanced === true;
-
       if (params.parent?.type === "Grid") {
         fields = {
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: layoutFieldsForParent("Grid", showSides),
+            objectFields: layoutFieldsForParent("Grid"),
           },
         } as any;
       } else if (params.parent?.type === "Flex") {
@@ -286,7 +261,7 @@ export function withLayout<
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: layoutFieldsForParent("Flex", showSides),
+            objectFields: layoutFieldsForParent("Flex"),
           },
         } as any;
       } else {
@@ -294,7 +269,7 @@ export function withLayout<
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: layoutFieldsForParent(undefined, showSides),
+            objectFields: layoutFieldsForParent(undefined),
           },
         } as any;
       }
