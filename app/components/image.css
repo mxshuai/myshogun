@@ -1,0 +1,34 @@
+.visbuild-image__frame {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.visbuild-image__link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.visbuild-image__img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  opacity: var(--img-opacity, 1);
+  border: var(--img-border, none);
+  border-radius: var(--img-radius, 0);
+  box-shadow: var(--img-shadow, none);
+  transition:
+    opacity 0.2s ease,
+    border 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img {
+  opacity: var(--img-hover-opacity, var(--img-opacity, 1));
+  border: var(--img-hover-border, var(--img-border, none));
+  border-radius: var(--img-hover-radius, var(--img-radius, 0));
+  box-shadow: var(--img-hover-shadow, var(--img-shadow, none));
+}

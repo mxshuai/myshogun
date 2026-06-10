@@ -69,12 +69,6 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
         ...defaultLayoutSpacing.dimensions,
         minHeight: 50,
       },
-      sectionPadding: {
-        top: "40px",
-        right: "0",
-        bottom: "40px",
-        left: "0",
-      },
     },
   },
   resolveFields: (data, params) => {
@@ -287,9 +281,13 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
       bottom: "flex-end",
     };
 
-    const sectionPadding = effectiveSectionSides(
-      layout as LayoutFieldProps | undefined
-    ).padding;
+    const layoutState = layout as LayoutFieldProps | undefined;
+    const sectionPadding = effectiveSectionSides(layoutState).padding;
+    const sectionMinHeight =
+      layoutState?.dimensions?.minHeight != null &&
+      layoutState.dimensions.minHeight > 0
+        ? `${layoutState.dimensions.minHeight}px`
+        : undefined;
 
     // 背景样式
     const getBackgroundStyle = () => {
@@ -301,6 +299,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
         paddingRight: sectionPadding.right,
         paddingBottom: sectionPadding.bottom,
         paddingLeft: sectionPadding.left,
+        ...(sectionMinHeight ? { minHeight: sectionMinHeight } : {}),
       };
 
       if (backgroundType === "image" && backgroundImage) {
@@ -362,6 +361,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
         sectionPaddingRight="0"
         sectionPaddingBottom="0"
         sectionPaddingLeft="0"
+        sectionMinHeight=""
       >
         <div
           style={{ ...getBackgroundStyle(), ...containerStyle }}

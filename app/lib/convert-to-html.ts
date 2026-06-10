@@ -8,6 +8,13 @@ import {
   flattenButtonProps,
   serializeButtonInlineStyle,
 } from "~/components/button-styles";
+import {
+  buildResponsiveSrcSet,
+  flattenImageProps,
+  IMAGE_EXPORT_CSS,
+  serializeImageDimensionalStyle,
+  serializeImageWrapperStyle,
+} from "~/components/image-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -267,10 +274,32 @@ function generateRawHTML(props: any, layout: any, spaces: string): string {
  * 生成 Image HTML
  */
 function generateImage(props: any, layout: any, spaces: string): string {
-  const inner = `<div>
-<img src="${props.src}" alt="${escapeHtml(props.alt)}" style="width: ${props.width || '100%'}; height: ${props.height || 'auto'}; display: block; border-radius: 8px;" />
-</div>
-`;
+  const flat = flattenImageProps(props);
+  const wrapperStyle = serializeImageWrapperStyle(flat);
+  const imgStyle = serializeImageDimensionalStyle(flat.dimensions);
+  const loadingAttr =
+    flat.performance.loading === "auto" ? "" : ` loading="${flat.performance.loading}"`;
+  const srcSet = flat.performance.responsiveImage
+    ? buildResponsiveSrcSet(flat.src, flat.performance.imageQuality)
+    : undefined;
+  const srcSetAttr = srcSet ? ` srcset="${escapeHtml(srcSet)}" sizes="100vw"` : "";
+  const href = flat.linkHref?.trim() || "#";
+  const targetAttr = flat.openInNewWindow
+    ? ' target="_blank" rel="noopener noreferrer"'
+    : "";
+
+  const imgTag = `<img class="visbuild-image__img" src="${escapeHtml(flat.src)}" alt="${escapeHtml(flat.alt)}"${loadingAttr}${srcSetAttr} style="${imgStyle}" />`;
+
+  let core = "";
+  if (flat.imageClickable && flat.linkHref?.trim()) {
+    core += `${spaces}    <a class="visbuild-image__link" href="${escapeHtml(href)}"${targetAttr}>\n`;
+    core += `${spaces}      ${imgTag}\n`;
+    core += `${spaces}    </a>\n`;
+  } else {
+    core += `${spaces}    ${imgTag}\n`;
+  }
+
+  const inner = `${spaces}  <div class="visbuild-image" style="${wrapperStyle}">\n${core}${spaces}  </div>\n`;
 
   return wrapLayoutLayers(layout, inner, spaces);
 }
@@ -564,6 +593,8 @@ function generateContainer(props: any, spaces: string, indent: number): string {
   const content = props.content || [];
   const layout = props.layout || {};
   const sectionPadding = effectiveSectionSides(layout).padding;
+  const layoutMinHeight = (layout.dimensions as { minHeight?: number } | undefined)
+    ?.minHeight;
   
   const alignMap: Record<string, string> = {
     top: 'flex-start',
@@ -579,6 +610,10 @@ function generateContainer(props: any, spaces: string, indent: number): string {
     ` padding-right: ${sectionPadding.right};` +
     ` padding-bottom: ${sectionPadding.bottom};` +
     ` padding-left: ${sectionPadding.left};`;
+
+  if (layoutMinHeight != null && Number(layoutMinHeight) > 0) {
+    backgroundStyle += ` min-height: ${layoutMinHeight}px;`;
+  }
   
   if (backgroundType === 'image' && backgroundImage) {
     backgroundStyle += ` background-image: url('${backgroundImage}');`;
@@ -1152,6 +1187,8 @@ body {
 .visbuild-text a.visbuild-link-no-underline { text-decoration: none; }
 
 ${BUTTON_EXPORT_CSS}
+
+${IMAGE_EXPORT_CSS}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

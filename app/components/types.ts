@@ -69,8 +69,45 @@ export type Components = {
   Image: WithLayout<{
     src: string;
     alt: string;
-    width?: string;
-    height?: string;
+    imageClickable: boolean;
+    linkHref?: string;
+    openInNewWindow?: boolean;
+    performance: {
+      imageQuality: number;
+      responsiveImage: boolean;
+      loading: "eager" | "lazy" | "auto";
+    };
+    dimensions: {
+      height?: number;
+      imageFit: "cover" | "contain" | "stretch";
+      imagePosition: string;
+      zoom: number;
+      aspectRatio: "auto" | "16/9" | "4/3" | "3/2" | "1/1";
+    };
+    defaultStyle: {
+      opacity: number;
+      borderColor: string;
+      borderThickness?: number;
+      borderRadius?: number;
+      boxShadow: boolean;
+      boxShadowColor?: string;
+      boxShadowOffsetX?: number;
+      boxShadowOffsetY?: number;
+      boxShadowBlur?: number;
+      boxShadowSpread?: number;
+    };
+    hoverStyle: {
+      opacity: number;
+      borderColor: string;
+      borderThickness?: number;
+      borderRadius?: number;
+      boxShadow: boolean;
+      boxShadowColor?: string;
+      boxShadowOffsetX?: number;
+      boxShadowOffsetY?: number;
+      boxShadowBlur?: number;
+      boxShadowSpread?: number;
+    };
   }>;
   Video: WithLayout<{
     videoUrl: string;
