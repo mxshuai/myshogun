@@ -96,6 +96,55 @@
   font-size: 0.875rem;
 }
 
+/* 与 Button / Puck radio 字段一致：文字分段选项，无图标 */
+.visbuild-text-inspector .visbuild-sidebar-radio {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0;
+  width: 100%;
+  margin-bottom: 2px;
+  border: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--puck-color-white, #fff);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: none;
+  border-right: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  background: var(--puck-color-white, #fff);
+  color: var(--puck-color-grey-03, #334155);
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:last-child {
+  border-right: none;
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:hover:not(:disabled) {
+  background: var(--puck-color-grey-11, #f8fafc);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option--active {
+  background: var(--puck-color-azure-11, #eff6ff);
+  color: var(--puck-color-azure-04, #2563eb);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /**
  * 仅侧栏 PuckFields 内 richtext：只显示 Formatting 面板，隐藏重复的 TipTap 编辑区。
  * 必须限定在侧栏，避免影响画布 inline 编辑器（选中/拖动）。

@@ -30,6 +30,15 @@ const buttonFields = {
     label: "Open in same tab",
     options: [...onOffOptions],
   },
+  align: {
+    type: "radio",
+    label: "Alignment",
+    options: [
+      { label: "Left", value: "left" },
+      { label: "Center", value: "center" },
+      { label: "Right", value: "right" },
+    ],
+  },
   text: textFieldGroup,
   dimensions: dimensionsFieldGroup,
   defaultStyle: styleFieldGroup("Default style", false),
@@ -61,6 +70,7 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     label: "Text",
     href: "",
     openInSameTab: true,
+    align: "center",
     text: {
       font: "",
       fontSize: 14,
@@ -73,35 +83,43 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     activeStyle: { ...defaultActiveStyle },
     layout: {
       ...defaultLayoutSpacing,
-      sectionPadding: {
-        top: "8px",
-        right: "0",
-        bottom: "8px",
-        left: "0",
-      },
     },
   },
   render: (props) => {
-    const { label, href, openInSameTab, puck } = props;
+    const { label, href, openInSameTab, align, puck } = props;
     const linkStyle = buildButtonLinkStyle(flattenButtonProps(props));
     const resolvedHref = href?.trim() || "#";
+    const justifyContent =
+      align === "left"
+        ? "flex-start"
+        : align === "right"
+          ? "flex-end"
+          : "center";
 
     return (
       <Section>
-        <a
-          className="visbuild-button"
-          href={puck.isEditing ? "#" : resolvedHref}
-          target={openInSameTab ? undefined : "_blank"}
-          rel={openInSameTab ? undefined : "noopener noreferrer"}
-          onClick={puck.isEditing ? (e) => e.preventDefault() : undefined}
+        <div
           style={{
-            ...linkStyle,
-            cursor: puck.isEditing ? "default" : "pointer",
+            display: "flex",
+            justifyContent,
+            width: "100%",
           }}
-          tabIndex={puck.isEditing ? -1 : undefined}
         >
-          {label}
-        </a>
+          <a
+            className="visbuild-button"
+            href={puck.isEditing ? "#" : resolvedHref}
+            target={openInSameTab ? undefined : "_blank"}
+            rel={openInSameTab ? undefined : "noopener noreferrer"}
+            onClick={puck.isEditing ? (e) => e.preventDefault() : undefined}
+            style={{
+              ...linkStyle,
+              cursor: puck.isEditing ? "default" : "pointer",
+            }}
+            tabIndex={puck.isEditing ? -1 : undefined}
+          >
+            {label}
+          </a>
+        </div>
       </Section>
     );
   },

@@ -202,10 +202,19 @@ function generateButton(props: any, layout: any, spaces: string): string {
   const href = props.href?.trim() || "#";
   const target = props.openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
   const inlineStyle = serializeButtonInlineStyle(flattenButtonProps(props));
+  const align = props.align || "center";
+  const justify =
+    align === "left"
+      ? "flex-start"
+      : align === "right"
+        ? "flex-end"
+        : "center";
 
-  const inner = `<a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
-${spaces}  ${escapeHtml(props.label || "Text")}
-${spaces}</a>
+  const inner = `${spaces}  <div style="display: flex; justify-content: ${justify}; width: 100%;">
+${spaces}    <a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
+${spaces}      ${escapeHtml(props.label || "Text")}
+${spaces}    </a>
+${spaces}  </div>
 `;
 
   return wrapLayoutLayers(layout, inner, spaces);

@@ -77,8 +77,150 @@ function clearFormatting(editor: Editor) {
   );
 }
 
-function setTextAlign(editor: Editor, align: "left" | "center" | "right" | "justify") {
+type TextAlignValue = "left" | "center" | "right" | "justify";
+type TextListValue = "none" | "dash" | "bullet" | "ordered";
+
+const TEXT_ALIGN_OPTIONS: { label: string; value: TextAlignValue }[] = [
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+  { label: "Justify", value: "justify" },
+];
+
+const TEXT_LIST_OPTIONS: { label: string; value: TextListValue }[] = [
+  { label: "None", value: "none" },
+  { label: "Dash", value: "dash" },
+  { label: "Bullet", value: "bullet" },
+  { label: "Ordered", value: "ordered" },
+];
+
+function setTextAlign(editor: Editor, align: TextAlignValue) {
   runEditorChainOnScope(editor, (chain) => chain.setTextAlign(align));
+}
+
+function readTextAlign(editor: Editor): TextAlignValue {
+  if (editor.isActive({ textAlign: "justify" })) return "justify";
+  if (editor.isActive({ textAlign: "center" })) return "center";
+  if (editor.isActive({ textAlign: "right" })) return "right";
+  return "left";
+}
+
+function readListType(
+  editor: Editor,
+  isDashList: boolean
+): TextListValue {
+  if (editor.isActive("orderedList")) return "ordered";
+  if (isDashList) return "dash";
+  if (editor.isActive("bulletList")) return "bullet";
+  return "none";
+}
+
+function setListType(editor: Editor, type: TextListValue) {
+  const current = readListType(
+    editor,
+    editor.isActive("bulletList") &&
+      editor.getAttributes("bulletList")?.class === "visbuild-list-dash"
+  );
+
+  if (type === current) return;
+
+  if (type === "none") {
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+    }
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    return;
+  }
+
+  if (type === "dash") {
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    if (
+      editor.isActive("bulletList") &&
+      editor.getAttributes("bulletList")?.class === "visbuild-list-dash"
+    ) {
+      return;
+    }
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) =>
+        c.updateAttributes("bulletList", { class: "visbuild-list-dash" })
+      );
+      return;
+    }
+    runEditorChainOnScope(editor, (c) =>
+      c.toggleBulletList().updateAttributes("bulletList", {
+        class: "visbuild-list-dash",
+      })
+    );
+    return;
+  }
+
+  if (type === "bullet") {
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) =>
+        c.updateAttributes("bulletList", { class: null })
+      );
+      return;
+    }
+    runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+    return;
+  }
+
+  if (editor.isActive("bulletList")) {
+    runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+  }
+  if (!editor.isActive("orderedList")) {
+    runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+  }
+}
+
+function SidebarRadioGroup<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { label: string; value: T }[];
+  disabled: boolean;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <>
+      <p style={sectionLabel}>{label}</p>
+      <div
+        className="visbuild-sidebar-radio"
+        role="radiogroup"
+        aria-label={label}
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            disabled={disabled}
+            className={
+              value === option.value
+                ? "visbuild-sidebar-radio__option visbuild-sidebar-radio__option--active"
+                : "visbuild-sidebar-radio__option"
+            }
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function parsePxAttr(value: string): string {
@@ -300,78 +442,29 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           </label>
         </div>
 
-        <p style={sectionLabel}>Alignment</p>
-        <div className="visbuild-tool-row">
-          <RichTextMenu.Control
-            title="Align left"
-            active={editor.isActive({ textAlign: "left" })}
-            disabled={!canEdit}
-            icon={<span>≡</span>}
-            onClick={() => setTextAlign(editor, "left")}
-          />
-          <RichTextMenu.Control
-            title="Align center"
-            active={editor.isActive({ textAlign: "center" })}
-            disabled={!canEdit}
-            icon={<span>≡</span>}
-            onClick={() => setTextAlign(editor, "center")}
-          />
-          <RichTextMenu.Control
-            title="Align right"
-            active={editor.isActive({ textAlign: "right" })}
-            disabled={!canEdit}
-            icon={<span>≡</span>}
-            onClick={() => setTextAlign(editor, "right")}
-          />
-          <RichTextMenu.Control
-            title="Justify"
-            active={editor.isActive({ textAlign: "justify" })}
-            disabled={!canEdit}
-            icon={<span>≡</span>}
-            onClick={() => setTextAlign(editor, "justify")}
-          />
-        </div>
+        <SidebarRadioGroup
+          label="Alignment"
+          value={readTextAlign(editor)}
+          options={TEXT_ALIGN_OPTIONS}
+          disabled={!canEdit}
+          onChange={(align) => {
+            setTextAlign(editor, align);
+            syncHtmlToPuck(editor);
+            refresh();
+          }}
+        />
 
-        <p style={sectionLabel}>List and indentation</p>
-        <div className="visbuild-tool-row">
-          <RichTextMenu.Control
-            title="Dash list"
-            active={Boolean(st.isDashList)}
-            disabled={!canEdit}
-            icon={<span>—</span>}
-            onClick={() => {
-              if (st.isDashList) {
-                runEditorChainOnScope(editor, (c) => c.toggleBulletList());
-              } else {
-                runEditorChainOnScope(editor, (c) =>
-                  c
-                    .toggleBulletList()
-                    .updateAttributes("bulletList", {
-                      class: "visbuild-list-dash",
-                    }),
-                );
-              }
-            }}
-          />
-          <RichTextMenu.Control
-            title="Bullet list"
-            active={editor.isActive("bulletList") && !st.isDashList}
-            disabled={!canEdit}
-            icon={<span>•</span>}
-            onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleBulletList())
-            }
-          />
-          <RichTextMenu.Control
-            title="Ordered list"
-            active={editor.isActive("orderedList")}
-            disabled={!canEdit}
-            icon={<span>1.</span>}
-            onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleOrderedList())
-            }
-          />
-        </div>
+        <SidebarRadioGroup
+          label="List and indentation"
+          value={readListType(editor, Boolean(st.isDashList))}
+          options={TEXT_LIST_OPTIONS}
+          disabled={!canEdit}
+          onChange={(listType) => {
+            setListType(editor, listType);
+            syncHtmlToPuck(editor);
+            refresh();
+          }}
+        />
 
         <p style={sectionLabel}>Line height and letter spacing</p>
         <div style={{ ...row, marginBottom: 8 }}>

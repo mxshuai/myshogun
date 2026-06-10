@@ -34,6 +34,7 @@ export type Components = {
     label: string;
     href: string;
     openInSameTab: boolean;
+    align: "left" | "center" | "right";
     text: ButtonTextGroup;
     dimensions: ButtonDimensionsGroup;
     defaultStyle: ButtonStyleGroup;
