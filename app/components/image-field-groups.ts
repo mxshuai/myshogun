@@ -1,5 +1,6 @@
 import type { ObjectField } from "@puckeditor/core";
 import { onOffOptions } from "./button-field-groups";
+import { createPuckColorField } from "./ui/puck-color-field";
 
 export { onOffOptions };
 import type { ImageDimensionsGroup, ImageStyleGroup } from "./image-styles";
@@ -32,10 +33,7 @@ const baseImageStyleObjectFields = {
     max: 1,
     step: 0.01,
   },
-  borderColor: {
-    type: "text" as const,
-    label: "Border color",
-  },
+  borderColor: createPuckColorField("Border color", "#000000"),
   borderThickness: {
     type: "number" as const,
     label: "Border thickness",
@@ -58,24 +56,25 @@ const baseImageStyleObjectFields = {
 };
 
 const shadowDetailObjectFields = {
-  boxShadowColor: {
-    type: "text" as const,
-    label: "Color",
-  },
+  boxShadowColor: createPuckColorField("Color", "#000000"),
   boxShadowOffsetX: shadowNumberField("Horizontal offset"),
   boxShadowOffsetY: shadowNumberField("Vertical offset"),
   boxShadowBlur: shadowNumberField("Blur"),
   boxShadowSpread: shadowNumberField("Spread"),
 };
 
-function buildImageStyleObjectFields(boxShadowEnabled: boolean) {
+function buildImageStyleObjectFields(
+  boxShadowEnabled: boolean
+): ObjectField<ImageStyleGroup>["objectFields"] {
   if (!boxShadowEnabled) {
-    return { ...baseImageStyleObjectFields };
+    return {
+      ...baseImageStyleObjectFields,
+    } as ObjectField<ImageStyleGroup>["objectFields"];
   }
   return {
     ...baseImageStyleObjectFields,
     ...shadowDetailObjectFields,
-  };
+  } as ObjectField<ImageStyleGroup>["objectFields"];
 }
 
 export function imageStyleFieldGroup(

@@ -8,6 +8,7 @@ import {
   iconFontSizeFromHeight,
   toFaIconClasses,
 } from "./icon-options";
+import { createPuckColorField } from "./ui/puck-color-field";
 
 const IconInternal: ComponentConfig<Components["Icon"]> = {
   fields: {
@@ -119,10 +120,11 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
         { label: "Right", value: "right" },
       ],
     },
-    color: {
-      type: "text",
-      label: "Color",
-    },
+    color: createPuckColorField("Color", "#333333") as ComponentConfig<
+      Components["Icon"]
+    >["fields"] extends { color?: infer C }
+      ? C
+      : never,
     ariaLabel: {
       type: "text",
       label: "Aria label",

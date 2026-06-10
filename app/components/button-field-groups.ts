@@ -1,4 +1,5 @@
 import type { ObjectField } from "@puckeditor/core";
+import { createPuckColorField } from "./ui/puck-color-field";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
 import type { ButtonDimensionsGroup, ButtonStyleGroup, ButtonTextGroup } from "./button-styles";
 
@@ -21,14 +22,8 @@ const shadowNumberField = (label: string) => ({
 });
 
 const baseStyleObjectFields = {
-  textColor: {
-    type: "text" as const,
-    label: "Text color",
-  },
-  backgroundColor: {
-    type: "text" as const,
-    label: "Color",
-  },
+  textColor: createPuckColorField("Text color", "#ffffff"),
+  backgroundColor: createPuckColorField("Color", "#000000"),
   borderThickness: {
     type: "number" as const,
     label: "Border thickness",
@@ -43,10 +38,7 @@ const baseStyleObjectFields = {
     max: 200,
     step: 1,
   },
-  borderColor: {
-    type: "text" as const,
-    label: "Border color",
-  },
+  borderColor: createPuckColorField("Border color", "#e5e7eb"),
   boxShadow: {
     type: "radio" as const,
     label: "Box shadow",
@@ -55,24 +47,23 @@ const baseStyleObjectFields = {
 };
 
 const shadowDetailObjectFields = {
-  boxShadowColor: {
-    type: "text" as const,
-    label: "Color",
-  },
+  boxShadowColor: createPuckColorField("Color", "#000000"),
   boxShadowOffsetX: shadowNumberField("Horizontal offset"),
   boxShadowOffsetY: shadowNumberField("Vertical offset"),
   boxShadowBlur: shadowNumberField("Blur"),
   boxShadowSpread: shadowNumberField("Spread"),
 };
 
-export function buildStyleObjectFields(boxShadowEnabled: boolean) {
+export function buildStyleObjectFields(
+  boxShadowEnabled: boolean
+): ObjectField<ButtonStyleGroup>["objectFields"] {
   if (!boxShadowEnabled) {
-    return { ...baseStyleObjectFields };
+    return { ...baseStyleObjectFields } as ObjectField<ButtonStyleGroup>["objectFields"];
   }
   return {
     ...baseStyleObjectFields,
     ...shadowDetailObjectFields,
-  };
+  } as ObjectField<ButtonStyleGroup>["objectFields"];
 }
 
 export const textFieldGroup: ObjectField<ButtonTextGroup> = {

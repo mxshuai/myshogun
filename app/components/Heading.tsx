@@ -3,6 +3,7 @@ import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
+import { createPuckColorField } from "./ui/puck-color-field";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
 import {
   HEADING_SIZE_BY_LEVEL,
@@ -24,7 +25,7 @@ const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
   value: o.value,
 }));
 
-const headingFields: ComponentConfig<Components["Heading"]>["fields"] = {
+const headingFields = {
     level: {
       type: "select",
       label: "Heading type",
@@ -42,10 +43,7 @@ const headingFields: ComponentConfig<Components["Heading"]>["fields"] = {
       max: 200,
       step: 0.1,
     },
-    textColor: {
-      type: "text",
-      label: "Text color",
-    },
+    textColor: createPuckColorField("Text color", "#555555"),
     lineHeight: {
       type: "number",
       label: "Line height",
@@ -94,7 +92,7 @@ const headingFields: ComponentConfig<Components["Heading"]>["fields"] = {
       type: "textarea",
       contentEditable: true,
     },
-};
+} as ComponentConfig<Components["Heading"]>["fields"];
 
 const HeadingInternal: ComponentConfig<Components["Heading"]> = {
   fields: headingFields,

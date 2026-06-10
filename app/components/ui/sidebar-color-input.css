@@ -1,0 +1,71 @@
+.visbuild-sidebar-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.visbuild-sidebar-color__prefix {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visbuild-sidebar-color__abbr {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--puck-color-grey-04, #64748b);
+  min-width: 1.25rem;
+}
+
+.visbuild-sidebar-color__abbr--bg {
+  font-weight: 500;
+}
+
+.visbuild-sidebar-color__picker {
+  width: 36px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  border-radius: 6px;
+  background: var(--puck-color-white, #fff);
+  cursor: pointer;
+}
+
+.visbuild-sidebar-color__picker:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.visbuild-sidebar-color__hex {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  border-radius: 6px;
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--puck-color-grey-02, #1e293b);
+  background: var(--puck-color-white, #fff);
+}
+
+.visbuild-sidebar-color__hex:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.visbuild-sidebar-color-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.visbuild-sidebar-color-pair .visbuild-sidebar-color {
+  flex: 1 1 140px;
+}

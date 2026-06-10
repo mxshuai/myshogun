@@ -24,6 +24,7 @@ import {
 import { readLinkFormFromEditor } from "./text-link-utils";
 import { useSyncTextHtmlToPuck } from "./text-puck-sync";
 import { resolveTextEditor } from "./use-active-text-editor";
+import { SidebarColorPair } from "../ui/SidebarColorInput";
 
 /** 与 Puck 字段标签（Formatting）一致：--puck-font-size-xxs ≈ 14px */
 const sectionLabel: React.CSSProperties = {
@@ -411,36 +412,19 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
         </div>
 
         <p style={sectionLabel}>Text and background color</p>
-        <div style={row}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Ab</span>
-            <input
-              type="color"
-              disabled={!canEdit}
-              value={String(st.textColor ?? "#374151").startsWith("#") ? String(st.textColor) : "#374151"}
-              onChange={(e) =>
-                setTextStyleMark(editor, { color: e.target.value })
-              }
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span title="Background">🪣</span>
-            <input
-              type="color"
-              disabled={!canEdit}
-              value={
-                String(st.backgroundColor ?? "#ffffff").startsWith("#")
-                  ? String(st.backgroundColor)
-                  : "#ffffff"
-              }
-              onChange={(e) =>
-                setTextStyleMark(editor, {
-                  backgroundColor: e.target.value,
-                })
-              }
-            />
-          </label>
-        </div>
+        <SidebarColorPair
+          textValue={st.textColor}
+          backgroundValue={st.backgroundColor}
+          disabled={!canEdit}
+          textFallback="#374151"
+          backgroundFallback="#ffffff"
+          onTextChange={(color) =>
+            setTextStyleMark(editor, { color })
+          }
+          onBackgroundChange={(backgroundColor) =>
+            setTextStyleMark(editor, { backgroundColor })
+          }
+        />
 
         <SidebarRadioGroup
           label="Alignment"
