@@ -15,6 +15,11 @@ import {
   serializeImageDimensionalStyle,
   serializeImageWrapperStyle,
 } from "~/components/image-styles";
+import {
+  columnsGridClassName,
+  columnsGridStyle,
+  COLUMNS_EXPORT_CSS,
+} from "~/components/columns-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -84,8 +89,9 @@ function generateComponentHTML(component: any, indent: number = 2): string {
       return generateImage(props, layout, spaces);
     case 'Video':
       return generateVideo(props, layout, spaces);
+    case 'Columns':
     case 'Grid':
-      return generateGrid(props, spaces, indent);
+      return generateColumns(props, spaces, indent);
     case 'Flex':
       return generateFlex(props, spaces, indent);
     case 'Hero':
@@ -397,21 +403,39 @@ Youtube or Vimeo link
 }
 
 /**
- * 生成 Grid HTML
+ * 生成 Columns HTML（兼容旧 type Grid）
  */
-function generateGrid(props: any, spaces: string, indent: number): string {
-  const numColumns = props.numColumns || 3;
-  const gap = props.gap || 24;
+function generateColumns(props: any, spaces: string, indent: number): string {
+  const numColumns = props.numColumns ?? 2;
+  const gap = props.gap ?? 30;
+  const equalColumnHeights = props.equalColumnHeights === true;
+  const stackOnSmallScreens = props.stackOnSmallScreens !== false;
+  const stackingBehavior = props.stackingBehavior === "rightFirst"
+    ? "rightFirst"
+    : "leftFirst";
   const items = props.items || [];
-  
-  let html = `${spaces}<div style="display: grid; grid-template-columns: repeat(${numColumns}, 1fr); gap: ${gap}px; padding: 16px 0;">\n`;
-  
+
+  const className = columnsGridClassName({
+    equalColumnHeights,
+    stackOnSmallScreens,
+    stackingBehavior,
+  });
+  const style = columnsGridStyle(numColumns, gap);
+  const styleAttr = Object.entries(style)
+    .map(([key, value]) => {
+      const cssKey = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+      return `${cssKey}: ${value}`;
+    })
+    .join("; ");
+
+  let html = `${spaces}<div class="${className}" style="${styleAttr}">\n`;
+
   items.forEach((item: any) => {
     html += generateComponentHTML(item, indent + 2);
   });
-  
+
   html += `${spaces}</div>\n`;
-  
+
   return html;
 }
 
@@ -1199,6 +1223,8 @@ body {
 ${BUTTON_EXPORT_CSS}
 
 ${IMAGE_EXPORT_CSS}
+
+${COLUMNS_EXPORT_CSS}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

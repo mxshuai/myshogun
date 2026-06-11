@@ -201,7 +201,7 @@ const sectionSpacingFields = {
 };
 
 function layoutFieldsForParent(parentType: string | undefined) {
-  if (parentType === "Grid") {
+  if (parentType === "Columns" || parentType === "Grid") {
     return {
       spanCol: layoutField.objectFields.spanCol,
       spanRow: layoutField.objectFields.spanRow,
@@ -248,12 +248,15 @@ export function withLayout<
         ? originalResolveFields(data, params)
         : { ...componentConfig.fields };
 
-      if (params.parent?.type === "Grid") {
+      if (
+        params.parent?.type === "Columns" ||
+        params.parent?.type === "Grid"
+      ) {
         fields = {
           ...fields,
           layout: {
             ...layoutField,
-            objectFields: layoutFieldsForParent("Grid"),
+            objectFields: layoutFieldsForParent("Columns"),
           },
         } as any;
       } else if (params.parent?.type === "Flex") {

@@ -47,9 +47,21 @@ export type Components = {
     imageUrl?: string;
     href?: string;
   }>;
+  Columns: {
+    numColumns: number;
+    gap: number;
+    equalColumnHeights: boolean;
+    stackOnSmallScreens: boolean;
+    stackingBehavior: "leftFirst" | "rightFirst";
+    items: Slot;
+  };
+  /** @deprecated 已更名为 Columns，保留以兼容旧页面 JSON */
   Grid: {
     numColumns: number;
     gap: number;
+    equalColumnHeights?: boolean;
+    stackOnSmallScreens?: boolean;
+    stackingBehavior?: "leftFirst" | "rightFirst";
     items: Slot;
   };
   Hero: {

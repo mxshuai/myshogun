@@ -3,7 +3,7 @@ import { Heading } from "./app/components/Heading";
 import { Text } from "./app/components/Text";
 import { Button } from "./app/components/Button";
 import { Card } from "./app/components/Card";
-import { Grid } from "./app/components/Grid";
+import { Columns, Grid } from "./app/components/Columns";
 import { Hero } from "./app/components/Hero";
 import { Flex } from "./app/components/Flex";
 import { Image } from "./app/components/Image";
@@ -36,7 +36,7 @@ export const config: Config = {
     layout: {
       title: "Layout",
       components: [
-        "Grid",
+        "Columns",
         "Flex",
         "Spacer",
         "Table",
@@ -71,6 +71,7 @@ export const config: Config = {
     Text,
     Button,
     Card,
+    Columns,
     Grid,
     Hero,
     Flex,
