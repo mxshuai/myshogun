@@ -20,6 +20,14 @@ import {
   columnsGridStyle,
   COLUMNS_EXPORT_CSS,
 } from "~/components/columns-styles";
+import {
+  clampActiveTabIndex,
+  DEFAULT_ACTIVE_TAB_COLOR_GROUP,
+  DEFAULT_TAB_COLOR_GROUP,
+  serializeTabButtonStyle,
+  TAB_BUTTON_BORDER_RADIUS,
+  TAB_BUTTON_PADDING,
+} from "~/components/tabs-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -746,69 +754,68 @@ function generateContainer(props: any, spaces: string, indent: number): string {
  */
 function generateTabs(props: any, spaces: string, indent: number): string {
   const tabs = props.tabs || [];
-  const theme = props.theme || 'rectangular';
-  const borderColor = props.borderColor || '#e0e0e0';
-  const borderThickness = props.borderThickness || 1;
-  const font = props.font || '';
-  const fontSize = props.fontSize || 16;
-  
+  const theme = props.theme || "stretch";
+  const borderColor = props.borderColor || "#dddddd";
+  const borderThickness = props.borderThickness ?? 1;
+  const font = props.font || "";
+  const fontSize = props.fontSize ?? 16;
+  const defaultColor = {
+    backgroundColor:
+      props.defaultColor?.backgroundColor ??
+      DEFAULT_TAB_COLOR_GROUP.backgroundColor,
+    textColor:
+      props.defaultColor?.textColor ?? DEFAULT_TAB_COLOR_GROUP.textColor,
+  };
+  const activeColors = {
+    backgroundColor:
+      props.activeColors?.backgroundColor ??
+      DEFAULT_ACTIVE_TAB_COLOR_GROUP.backgroundColor,
+    textColor:
+      props.activeColors?.textColor ??
+      DEFAULT_ACTIVE_TAB_COLOR_GROUP.textColor,
+  };
+  const initialActiveIndex =
+    clampActiveTabIndex(props.activeTabIndex, tabs.length) - 1;
+
   if (tabs.length === 0) {
     return `${spaces}<!-- No tabs defined -->\n`;
   }
-  
-  // 生成唯一ID用于JS交互
+
   const tabsId = `tabs-${Math.random().toString(36).substr(2, 9)}`;
-  
+  const tabBarStyle = `display: flex; gap: 4px; border-bottom: ${borderThickness}px solid ${escapeHtml(borderColor)};`;
+
   let html = `${spaces}<div id="${tabsId}" style="width: 100%;">\n`;
-  
-  // Tab标题栏 - Stretch主题需要flex布局
-  const tabBarStyle = theme === 'stretch' 
-    ? 'display: flex; gap: 4px; border-bottom: ${borderThickness}px solid ${borderColor};'
-    : 'display: flex; gap: 4px; border-bottom: ${borderThickness}px solid ${borderColor};';
-  
   html += `${spaces}  <div style="${tabBarStyle}">\n`;
-  
+
   tabs.forEach((tab: any, index: number) => {
-    const isActive = index === 0; // 默认显示第一个tab
-    
-    let tabStyle = '';
-    
-    if (theme === 'sloped') {
-      // Sloped主题：只有下边框，背景透明，移除transform和boxShadow
-      const borderBottomColor = isActive ? '#0070f3' : borderColor;
-      const textColor = isActive ? '#0070f3' : '#999999';
-      tabStyle = `padding: 12px 24px; border-bottom: ${borderThickness}px solid ${borderBottomColor}; border-top: none; border-left: none; border-right: none; font-family: ${font || 'inherit'}; font-size: ${fontSize}px; font-weight: ${isActive ? 600 : 400}; background: transparent; color: ${textColor}; border-radius: 8px 8px 0 0; position: relative; z-index: ${isActive ? 1 : 0}; cursor: pointer; transition: all 0.2s ease;`;
-      // 移除transform和boxShadow效果
-    } else if (theme === 'stretch') {
-      // Stretch主题：平均分配宽度，基于Rectangular
-      const borderRadius = isActive ? '8px 8px 0 0' : '4px 4px 0 0';
-      const background = isActive ? '#ffffff' : '#f5f5f5';
-      const color = isActive ? '#0070f3' : '#666666';
-      tabStyle = `flex: 1; text-align: center; padding: 12px 24px; border: ${borderThickness}px solid ${borderColor}; border-bottom: none; font-family: ${font || 'inherit'}; font-size: ${fontSize}px; font-weight: ${isActive ? 600 : 400}; background: ${background}; color: ${color}; border-radius: ${borderRadius}; position: relative; margin-bottom: -1px; z-index: ${isActive ? 1 : 0}; cursor: pointer; transition: all 0.2s ease;`;
-    } else {
-      // Rectangular主题
-      const borderRadius = isActive ? '8px 8px 0 0' : '4px 4px 0 0';
-      const background = isActive ? '#ffffff' : '#f5f5f5';
-      const color = isActive ? '#0070f3' : '#666666';
-      tabStyle = `padding: 12px 24px; border: ${borderThickness}px solid ${borderColor}; border-bottom: none; font-family: ${font || 'inherit'}; font-size: ${fontSize}px; font-weight: ${isActive ? 600 : 400}; background: ${background}; color: ${color}; border-radius: ${borderRadius}; position: relative; margin-bottom: -1px; z-index: ${isActive ? 1 : 0}; cursor: pointer; transition: all 0.2s ease;`;
-    }
-    
-    // 添加data-index和onclick事件
+    const isActive = index === initialActiveIndex;
+    const tabStyle = serializeTabButtonStyle({
+      theme,
+      isActive,
+      borderColor,
+      borderThickness,
+      font,
+      fontSize,
+      defaultColor,
+      activeColors,
+    });
     html += `${spaces}    <div data-tab-index="${index}" style="${tabStyle}" onclick="switchTab('${tabsId}', ${index})">\n`;
     html += `${spaces}      ${escapeHtml(tab.title || `Tab ${index + 1}`)}\n`;
     html += `${spaces}    </div>\n`;
   });
-  
+
   html += `${spaces}  </div>\n`;
-  
-  // Tab内容区域 - 所有tab内容都渲染，但只显示第一个
-  const contentBorderTop = theme === 'sloped' ? `${borderThickness}px solid #e0e0e0` : 'none';
-  html += `${spaces}  <div style="border-top: ${contentBorderTop}; border-bottom: none; border-left: none; border-right: none; padding: 24px; background-color: #ffffff; border-radius: 0 0 8px 8px;">\n`;
-  
+
+  const contentBorderTop =
+    theme === "sloped"
+      ? `${borderThickness}px solid ${escapeHtml(borderColor)}`
+      : "none";
+  html += `${spaces}  <div style="border-top: ${contentBorderTop}; padding: 24px; background-color: ${escapeHtml(activeColors.backgroundColor)}; border-radius: 0 0 8px 8px;">\n`;
+
   tabs.forEach((tab: any, index: number) => {
-    const display = index === 0 ? 'block' : 'none';
+    const display = index === initialActiveIndex ? "block" : "none";
     html += `${spaces}    <div data-tab-content="${index}" style="display: ${display};">\n`;
-    
+
     if (tab.content && tab.content.length > 0) {
       tab.content.forEach((item: any) => {
         html += generateComponentHTML(item, indent + 6);
@@ -816,17 +823,93 @@ function generateTabs(props: any, spaces: string, indent: number): string {
     } else {
       html += `${spaces}      <!-- Empty tab content -->\n`;
     }
-    
+
     html += `${spaces}    </div>\n`;
   });
-  
+
   html += `${spaces}  </div>\n`;
   html += `${spaces}</div>\n`;
-  
-  // 添加JavaScript代码
+
+  const fontFamily = font.trim() ? escapeHtml(font) : "inherit";
   html += `${spaces}<script>
 `;
   html += `${spaces}(function() {
+`;
+  html += `${spaces}  var theme = ${JSON.stringify(theme)};
+`;
+  html += `${spaces}  var borderColor = ${JSON.stringify(borderColor)};
+`;
+  html += `${spaces}  var borderThickness = ${borderThickness};
+`;
+  html += `${spaces}  var defaultBg = ${JSON.stringify(defaultColor.backgroundColor)};
+`;
+  html += `${spaces}  var defaultText = ${JSON.stringify(defaultColor.textColor)};
+`;
+  html += `${spaces}  var activeBg = ${JSON.stringify(activeColors.backgroundColor)};
+`;
+  html += `${spaces}  var activeText = ${JSON.stringify(activeColors.textColor)};
+`;
+  html += `${spaces}  var tabPadding = ${JSON.stringify(TAB_BUTTON_PADDING)};
+`;
+  html += `${spaces}  var tabRadius = ${JSON.stringify(TAB_BUTTON_BORDER_RADIUS)};
+`;
+  html += `${spaces}  function applyTabStyle(tab, isActive) {
+`;
+  html += `${spaces}    tab.style.padding = tabPadding;
+`;
+  html += `${spaces}    tab.style.borderRadius = tabRadius;
+`;
+  html += `${spaces}    tab.style.fontFamily = ${JSON.stringify(fontFamily)};
+`;
+  html += `${spaces}    tab.style.fontSize = '${fontSize}px';
+`;
+  html += `${spaces}    tab.style.fontWeight = '400';
+`;
+  html += `${spaces}    tab.style.cursor = 'pointer';
+`;
+  html += `${spaces}    tab.style.transition = 'all 0.2s ease';
+`;
+  html += `${spaces}    tab.style.zIndex = isActive ? '1' : '0';
+`;
+  html += `${spaces}    if (theme === 'sloped') {
+`;
+  html += `${spaces}      tab.style.borderBottom = borderThickness + 'px solid ' + (isActive ? activeText : borderColor);
+`;
+  html += `${spaces}      tab.style.borderTop = 'none';
+`;
+  html += `${spaces}      tab.style.borderLeft = 'none';
+`;
+  html += `${spaces}      tab.style.borderRight = 'none';
+`;
+  html += `${spaces}      tab.style.background = 'transparent';
+`;
+  html += `${spaces}      tab.style.color = isActive ? activeText : defaultText;
+`;
+  html += `${spaces}      tab.style.marginBottom = '0';
+`;
+  html += `${spaces}    } else {
+`;
+  html += `${spaces}      tab.style.border = borderThickness + 'px solid ' + borderColor;
+`;
+  html += `${spaces}      tab.style.borderBottom = 'none';
+`;
+  html += `${spaces}      tab.style.background = isActive ? activeBg : defaultBg;
+`;
+  html += `${spaces}      tab.style.color = isActive ? activeText : defaultText;
+`;
+  html += `${spaces}      tab.style.marginBottom = '-1px';
+`;
+  html += `${spaces}      if (theme === 'stretch') {
+`;
+  html += `${spaces}        tab.style.flex = '1';
+`;
+  html += `${spaces}        tab.style.textAlign = 'center';
+`;
+  html += `${spaces}      }
+`;
+  html += `${spaces}    }
+`;
+  html += `${spaces}  }
 `;
   html += `${spaces}  function switchTab(tabsId, tabIndex) {
 `;
@@ -834,70 +917,13 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 `;
   html += `${spaces}    if (!container) return;
 `;
-  html += `${spaces}    
+  html += `${spaces}    container.querySelectorAll('[data-tab-index]').forEach(function(tab, idx) {
 `;
-  html += `${spaces}    // 更新tab标题样式
+  html += `${spaces}      applyTabStyle(tab, idx === tabIndex);
 `;
-  html += `${spaces}    var tabHeaders = container.querySelectorAll('[data-tab-index]');
-`;
-  html += `${spaces}    tabHeaders.forEach(function(tab, idx) {
-`;
-  html += `${spaces}      var isActive = idx === tabIndex;
-`;
-  
-  // 根据主题应用不同的样式
-  if (theme === 'sloped') {
-    html += `${spaces}      var borderBottomColor = isActive ? '#0070f3' : '${borderColor}';
-`;
-    html += `${spaces}      var textColor = isActive ? '#0070f3' : '#999999';
-`;
-    html += `${spaces}      tab.style.borderBottom = '${borderThickness}px solid ' + borderBottomColor;
-`;
-    html += `${spaces}      tab.style.borderTop = 'none';
-`;
-    html += `${spaces}      tab.style.borderLeft = 'none';
-`;
-    html += `${spaces}      tab.style.borderRight = 'none';
-`;
-    html += `${spaces}      tab.style.background = 'transparent';
-`;
-    html += `${spaces}      tab.style.color = textColor;
-`;
-    // 移除transform和boxShadow效果
-  } else if (theme === 'stretch') {
-    html += `${spaces}      tab.style.flex = '1';
-`;
-    html += `${spaces}      tab.style.textAlign = 'center';
-`;
-    html += `${spaces}      tab.style.background = isActive ? '#ffffff' : '#f5f5f5';
-`;
-    html += `${spaces}      tab.style.color = isActive ? '#0070f3' : '#666666';
-`;
-    html += `${spaces}      tab.style.fontWeight = isActive ? '600' : '400';
-`;
-    html += `${spaces}      tab.style.zIndex = isActive ? '1' : '0';
-`;
-  } else {
-    // Rectangular
-    html += `${spaces}      tab.style.background = isActive ? '#ffffff' : '#f5f5f5';
-`;
-    html += `${spaces}      tab.style.color = isActive ? '#0070f3' : '#666666';
-`;
-    html += `${spaces}      tab.style.fontWeight = isActive ? '600' : '400';
-`;
-    html += `${spaces}      tab.style.zIndex = isActive ? '1' : '0';
-`;
-  }
-  
   html += `${spaces}    });
 `;
-  html += `${spaces}    
-`;
-  html += `${spaces}    // 更新tab内容显示
-`;
-  html += `${spaces}    var tabContents = container.querySelectorAll('[data-tab-content]');
-`;
-  html += `${spaces}    tabContents.forEach(function(content, idx) {
+  html += `${spaces}    container.querySelectorAll('[data-tab-content]').forEach(function(content, idx) {
 `;
   html += `${spaces}      content.style.display = idx === tabIndex ? 'block' : 'none';
 `;
@@ -905,16 +931,12 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 `;
   html += `${spaces}  }
 `;
-  html += `${spaces}  
-`;
-  html += `${spaces}  // 暴露到全局作用域
-`;
   html += `${spaces}  window.switchTab = switchTab;
 `;
   html += `${spaces}})();
 `;
   html += `${spaces}</script>\n`;
-  
+
   return html;
 }
 

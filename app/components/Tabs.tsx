@@ -1,90 +1,134 @@
-import React, { useState } from "react";
-import type { ComponentConfig, Slot } from "@puckeditor/core";
+import { useState } from "react";
+import type { ComponentConfig, ObjectField } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
+import { createPuckColorField } from "./ui/puck-color-field";
+import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
+import {
+  buildTabButtonStyle,
+  clampActiveTabIndex,
+  DEFAULT_ACTIVE_TAB_COLOR_GROUP,
+  DEFAULT_TAB_COLOR_GROUP,
+  type TabColorGroup,
+} from "./tabs-styles";
 
-// Tab 类型定义
 export type Tab = {
   id: string;
   title: string;
-  content: Slot;
+  content: Components["Tabs"]["tabs"][number]["content"];
 };
 
-// Tabs 组件 Props 类型
 type TabsProps = Components["Tabs"];
 
-const TabsInternal: ComponentConfig<TabsProps> = {
-  fields: {
-    // Active Tab Control - 用于在编辑模式下切换tab
-    activeTabIndex: {
-      type: "number",
-      label: "Active Tab Index (for editing)",
-      min: 0,
-    },
+const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
+  label: o.label,
+  value: o.value,
+}));
 
-    // Tabs Management
-    tabs: {
-      type: "array",
-      label: "Manage tabs",
-      arrayFields: {
-        title: {
-          type: "text",
-          label: "Title",
-        },
-        content: {
-          type: "slot",
-          label: "Content",
-        },
+const defaultColorField: ObjectField<TabColorGroup> = {
+  type: "object",
+  label: "Default Color",
+  objectFields: {
+    backgroundColor: createPuckColorField("Background", "#F4F4F4"),
+    textColor: createPuckColorField("Text", "#555555"),
+  },
+};
+
+const activeColorsField: ObjectField<TabColorGroup> = {
+  type: "object",
+  label: "Active colors",
+  objectFields: {
+    backgroundColor: createPuckColorField("Background", "#ffffff"),
+    textColor: createPuckColorField("Text", "#50b3da"),
+  },
+};
+
+const tabsFields = {
+  activeTabIndex: {
+    type: "number" as const,
+    label: "Active Tab Index (for editing)",
+    min: 1,
+    max: 1,
+  },
+  tabs: {
+    type: "array" as const,
+    label: "Manage tabs",
+    arrayFields: {
+      title: {
+        type: "text" as const,
+        label: "Title",
+      },
+      content: {
+        type: "slot" as const,
+        label: "Content",
       },
     },
+  },
+  theme: {
+    type: "radio" as const,
+    label: "Theme",
+    options: [
+      { label: "Rectangular", value: "rectangular" },
+      { label: "Sloped", value: "sloped" },
+      { label: "Stretch", value: "stretch" },
+    ],
+  },
+  borderColor: createPuckColorField("Border color", "#dddddd"),
+  borderThickness: {
+    type: "number" as const,
+    label: "Border thickness",
+    min: 0,
+    max: 10,
+  },
+  font: {
+    type: "select" as const,
+    label: "Font",
+    options: fontOptions,
+  },
+  fontSize: {
+    type: "number" as const,
+    label: "Size",
+    min: 8,
+    max: 72,
+  },
+  defaultColor: defaultColorField,
+  activeColors: activeColorsField,
+} as ComponentConfig<TabsProps>["fields"];
 
-    // Theme Section
-    theme: {
-      type: "radio",
-      label: "Theme",
-      options: [
-        { label: "Rectangular", value: "rectangular" },
-        { label: "Sloped", value: "sloped" },
-        { label: "Stretch", value: "stretch" },
-      ],
-    },
-
-    // Border Section
-    borderColor: {
-      type: "text",
-      label: "Border color",
-    },
-    borderThickness: {
-      type: "number",
-      label: "Border thickness",
-      min: 0,
-      max: 10,
-    },
-
-    // Font Section
-    font: {
-      type: "text",
-      label: "Font",
-    },
-    fontSize: {
-      type: "number",
-      label: "Size",
-      min: 8,
-      max: 72,
-    },
+const TabsInternal: ComponentConfig<TabsProps> = {
+  fields: tabsFields,
+  resolveData: (data) => {
+    const props = data.props || {};
+    const tabCount = Math.max(1, props.tabs?.length ?? 1);
+    const clamped = clampActiveTabIndex(props.activeTabIndex, tabCount);
+    if (clamped !== props.activeTabIndex) {
+      return { props: { ...props, activeTabIndex: clamped } };
+    }
+    return {};
+  },
+  resolveFields: (data) => {
+    const tabCount = Math.max(1, data.props?.tabs?.length ?? 1);
+    return {
+      ...tabsFields,
+      activeTabIndex: {
+        type: "number" as const,
+        label: "Active Tab Index (for editing)",
+        min: 1,
+        max: tabCount,
+      },
+    } as NonNullable<ComponentConfig<TabsProps>["fields"]>;
   },
   defaultProps: {
-    activeTabIndex: 0,
-    tabs: [
-      { title: "Tab 1", content: [] },
-      { title: "Tab 2", content: [] },
-    ],
-    theme: "rectangular",
-    borderColor: "#e0e0e0",
+    activeTabIndex: 1,
+    tabs: [{ title: "Tab 1", content: [] }],
+    theme: "stretch",
+    borderColor: "#dddddd",
     borderThickness: 1,
     font: "",
     fontSize: 16,
+    defaultColor: { ...DEFAULT_TAB_COLOR_GROUP },
+    activeColors: { ...DEFAULT_ACTIVE_TAB_COLOR_GROUP },
   },
   render: ({
     tabs,
@@ -94,84 +138,48 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     borderThickness,
     font,
     fontSize,
+    defaultColor,
+    activeColors,
     puck,
   }) => {
-    // 使用activeTabIndex或useState来控制激活的tab
-    // 在编辑模式下使用activeTabIndex（从属性面板控制）
-    // 在预览模式下使用useState（点击切换）
     const [internalActiveTab, setInternalActiveTab] = useState(0);
-    
-    // 决定使用哪个activeTab值
-    const effectiveActiveTab = puck.isEditing ? (activeTabIndex ?? 0) : internalActiveTab;
 
     if (!tabs || tabs.length === 0) {
       return <Section>No tabs defined</Section>;
     }
 
-    // Tab标题样式 - 根据主题和激活状态动态计算
-    const getTabStyle = (index: number, isActive: boolean) => {
-      const baseStyle: React.CSSProperties = {
-        padding: "12px 24px",
-        cursor: "pointer",
-        fontFamily: font || "inherit",
-        fontSize: `${fontSize}px`,
-        fontWeight: isActive ? 600 : 400,
-        transition: "all 0.2s ease",
-        userSelect: "none",
-        position: "relative",
-        zIndex: isActive ? 1 : 0,
-        // Stretch主题：平均分配宽度
-        flex: theme === "stretch" ? 1 : "none",
-        textAlign: theme === "stretch" ? "center" as const : "left" as const,
-      };
+    const editingIndex =
+      clampActiveTabIndex(activeTabIndex, tabs.length) - 1;
+    const effectiveActiveTab = puck.isEditing
+      ? editingIndex
+      : internalActiveTab;
 
-      // Sloped主题：只有下边框，无边框
-      if (theme === "sloped") {
-        baseStyle.borderBottom = `${borderThickness}px solid ${isActive ? "#0070f3" : borderColor}`;
-        baseStyle.borderTop = "none";
-        baseStyle.borderLeft = "none";
-        baseStyle.borderRight = "none";
-        baseStyle.borderRadius = "8px 8px 0 0";
-        baseStyle.background = "transparent";
-        baseStyle.color = isActive ? "#0070f3" : "#999999";
-        // 移除transform和boxShadow效果
-        baseStyle.marginBottom = "0";
-      } else if (theme === "stretch") {
-        // Stretch主题：基于Rectangular，但平均分配宽度
-        baseStyle.border = `${borderThickness}px solid ${borderColor}`;
-        baseStyle.borderBottom = "none";
-        baseStyle.borderRadius = isActive ? "8px 8px 0 0" : "4px 4px 0 0";
-        baseStyle.background = isActive ? "#ffffff" : "#f5f5f5";
-        baseStyle.color = isActive ? "#0070f3" : "#666666";
-        baseStyle.marginBottom = "-1px";
-      } else {
-        // Rectangular主题
-        baseStyle.border = `${borderThickness}px solid ${borderColor}`;
-        baseStyle.borderBottom = "none";
-        baseStyle.borderRadius = isActive ? "8px 8px 0 0" : "4px 4px 0 0";
-        baseStyle.background = isActive ? "#ffffff" : "#f5f5f5";
-        baseStyle.color = isActive ? "#0070f3" : "#666666";
-        baseStyle.marginBottom = "-1px";
-      }
-
-      return baseStyle;
+    const resolvedDefault: TabColorGroup = {
+      backgroundColor:
+        defaultColor?.backgroundColor ?? DEFAULT_TAB_COLOR_GROUP.backgroundColor,
+      textColor: defaultColor?.textColor ?? DEFAULT_TAB_COLOR_GROUP.textColor,
+    };
+    const resolvedActive: TabColorGroup = {
+      backgroundColor:
+        activeColors?.backgroundColor ??
+        DEFAULT_ACTIVE_TAB_COLOR_GROUP.backgroundColor,
+      textColor:
+        activeColors?.textColor ?? DEFAULT_ACTIVE_TAB_COLOR_GROUP.textColor,
     };
 
-    // 内容区域样式
     const contentStyle: React.CSSProperties = {
-      borderTop: theme === "sloped" ? `${borderThickness}px solid #e0e0e0` : "none",
-      borderBottom: "none",
-      borderLeft: "none",
-      borderRight: "none",
+      borderTop:
+        theme === "sloped"
+          ? `${borderThickness}px solid ${borderColor}`
+          : "none",
       padding: "24px",
-      backgroundColor: "#ffffff",
-      borderRadius: theme === "sloped" ? "0 0 8px 8px" : "0 0 8px 8px",
+      backgroundColor: resolvedActive.backgroundColor,
+      borderRadius: "0 0 8px 8px",
     };
 
     return (
       <Section>
         <div>
-          {/* Tab标题栏 */}
           <div
             style={{
               display: "flex",
@@ -182,7 +190,16 @@ const TabsInternal: ComponentConfig<TabsProps> = {
             {tabs.map((tab, index) => (
               <div
                 key={`tab-${index}`}
-                style={getTabStyle(index, index === effectiveActiveTab)}
+                style={buildTabButtonStyle({
+                  theme,
+                  isActive: index === effectiveActiveTab,
+                  borderColor,
+                  borderThickness,
+                  font,
+                  fontSize,
+                  defaultColor: resolvedDefault,
+                  activeColors: resolvedActive,
+                })}
                 onClick={(e) => {
                   if (!puck.isEditing) {
                     e.stopPropagation();
@@ -195,16 +212,13 @@ const TabsInternal: ComponentConfig<TabsProps> = {
             ))}
           </div>
 
-          {/* Tab内容区域 */}
           <div style={contentStyle}>
             {tabs.map((tab, index) => {
-              if (index === effectiveActiveTab) {
-                const TabContent = tab.content as any;
-                return TabContent ? (
-                  <TabContent key={`tab-content-${index}`} />
-                ) : null;
-              }
-              return null;
+              if (index !== effectiveActiveTab) return null;
+              const TabContent = tab.content;
+              return TabContent ? (
+                <TabContent key={`tab-content-${index}`} />
+              ) : null;
             })}
           </div>
         </div>

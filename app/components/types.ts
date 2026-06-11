@@ -212,26 +212,26 @@ export type Components = {
     content: Slot;
   }>;
   Tabs: WithLayout<{
-    // Active Tab Control
+    /** 1-based，用于编辑时切换当前 tab */
     activeTabIndex?: number;
-    
-    // Tabs
     tabs: Array<{
       id?: string;
       title: string;
       content: Slot;
     }>;
-    
-    // Theme
     theme: "rectangular" | "sloped" | "stretch";
-    
-    // Border
     borderColor: string;
     borderThickness: number;
-    
-    // Font
     font: string;
     fontSize: number;
+    defaultColor: {
+      backgroundColor: string;
+      textColor: string;
+    };
+    activeColors: {
+      backgroundColor: string;
+      textColor: string;
+    };
   }>;
 
   Accordion: WithLayout<{
