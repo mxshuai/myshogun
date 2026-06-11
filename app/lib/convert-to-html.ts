@@ -27,6 +27,8 @@ import {
   serializeTabButtonStyle,
   TAB_BUTTON_BORDER_RADIUS,
   TAB_BUTTON_PADDING,
+  TAB_CONTENT_PADDING,
+  TABS_EXPORT_CSS,
 } from "~/components/tabs-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
@@ -782,10 +784,12 @@ function generateTabs(props: any, spaces: string, indent: number): string {
   }
 
   const tabsId = `tabs-${Math.random().toString(36).substr(2, 9)}`;
-  const tabBarStyle = `display: flex; gap: 4px; border-bottom: ${borderThickness}px solid ${escapeHtml(borderColor)};`;
+  const tabBarStyle =
+    "display: flex; gap: 4px; align-items: flex-end; position: relative; width: 100%;";
+  const trailColor = borderColor;
 
   let html = `${spaces}<div id="${tabsId}" style="width: 100%;">\n`;
-  html += `${spaces}  <div style="${tabBarStyle}">\n`;
+  html += `${spaces}  <div class="visbuild-tabs-bar" style="${tabBarStyle}">\n`;
 
   tabs.forEach((tab: any, index: number) => {
     const isActive = index === initialActiveIndex;
@@ -804,17 +808,23 @@ function generateTabs(props: any, spaces: string, indent: number): string {
     html += `${spaces}    </div>\n`;
   });
 
+  html += `${spaces}    <div class="visbuild-tabs-trail-left" aria-hidden="true" style="position: absolute; bottom: 0; left: 0; width: 0; height: ${borderThickness}px; background-color: ${escapeHtml(trailColor)}; pointer-events: none;"></div>\n`;
+  html += `${spaces}    <div class="visbuild-tabs-trail-right" aria-hidden="true" style="position: absolute; bottom: 0; left: 0; width: 0; height: ${borderThickness}px; background-color: ${escapeHtml(trailColor)}; pointer-events: none;"></div>\n`;
   html += `${spaces}  </div>\n`;
 
   const contentBorderTop =
     theme === "sloped"
       ? `${borderThickness}px solid ${escapeHtml(borderColor)}`
       : "none";
-  html += `${spaces}  <div style="border-top: ${contentBorderTop}; padding: 24px; background-color: ${escapeHtml(activeColors.backgroundColor)}; border-radius: 0 0 8px 8px;">\n`;
+  html += `${spaces}  <div style="border-top: ${contentBorderTop}; padding: ${TAB_CONTENT_PADDING}; background-color: ${escapeHtml(activeColors.backgroundColor)}; border-radius: 0 0 8px 8px;">\n`;
 
   tabs.forEach((tab: any, index: number) => {
-    const display = index === initialActiveIndex ? "block" : "none";
-    html += `${spaces}    <div data-tab-content="${index}" style="display: ${display};">\n`;
+    const isInitial = index === initialActiveIndex;
+    const display = isInitial ? "block" : "none";
+    const panelClass = isInitial
+      ? "visbuild-tabs-content-panel visbuild-tabs-content-panel--active"
+      : "visbuild-tabs-content-panel";
+    html += `${spaces}    <div data-tab-content="${index}" class="${panelClass}" style="display: ${display};">\n`;
 
     if (tab.content && tab.content.length > 0) {
       tab.content.forEach((item: any) => {
@@ -889,7 +899,15 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 `;
   html += `${spaces}    } else {
 `;
-  html += `${spaces}      tab.style.border = borderThickness + 'px solid ' + borderColor;
+  html += `${spaces}      var sideColor = borderColor;
+`;
+  html += `${spaces}      var side = borderThickness > 0 ? (borderThickness + 'px solid ' + sideColor) : 'none';
+`;
+  html += `${spaces}      tab.style.borderTop = side;
+`;
+  html += `${spaces}      tab.style.borderLeft = side;
+`;
+  html += `${spaces}      tab.style.borderRight = side;
 `;
   html += `${spaces}      tab.style.borderBottom = 'none';
 `;
@@ -897,7 +915,9 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 `;
   html += `${spaces}      tab.style.color = isActive ? activeText : defaultText;
 `;
-  html += `${spaces}      tab.style.marginBottom = '-1px';
+  html += `${spaces}      tab.style.marginBottom = '0';
+`;
+  html += `${spaces}      tab.style.boxSizing = 'border-box';
 `;
   html += `${spaces}      if (theme === 'stretch') {
 `;
@@ -908,6 +928,46 @@ function generateTabs(props: any, spaces: string, indent: number): string {
   html += `${spaces}      }
 `;
   html += `${spaces}    }
+`;
+  html += `${spaces}  }
+`;
+  html += `${spaces}  function updateTabsTrail(container, activeIndex) {
+`;
+  html += `${spaces}    var bar = container.querySelector('.visbuild-tabs-bar');
+`;
+  html += `${spaces}    var trailLeft = container.querySelector('.visbuild-tabs-trail-left');
+`;
+  html += `${spaces}    var trailRight = container.querySelector('.visbuild-tabs-trail-right');
+`;
+  html += `${spaces}    if (!bar || !trailLeft || !trailRight || theme === 'sloped' || borderThickness <= 0) return;
+`;
+  html += `${spaces}    var tabs = bar.querySelectorAll('[data-tab-index]');
+`;
+  html += `${spaces}    var activeTab = tabs[activeIndex];
+`;
+  html += `${spaces}    if (!activeTab) return;
+`;
+  html += `${spaces}    var barRect = bar.getBoundingClientRect();
+`;
+  html += `${spaces}    var activeRect = activeTab.getBoundingClientRect();
+`;
+  html += `${spaces}    var activeLeft = Math.max(0, activeRect.left - barRect.left);
+`;
+  html += `${spaces}    var activeRight = Math.max(0, activeRect.right - barRect.left);
+`;
+  html += `${spaces}    trailLeft.style.width = activeIndex > 0 ? activeLeft + 'px' : '0';
+`;
+  html += `${spaces}    trailLeft.style.height = borderThickness + 'px';
+`;
+  html += `${spaces}    trailLeft.style.backgroundColor = borderColor;
+`;
+  html += `${spaces}    trailRight.style.left = activeRight + 'px';
+`;
+  html += `${spaces}    trailRight.style.width = activeIndex < tabs.length - 1 ? Math.max(0, barRect.width - activeRight) + 'px' : '0';
+`;
+  html += `${spaces}    trailRight.style.height = borderThickness + 'px';
+`;
+  html += `${spaces}    trailRight.style.backgroundColor = borderColor;
 `;
   html += `${spaces}  }
 `;
@@ -925,9 +985,35 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 `;
   html += `${spaces}    container.querySelectorAll('[data-tab-content]').forEach(function(content, idx) {
 `;
-  html += `${spaces}      content.style.display = idx === tabIndex ? 'block' : 'none';
+  html += `${spaces}      if (idx === tabIndex) {
+`;
+  html += `${spaces}        content.style.display = 'block';
+`;
+  html += `${spaces}        content.classList.remove('visbuild-tabs-content-panel--active');
+`;
+  html += `${spaces}        void content.offsetWidth;
+`;
+  html += `${spaces}        content.classList.add('visbuild-tabs-content-panel--active');
+`;
+  html += `${spaces}      } else {
+`;
+  html += `${spaces}        content.style.display = 'none';
+`;
+  html += `${spaces}        content.classList.remove('visbuild-tabs-content-panel--active');
+`;
+  html += `${spaces}      }
 `;
   html += `${spaces}    });
+`;
+  html += `${spaces}    updateTabsTrail(container, tabIndex);
+`;
+  html += `${spaces}  }
+`;
+  html += `${spaces}  var initialContainer = document.getElementById(${JSON.stringify(tabsId)});
+`;
+  html += `${spaces}  if (initialContainer) {
+`;
+  html += `${spaces}    updateTabsTrail(initialContainer, ${initialActiveIndex});
 `;
   html += `${spaces}  }
 `;
@@ -1269,6 +1355,8 @@ ${BUTTON_EXPORT_CSS}
 ${IMAGE_EXPORT_CSS}
 
 ${COLUMNS_EXPORT_CSS}
+
+${TABS_EXPORT_CSS}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

@@ -9,6 +9,19 @@ export type TabColorGroup = {
 
 export const TAB_BUTTON_PADDING = "10px 15px";
 export const TAB_BUTTON_BORDER_RADIUS = "4px 4px 0 0";
+export const TAB_CONTENT_PADDING = "0 14px";
+export const TAB_CONTENT_FADE_MS = 500;
+
+export const TABS_EXPORT_CSS = `/* Tabs */
+@keyframes visbuild-tabs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.visbuild-tabs-content-panel.visbuild-tabs-content-panel--active {
+  animation: visbuild-tabs-fade-in ${TAB_CONTENT_FADE_MS}ms ease;
+}
+`;
 
 export const DEFAULT_TAB_COLOR_GROUP: TabColorGroup = {
   backgroundColor: "#F4F4F4",
@@ -28,6 +41,35 @@ export function clampActiveTabIndex(
   const count = Math.max(1, tabCount);
   const raw = oneBased ?? 1;
   return Math.min(Math.max(1, raw), count);
+}
+
+/** 激活 / 非激活 tab 左/上/右边框均使用侧栏 Border color */
+export function tabSideBorderColor(borderColor: string): string {
+  return borderColor;
+}
+
+/** 激活 tab 左右两侧非激活区域下方的横线，同样使用 Border color */
+export function tabsTrailBorderColor(borderColor: string): string {
+  return borderColor;
+}
+
+export type TabsTrailSegments = {
+  left: { width: number };
+  right: { left: number; width: number };
+};
+
+export function computeTabsTrailSegments(
+  barWidth: number,
+  activeTabLeft: number,
+  activeTabRight: number
+): TabsTrailSegments {
+  return {
+    left: { width: Math.max(0, activeTabLeft) },
+    right: {
+      left: Math.max(0, activeTabRight),
+      width: Math.max(0, barWidth - Math.max(0, activeTabRight)),
+    },
+  };
 }
 
 export function buildTabButtonStyle({
@@ -50,6 +92,11 @@ export function buildTabButtonStyle({
   activeColors: TabColorGroup;
 }): CSSProperties {
   const colors = isActive ? activeColors : defaultColor;
+  const sideColor = tabSideBorderColor(borderColor);
+  const side =
+    borderThickness > 0
+      ? `${borderThickness}px solid ${sideColor}`
+      : "none";
 
   const base: CSSProperties = {
     padding: TAB_BUTTON_PADDING,
@@ -64,6 +111,7 @@ export function buildTabButtonStyle({
     zIndex: isActive ? 1 : 0,
     flex: theme === "stretch" ? 1 : "none",
     textAlign: theme === "stretch" ? "center" : "left",
+    boxSizing: "border-box",
   };
 
   if (theme === "sloped") {
@@ -83,11 +131,13 @@ export function buildTabButtonStyle({
 
   return {
     ...base,
-    border: `${borderThickness}px solid ${borderColor}`,
+    borderTop: side,
+    borderLeft: side,
+    borderRight: side,
     borderBottom: "none",
     background: colors.backgroundColor,
     color: colors.textColor,
-    marginBottom: "-1px",
+    marginBottom: 0,
   };
 }
 
