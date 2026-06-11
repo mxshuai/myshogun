@@ -167,7 +167,7 @@ export type Components = {
     headerFont: string;
     headerSize: number;
     headerTextColor: string;
-    headerLineHeight: number;
+    headerLineHeight?: number;
     headerLetterSpacing: number;
     headerTextAlignment: "left" | "center" | "right";
     
@@ -295,16 +295,15 @@ export const initialData: Data = {
       type: "Table",
       props: {
         // Main
-        borderColor: "#e0e0e0",
+        borderColor: "#D5D6D7",
         borderWidth: 1,
-        tableBorderRadius: 4,
-        
+        tableBorderRadius: 0,
+
         // Header
-        headerBackgroundColor: "#f5f5f5",
+        headerBackgroundColor: "#FFFFFF",
         headerFont: "",
         headerSize: 14,
-        headerTextColor: "#000000",
-        headerLineHeight: 1.5,
+        headerTextColor: "#22194D",
         headerLetterSpacing: 0,
         headerTextAlignment: "left",
         

@@ -551,52 +551,74 @@ function generateSpacer(props: any, spaces: string): string {
 function generateTable(props: any, spaces: string, indent: number): string {
   const columns = props.columns || [];
   const numberOfRows = props.numberOfRows || 1;
-  const columnSpacing = props.columnSpacing || 10;
-  const rowSpacing = props.rowSpacing || 10;
-  const borderWidth = props.borderWidth || 1;
-  const borderColor = props.borderColor || '#e0e0e0';
-  const tableBorderRadius = props.tableBorderRadius || 4;
-  const headerBackgroundColor = props.headerBackgroundColor || '#f5f5f5';
-  const headerSize = props.headerSize || 14;
-  const headerTextColor = props.headerTextColor || '#000000';
+  const columnSpacing = props.columnSpacing ?? 10;
+  const rowSpacing = props.rowSpacing ?? 10;
+  const borderWidth = props.borderWidth ?? 1;
+  const borderColor = props.borderColor || '#D5D6D7';
+  const tableBorderRadius = props.tableBorderRadius ?? 0;
+  const headerBackgroundColor = props.headerBackgroundColor || '#FFFFFF';
+  const headerFont = props.headerFont || '';
+  const headerSize = props.headerSize ?? 14;
+  const headerTextColor = props.headerTextColor || '#22194D';
+  const headerLineHeight = props.headerLineHeight;
+  const headerLetterSpacing = props.headerLetterSpacing ?? 0;
   const headerTextAlignment = props.headerTextAlignment || 'left';
   const rowBackgroundColor = props.rowBackgroundColor || '#ffffff';
-  
+
+  const thPadding = `${columnSpacing}px`;
+  const tdPadding = `${rowSpacing}px`;
+  const headerLineHeightCss =
+    headerLineHeight != null && Number.isFinite(Number(headerLineHeight))
+      ? ` line-height: ${headerLineHeight}em;`
+      : '';
+  const headerFontCss = headerFont.trim()
+    ? ` font-family: ${escapeHtml(headerFont)};`
+    : '';
+  const headerLetterSpacingCss =
+    headerLetterSpacing != null
+      ? ` letter-spacing: ${headerLetterSpacing}px;`
+      : '';
+
+  const cellBorder =
+    borderWidth > 0
+      ? `${borderWidth}px solid ${escapeHtml(borderColor)}`
+      : 'none';
+
   let html = `${spaces}<div style="overflow-x: auto;">\n`;
-  html += `${spaces}  <table style="width: 100%; border-collapse: separate; border-spacing: ${columnSpacing}px ${rowSpacing}px; border-radius: ${tableBorderRadius}px; overflow: hidden; border: ${borderWidth}px solid ${borderColor};">\n`;
-  
-  // Header
-  html += `${spaces}    <thead>\n`;
-  html += `${spaces}      <tr>\n`;
+  html += `${spaces}  <div style="overflow: hidden; border-radius: ${tableBorderRadius}px;">\n`;
+  html += `${spaces}    <table style="width: 100%; border-collapse: collapse;">\n`;
+
+  html += `${spaces}      <thead>\n`;
+  html += `${spaces}        <tr>\n`;
   columns.forEach((column: any) => {
-    html += `${spaces}        <th style="padding: 12px 8px; background-color: ${headerBackgroundColor}; font-size: ${headerSize}px; font-weight: bold; color: ${headerTextColor}; text-align: ${headerTextAlignment}; border-bottom: ${borderWidth}px solid ${borderColor};">${escapeHtml(column.name || 'Column')}</th>\n`;
+    html += `${spaces}          <th style="padding: ${thPadding}; background-color: ${escapeHtml(headerBackgroundColor)}; font-size: ${headerSize}px; font-weight: bold; color: ${escapeHtml(headerTextColor)}; text-align: ${headerTextAlignment};${headerLineHeightCss}${headerFontCss}${headerLetterSpacingCss} border: ${cellBorder};">${escapeHtml(column.name || 'Column')}</th>\n`;
   });
-  html += `${spaces}      </tr>\n`;
-  html += `${spaces}    </thead>\n`;
-  
-  // Body
-  html += `${spaces}    <tbody>\n`;
+  html += `${spaces}        </tr>\n`;
+  html += `${spaces}      </thead>\n`;
+
+  html += `${spaces}      <tbody>\n`;
   for (let rowIndex = 0; rowIndex < numberOfRows; rowIndex++) {
-    html += `${spaces}      <tr>\n`;
-    columns.forEach((column: any, colIndex: number) => {
+    html += `${spaces}        <tr>\n`;
+    columns.forEach((column: any) => {
       const cellContent = column.content || [];
-      html += `${spaces}        <td style="padding: 12px 8px; background-color: ${rowBackgroundColor}; border-bottom: ${borderWidth}px solid ${borderColor}; vertical-align: top;">\n`;
-      
+      html += `${spaces}          <td style="padding: ${tdPadding}; background-color: ${escapeHtml(rowBackgroundColor)}; border: ${cellBorder}; vertical-align: top;">\n`;
+
       if (cellContent.length > 0) {
         cellContent.forEach((item: any) => {
-          html += generateComponentHTML(item, indent + 10);
+          html += generateComponentHTML(item, indent + 12);
         });
       } else {
-        html += `${spaces}          <span>Empty Cell</span>\n`;
+        html += `${spaces}            <span>Empty Cell</span>\n`;
       }
-      
-      html += `${spaces}        </td>\n`;
+
+      html += `${spaces}          </td>\n`;
     });
-    html += `${spaces}      </tr>\n`;
+    html += `${spaces}        </tr>\n`;
   }
-  html += `${spaces}    </tbody>\n`;
-  
-  html += `${spaces}  </table>\n`;
+  html += `${spaces}      </tbody>\n`;
+
+  html += `${spaces}    </table>\n`;
+  html += `${spaces}  </div>\n`;
   html += `${spaces}</div>\n`;
   
   return html;
