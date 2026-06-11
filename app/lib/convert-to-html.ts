@@ -644,7 +644,7 @@ function generateContainer(props: any, spaces: string, indent: number): string {
   const verticalAlign = props.verticalAlign || 'middle';
   const backgroundType = props.backgroundType || 'image';
   const backgroundImage = props.backgroundImage || '';
-  const backgroundColor = props.backgroundColor || '#f5f5f5';
+  const backgroundColor = props.backgroundColor || '#ffffff';
   const backgroundVideo = props.backgroundVideo || '';
   const videoMuted = props.videoMuted !== false;
   const backgroundSize = props.backgroundSize || 'cover';

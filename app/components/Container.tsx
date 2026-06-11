@@ -8,6 +8,7 @@ import {
   type LayoutFieldProps,
   withLayout,
 } from "./Layout";
+import { createPuckColorField } from "./ui/puck-color-field";
 
 const ContainerInternal: ComponentConfig<Components["Container"]> = {
   fields: {
@@ -50,7 +51,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     verticalAlign: "middle",
     backgroundType: "image",
     backgroundImage: "",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#ffffff",
     backgroundVideo: "",
     videoMuted: true,
     backgroundSize: "cover",
@@ -126,10 +127,10 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
 
     // Condition: Show different fields based on Background type
     if (props.backgroundType === "color") {
-      fields.backgroundColor = {
-        type: "text",
-        label: "Background color",
-      };
+      fields.backgroundColor = createPuckColorField(
+        "Background color",
+        "#ffffff"
+      );
     } else if (props.backgroundType === "image") {
       fields.backgroundImage = {
         type: "text",
@@ -273,6 +274,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     parallaxEffect,
     content: Content,
     layout,
+    puck,
   }) => {
     // 垂直对齐映射
     const alignMap: Record<string, string> = {
@@ -328,7 +330,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
           baseStyle.backgroundAttachment = "fixed";
         }
       } else if (backgroundType === "color") {
-        baseStyle.backgroundColor = backgroundColor || "#f5f5f5";
+        baseStyle.backgroundColor = backgroundColor || "#ffffff";
       } else if (backgroundType === "video") {
         baseStyle.backgroundColor = "#000";
         baseStyle.position = "relative";
@@ -338,21 +340,29 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
       return baseStyle;
     };
 
-    // 点击处理
+    const isEditing = puck?.isEditing === true;
+    const isClickable =
+      !isEditing && entireContainerClickable && Boolean(containerUrl);
+
+    // 点击处理（编辑模式下不拦截，避免影响 slot 拖放）
     const handleClick = () => {
-      if (entireContainerClickable && containerUrl) {
-        if (openInNewWindow) {
-          window.open(containerUrl, "_blank");
-        } else {
-          window.location.href = containerUrl;
-        }
+      if (!isClickable) return;
+      if (openInNewWindow) {
+        window.open(containerUrl, "_blank");
+      } else {
+        window.location.href = containerUrl;
       }
     };
 
+    const contentMinEmptyHeight =
+      sectionMinHeight != null ? sectionMinHeight : "80px";
+
     // 容器样式
     const containerStyle: React.CSSProperties = {
-      cursor: entireContainerClickable && containerUrl ? "pointer" : "default",
+      cursor: isClickable ? "pointer" : "default",
       position: "relative",
+      width: "100%",
+      alignItems: "stretch",
     };
 
     return (
@@ -388,10 +398,18 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
             </video>
           )}
           
-          {/* 内容层 */}
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <Content disallow={["Hero"]} />
-          </div>
+          {/* 内容 slot：画布可拖入 Heading / Text / Button 等子组件 */}
+          <Content
+            disallow={["Hero"]}
+            minEmptyHeight={contentMinEmptyHeight}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "100%",
+              flex: 1,
+              alignSelf: "stretch",
+            }}
+          />
         </div>
       </Section>
     );
