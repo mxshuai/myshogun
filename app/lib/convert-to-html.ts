@@ -93,7 +93,7 @@ function generateComponentHTML(component: any, indent: number = 2): string {
     case 'Icon':
       return generateIcon(props, layout, spaces);
     case 'Divider':
-      return generateDivider(props, spaces);
+      return generateDivider(props, layout, spaces);
     case 'Spacer':
       return generateSpacer(props, spaces);
     case 'Table':
@@ -501,14 +501,15 @@ ${core}
   return wrapLayoutLayers(layout, inner, spaces);
 }
 
-function generateDivider(props: any, spaces: string): string {
-  const thickness = props.thickness || 1;
+function generateDivider(props: any, layout: any, spaces: string): string {
+  const thickness = props.thickness ?? 2;
   const color = props.color || '#e0e0e0';
   const style = props.style || 'solid';
-  
-  return `${spaces}<div style="padding: 16px 0;">
-${spaces}  <hr style="border: none; border-top: ${thickness}px ${style} ${color}; margin: 0;" />
-${spaces}</div>\n`;
+
+  const inner = `<hr style="border: none; border-top: ${thickness}px ${style} ${escapeHtml(color)}; margin: 0;" />
+`;
+
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /**

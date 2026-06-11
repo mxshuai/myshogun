@@ -136,11 +136,11 @@ export type Components = {
   RawHTML: WithLayout<{
     html: string;
   }>;
-  Divider: {
+  Divider: WithLayout<{
     thickness: number;
     color: string;
     style: "solid" | "dashed" | "dotted";
-  };
+  }>;
   Spacer: {
     height: number;
   };

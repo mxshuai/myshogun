@@ -171,12 +171,6 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
     openInNewWindow: false,
     layout: {
       ...defaultLayoutSpacing,
-      sectionPadding: {
-        top: "8px",
-        right: "0",
-        bottom: "8px",
-        left: "0",
-      },
     },
   },
   render: ({
