@@ -10,7 +10,6 @@ import { Image } from "./app/components/Image";
 import { Video } from "./app/components/Video";
 import { Divider } from "./app/components/Divider";
 import { Icon } from "./app/components/Icon";
-import { Spacer } from "./app/components/Spacer";
 import { Table } from "./app/components/Table";
 import { Container } from "./app/components/Container";
 import { Tabs } from "./app/components/Tabs";
@@ -38,7 +37,6 @@ export const config: Config = {
       components: [
         "Columns",
         "Flex",
-        "Spacer",
         "Table",
         "Container",
         "Tabs",
@@ -81,7 +79,6 @@ export const config: Config = {
     CustomHtml,
     RawHTML,
     Divider,
-    Spacer,
     Table,
     Container,
     Tabs,

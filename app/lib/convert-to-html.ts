@@ -110,8 +110,6 @@ function generateComponentHTML(component: any, indent: number = 2): string {
       return generateIcon(props, layout, spaces);
     case 'Divider':
       return generateDivider(props, layout, spaces);
-    case 'Spacer':
-      return generateSpacer(props, spaces);
     case 'Table':
       return generateTable(props, spaces, indent);
     case 'Container':
@@ -544,15 +542,6 @@ function generateDivider(props: any, layout: any, spaces: string): string {
 `;
 
   return wrapLayoutLayers(layout, inner, spaces);
-}
-
-/**
- * 生成 Spacer HTML
- */
-function generateSpacer(props: any, spaces: string): string {
-  const height = props.height || 32;
-  
-  return `${spaces}<div style="height: ${height}px;"></div>\n`;
 }
 
 /**

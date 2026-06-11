@@ -153,9 +153,6 @@ export type Components = {
     color: string;
     style: "solid" | "dashed" | "dotted";
   }>;
-  Spacer: {
-    height: number;
-  };
   Table: WithLayout<{
     // Main
     borderColor: string;
