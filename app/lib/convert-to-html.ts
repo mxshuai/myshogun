@@ -30,6 +30,7 @@ import {
   TAB_CONTENT_PADDING,
   TABS_EXPORT_CSS,
 } from "~/components/tabs-styles";
+import { ACCORDION_EXPORT_CSS } from "~/components/accordion-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -1021,16 +1022,20 @@ function generateTabs(props: any, spaces: string, indent: number): string {
 function generateAccordion(props: any, spaces: string, indent: number): string {
   const items = props.items || [];
   const onlyOneOpen = props.onlyOneOpen !== false; // 默认 true
-  const openIcon = props.openIcon || "chevron";
+  const openIcon = props.openIcon || "none";
 
-  const headerFont = props.headerFont || "";
-  const headerSize = props.headerSize ?? 16;
-  const headerTextAlignment = props.headerTextAlignment || "left";
-  const headingPadding = props.headingPadding ?? 10;
-  const headerBackgroundColor = props.headerBackgroundColor || "#f5f5f5";
-  const headerTextColor = props.headerTextColor || "#000000";
-  const innerBackgroundColor = props.innerBackgroundColor || "#ffffff";
-  const borderColor = props.borderColor || "#dddddd";
+  const paneHeaderText = props.paneHeaderText || {};
+  const accordionColors = props.colors || {};
+  const headerFont = paneHeaderText.headerFont || "";
+  const headerSize = paneHeaderText.headerSize ?? 16;
+  const headerTextAlignment = paneHeaderText.headerTextAlignment || "left";
+  const headingPadding = paneHeaderText.headingPadding ?? 10;
+  const headerBackgroundColor =
+    accordionColors.headerBackgroundColor || "#f5f5f5";
+  const headerTextColor = accordionColors.headerTextColor || "#8FCEE7";
+  const innerBackgroundColor =
+    accordionColors.innerBackgroundColor || "#ffffff";
+  const borderColor = accordionColors.borderColor || "#dddddd";
 
   if (!items || items.length === 0) {
     return `${spaces}<!-- No accordion panes defined -->\n`;
@@ -1050,7 +1055,9 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
   html += `${spaces}  <div style="border: 1px solid ${borderColor}; border-radius: 6px; overflow: hidden; background: transparent;">\n`;
 
   items.forEach((item: any, index: number) => {
-    const title = item?.title?.trim() ? item.title : `Pane ${index + 1}`;
+    const title = item?.title?.trim()
+      ? item.title
+      : `Accordion ${index + 1}`;
     const isOpen = Boolean(openMap[index]);
 
     const headerStyle =
@@ -1065,25 +1072,35 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
 
     if (openIcon !== "none") {
       if (openIcon === "chevron") {
-        const rotate = isOpen ? 90 : 0;
-        html += `${spaces}      <span data-acc-icon="${index}" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 8px; transform: rotate(${rotate}deg); transition: transform 0.2s ease; user-select: none;" aria-hidden="true">></span>\n`;
+        const chevronOpenClass = isOpen
+          ? " visbuild-accordion-icon--chevron-open"
+          : "";
+        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--chevron${chevronOpenClass}" aria-hidden="true">></span>\n`;
       } else {
-        html += `${spaces}      <span data-acc-icon="${index}" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 8px; user-select: none; font-weight: 700;" aria-hidden="true">${isOpen ? "-" : "+"}</span>\n`;
+        const plusOpenClass = isOpen
+          ? " visbuild-accordion-icon--plus-open"
+          : "";
+        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--plus${plusOpenClass}" aria-hidden="true">+</span>\n`;
       }
     }
 
     html += `${spaces}    </div>\n`;
 
-    const contentDisplay = isOpen ? "block" : "none";
-    html += `${spaces}    <div data-acc-content="${index}" style="background-color: ${innerBackgroundColor}; padding: ${headingPadding}px; border-bottom: ${index === items.length - 1 ? "none" : `1px solid ${borderColor}`}; display: ${contentDisplay};">\n`;
+    const contentOpenClass = isOpen
+      ? " visbuild-accordion-content-panel--open"
+      : "";
+    const contentPadding = isOpen ? `0 ${headingPadding}px` : "0";
+    html += `${spaces}    <div data-acc-content="${index}" class="visbuild-accordion-content-panel${contentOpenClass}" style="background-color: ${innerBackgroundColor}; padding: ${contentPadding}; border-bottom: ${index === items.length - 1 ? "none" : `1px solid ${borderColor}`};">\n`;
+    html += `${spaces}      <div class="visbuild-accordion-content-inner">\n`;
     const content = item?.content || [];
     if (content.length > 0) {
       content.forEach((child: any) => {
-        html += generateComponentHTML(child, indent + 6);
+        html += generateComponentHTML(child, indent + 8);
       });
     } else {
-      html += `${spaces}      <!-- Empty accordion content -->\n`;
+      html += `${spaces}        <!-- Empty accordion content -->\n`;
     }
+    html += `${spaces}      </div>\n`;
     html += `${spaces}    </div>\n`;
   });
 
@@ -1099,24 +1116,36 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
   html += `${spaces}  var openIcon = '${openIcon}';\n`;
   html += `${spaces}  var openMap = ${JSON.stringify(openMap)};\n`;
 
+  html += `${spaces}  function replayContentFade(inner) {\n`;
+  html += `${spaces}    if (!inner) return;\n`;
+  html += `${spaces}    inner.style.animation = 'none';\n`;
+  html += `${spaces}    void inner.offsetHeight;\n`;
+  html += `${spaces}    inner.style.animation = '';\n`;
+  html += `${spaces}  }\n`;
+
   html += `${spaces}  function apply() {\n`;
   html += `${spaces}    var contents = root.querySelectorAll('[data-acc-content]');\n`;
   html += `${spaces}    contents.forEach(function(el) {\n`;
   html += `${spaces}      var idx = Number(el.getAttribute('data-acc-content'));\n`;
-  html += `${spaces}      el.style.display = openMap[idx] ? 'block' : 'none';\n`;
+  html += `${spaces}      var open = Boolean(openMap[idx]);\n`;
+  html += `${spaces}      el.classList.toggle('visbuild-accordion-content-panel--open', open);\n`;
+  html += `${spaces}      el.style.padding = open ? '0 ${headingPadding}px' : '0';\n`;
+  html += `${spaces}      if (open) {\n`;
+  html += `${spaces}        replayContentFade(el.querySelector('.visbuild-accordion-content-inner'));\n`;
+  html += `${spaces}      }\n`;
   html += `${spaces}    });\n`;
 
   if (openIcon === "chevron") {
     html += `${spaces}    var icons = root.querySelectorAll('[data-acc-icon]');\n`;
     html += `${spaces}    icons.forEach(function(icon) {\n`;
     html += `${spaces}      var idx = Number(icon.getAttribute('data-acc-icon'));\n`;
-    html += `${spaces}      icon.style.transform = 'rotate(' + (openMap[idx] ? 90 : 0) + 'deg)';\n`;
+    html += `${spaces}      icon.classList.toggle('visbuild-accordion-icon--chevron-open', Boolean(openMap[idx]));\n`;
     html += `${spaces}    });\n`;
   } else if (openIcon === "plus") {
     html += `${spaces}    var icons2 = root.querySelectorAll('[data-acc-icon]');\n`;
     html += `${spaces}    icons2.forEach(function(icon) {\n`;
     html += `${spaces}      var idx = Number(icon.getAttribute('data-acc-icon'));\n`;
-    html += `${spaces}      icon.textContent = openMap[idx] ? '-' : '+';\n`;
+    html += `${spaces}      icon.classList.toggle('visbuild-accordion-icon--plus-open', Boolean(openMap[idx]));\n`;
     html += `${spaces}    });\n`;
   }
 
@@ -1127,7 +1156,11 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
   html += `${spaces}    header.addEventListener('click', function() {\n`;
   html += `${spaces}      var idx = Number(header.getAttribute('data-acc-header'));\n`;
   html += `${spaces}      if (onlyOneOpen) {\n`;
-  html += `${spaces}        openMap = openMap.map(function(_, i) { return i === idx; });\n`;
+  html += `${spaces}        if (openMap[idx]) {\n`;
+  html += `${spaces}          openMap = openMap.map(function() { return false; });\n`;
+  html += `${spaces}        } else {\n`;
+  html += `${spaces}          openMap = openMap.map(function(_, i) { return i === idx; });\n`;
+  html += `${spaces}        }\n`;
   html += `${spaces}      } else {\n`;
   html += `${spaces}        openMap[idx] = !openMap[idx];\n`;
   html += `${spaces}      }\n`;
@@ -1346,6 +1379,8 @@ ${IMAGE_EXPORT_CSS}
 ${COLUMNS_EXPORT_CSS}
 
 ${TABS_EXPORT_CSS}
+
+${ACCORDION_EXPORT_CSS}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

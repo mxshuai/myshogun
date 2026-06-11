@@ -36,7 +36,6 @@ export const config: Config = {
       title: "Layout",
       components: [
         "Columns",
-        "Flex",
         "Table",
         "Container",
         "Tabs",

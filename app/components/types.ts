@@ -239,16 +239,18 @@ export type Components = {
     }>;
     onlyOneOpen: boolean;
     openIcon: "none" | "chevron" | "plus";
-
-    headerFont: string;
-    headerSize: number;
-    headerTextAlignment: "left" | "center" | "right";
-    headingPadding: number;
-
-    headerBackgroundColor: string;
-    headerTextColor: string;
-    innerBackgroundColor: string;
-    borderColor: string;
+    paneHeaderText: {
+      headerFont: string;
+      headerSize: number;
+      headerTextAlignment: "left" | "center" | "right";
+      headingPadding: number;
+    };
+    colors: {
+      headerBackgroundColor: string;
+      headerTextColor: string;
+      innerBackgroundColor: string;
+      borderColor: string;
+    };
   }>;
   Slider: WithLayout<{
     mode: "slide" | "loop";
