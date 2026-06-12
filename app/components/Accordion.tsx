@@ -5,6 +5,10 @@ import { Section } from "./Section";
 import { withLayout } from "./Layout";
 import { createPuckColorField } from "./ui/puck-color-field";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
+import {
+  ACCORDION_CARET_FA_CLASS,
+  ACCORDION_PLUS_FA_CLASS,
+} from "./accordion-styles";
 import "./accordion.css";
 
 type AccordionItem = {
@@ -40,12 +44,12 @@ function renderOpenIcon({
   if (openIcon === "chevron") {
     return (
       <span
-        className={`visbuild-accordion-icon visbuild-accordion-icon--chevron${
-          open ? " visbuild-accordion-icon--chevron-open" : ""
+        className={`visbuild-accordion-icon visbuild-accordion-icon--caret${
+          open ? " visbuild-accordion-icon--open" : ""
         }`}
         aria-hidden="true"
       >
-        {">"}
+        <i className={ACCORDION_CARET_FA_CLASS} />
       </span>
     );
   }
@@ -54,11 +58,11 @@ function renderOpenIcon({
   return (
     <span
       className={`visbuild-accordion-icon visbuild-accordion-icon--plus${
-        open ? " visbuild-accordion-icon--plus-open" : ""
+        open ? " visbuild-accordion-icon--open" : ""
       }`}
       aria-hidden="true"
     >
-      +
+      <i className={ACCORDION_PLUS_FA_CLASS} />
     </span>
   );
 }

@@ -30,7 +30,11 @@ import {
   TAB_CONTENT_PADDING,
   TABS_EXPORT_CSS,
 } from "~/components/tabs-styles";
-import { ACCORDION_EXPORT_CSS } from "~/components/accordion-styles";
+import {
+  ACCORDION_CARET_FA_CLASS,
+  ACCORDION_EXPORT_CSS,
+  ACCORDION_PLUS_FA_CLASS,
+} from "~/components/accordion-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
 
 /**
@@ -1071,16 +1075,11 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
     html += `${spaces}      <div style="flex: 1; text-align: ${headerTextAlignment};">${escapeHtml(title)}</div>\n`;
 
     if (openIcon !== "none") {
+      const iconOpenClass = isOpen ? " visbuild-accordion-icon--open" : "";
       if (openIcon === "chevron") {
-        const chevronOpenClass = isOpen
-          ? " visbuild-accordion-icon--chevron-open"
-          : "";
-        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--chevron${chevronOpenClass}" aria-hidden="true">></span>\n`;
+        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--caret${iconOpenClass}" aria-hidden="true"><i class="${ACCORDION_CARET_FA_CLASS}"></i></span>\n`;
       } else {
-        const plusOpenClass = isOpen
-          ? " visbuild-accordion-icon--plus-open"
-          : "";
-        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--plus${plusOpenClass}" aria-hidden="true">+</span>\n`;
+        html += `${spaces}      <span data-acc-icon="${index}" class="visbuild-accordion-icon visbuild-accordion-icon--plus${iconOpenClass}" aria-hidden="true"><i class="${ACCORDION_PLUS_FA_CLASS}"></i></span>\n`;
       }
     }
 
@@ -1135,17 +1134,11 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
   html += `${spaces}      }\n`;
   html += `${spaces}    });\n`;
 
-  if (openIcon === "chevron") {
+  if (openIcon !== "none") {
     html += `${spaces}    var icons = root.querySelectorAll('[data-acc-icon]');\n`;
     html += `${spaces}    icons.forEach(function(icon) {\n`;
     html += `${spaces}      var idx = Number(icon.getAttribute('data-acc-icon'));\n`;
-    html += `${spaces}      icon.classList.toggle('visbuild-accordion-icon--chevron-open', Boolean(openMap[idx]));\n`;
-    html += `${spaces}    });\n`;
-  } else if (openIcon === "plus") {
-    html += `${spaces}    var icons2 = root.querySelectorAll('[data-acc-icon]');\n`;
-    html += `${spaces}    icons2.forEach(function(icon) {\n`;
-    html += `${spaces}      var idx = Number(icon.getAttribute('data-acc-icon'));\n`;
-    html += `${spaces}      icon.classList.toggle('visbuild-accordion-icon--plus-open', Boolean(openMap[idx]));\n`;
+    html += `${spaces}      icon.classList.toggle('visbuild-accordion-icon--open', Boolean(openMap[idx]));\n`;
     html += `${spaces}    });\n`;
   }
 

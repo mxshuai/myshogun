@@ -1,5 +1,8 @@
 export const ACCORDION_CONTENT_FADE_MS = 500;
 
+export const ACCORDION_CARET_FA_CLASS = "fa fa-caret-down";
+export const ACCORDION_PLUS_FA_CLASS = "fa fa-plus";
+
 export const ACCORDION_EXPORT_CSS = `/* Accordion */
 @keyframes visbuild-accordion-fade-in {
   from { opacity: 0; }
@@ -30,18 +33,29 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
   height: 20px;
   margin-left: 8px;
   user-select: none;
+  color: inherit;
   transition: transform ${ACCORDION_CONTENT_FADE_MS}ms ease;
 }
 
-.visbuild-accordion-icon--chevron-open {
-  transform: rotate(90deg);
+.visbuild-accordion-icon .fa {
+  line-height: 1;
 }
 
+/* Chevron: fa-caret-down 展开，逆时针 90° 为收起 */
+.visbuild-accordion-icon--caret {
+  transform: rotate(-90deg);
+}
+
+.visbuild-accordion-icon--caret.visbuild-accordion-icon--open {
+  transform: rotate(0deg);
+}
+
+/* Plus: fa-plus 收起，顺时针 405° 为展开 */
 .visbuild-accordion-icon--plus {
-  font-weight: 700;
+  transform: rotate(0deg);
 }
 
-.visbuild-accordion-icon--plus-open {
-  transform: rotate(45deg);
+.visbuild-accordion-icon--plus.visbuild-accordion-icon--open {
+  transform: rotate(405deg);
 }
 `;
