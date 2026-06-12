@@ -1,8 +1,46 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { ComponentConfig, Slot } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
+import { createPuckColorField } from "./ui/puck-color-field";
+import {
+  SLIDER_ARROW_LEFT_PATH,
+  SLIDER_ARROW_RIGHT_PATH,
+  SLIDER_ARROW_VIEWBOX,
+  clampSelectedDotWidthPercent,
+  selectedDotWidthPx,
+} from "./slider-styles";
+
+function SliderArrowIcon({
+  side,
+  color,
+  size,
+}: {
+  side: "left" | "right";
+  color: string;
+  size: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={SLIDER_ARROW_VIEWBOX}
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d={side === "left" ? SLIDER_ARROW_LEFT_PATH : SLIDER_ARROW_RIGHT_PATH}
+        stroke={color}
+        strokeWidth={2}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 type SliderItem = {
   slot: Slot;
@@ -30,157 +68,150 @@ const animationOptions = [
   { label: "Zoom In Up", value: "zoom-in-up" },
 ];
 
-const SliderInternal: ComponentConfig<Components["Slider"]> = {
-  fields: {
-    mode: {
-      type: "radio",
-      label: "Mode",
-      options: [
-        { label: "Slide", value: "slide" },
-        { label: "Loop", value: "loop" },
-      ],
-    },
-    rewind: {
-      type: "radio",
-      label: "Rewind",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    numberOfSlides: {
-      type: "number",
-      label: "Number of screens (swipe pages)",
-      min: 1,
-      max: 20,
-    },
-    slidesPerPage: {
-      type: "number",
-      label: "Slots per screen (columns, like Grid)",
-      min: 1,
-      max: 12,
-    },
-    currentSlideIndex: {
-      type: "number",
-      label: "Current screen (for editing)",
-      min: 0,
-      max: 19,
-    },
-    animation: {
-      type: "select",
-      label: "Animation",
-      options: animationOptions,
-    },
-    autoSlide: {
-      type: "radio",
-      label: "Auto Slide",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    showEachSlideSeconds: {
-      type: "number",
-      label: "Show each slide for (seconds)",
-      min: 1,
-      max: 60,
-    },
-    pauseAutoplayOnHover: {
-      type: "radio",
-      label: "Pause autoplay on hover",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    controlsOverContent: {
-      type: "radio",
-      label: "Controls over content",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    showArrows: {
-      type: "radio",
-      label: "Show arrows",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    arrowColor: {
-      type: "text",
-      label: "Arrow color",
-    },
-    arrowHeight: {
-      type: "number",
-      label: "Arrow height",
-      min: 12,
-      max: 80,
-    },
-    arrowBackground: {
-      type: "radio",
-      label: "Arrow background",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    showDots: {
-      type: "radio",
-      label: "Show dots",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    selectedDotColor: {
-      type: "text",
-      label: "Selected dot color",
-    },
-    unselectedDotColor: {
-      type: "text",
-      label: "Unselected dot color",
-    },
-    dotsSize: {
-      type: "number",
-      label: "Dots size",
-      min: 4,
-      max: 28,
-    },
-    selectedDotWidth: {
-      type: "number",
-      label: "Selected dot width",
-      min: 100,
-      max: 300,
-    },
-    dotsLocation: {
-      type: "radio",
-      label: "Dots location",
-      options: [
-        { label: "Left", value: "left" },
-        { label: "Center", value: "center" },
-        { label: "Right", value: "right" },
-      ],
-    },
-    spaceBetweenDots: {
-      type: "number",
-      label: "Space between dots",
-      min: 0,
-      max: 40,
-    },
-    items: {
-      type: "array",
-      label: "Slots (length = screens × slots per screen)",
-      arrayFields: {
-        slot: {
-          type: "slot",
-          label: "Slot",
-        },
+const sliderFields = {
+  mode: {
+    type: "radio" as const,
+    label: "Mode",
+    options: [
+      { label: "Slide", value: "slide" },
+      { label: "Loop", value: "loop" },
+    ],
+  },
+  rewind: {
+    type: "radio" as const,
+    label: "Rewind",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  numberOfSlides: {
+    type: "number" as const,
+    label: "Number of slides",
+    min: 1,
+    max: 20,
+  },
+  slidesPerPage: {
+    type: "number" as const,
+    label: "Slides per page",
+    min: 1,
+    max: 12,
+  },
+  currentSlideIndex: {
+    type: "number" as const,
+    label: "Current screen (for editing)",
+    min: 0,
+    max: 19,
+  },
+  animation: {
+    type: "select" as const,
+    label: "Animation",
+    options: animationOptions,
+  },
+  autoSlide: {
+    type: "radio" as const,
+    label: "Auto Slide",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  showEachSlideSeconds: {
+    type: "number" as const,
+    label: "Show each slide for (seconds)",
+    min: 1,
+    max: 60,
+  },
+  pauseAutoplayOnHover: {
+    type: "radio" as const,
+    label: "Pause autoplay on hover",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  controlsOverContent: {
+    type: "radio" as const,
+    label: "Controls over content",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  showArrows: {
+    type: "radio" as const,
+    label: "Show arrows",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  arrowColor: createPuckColorField("Arrow color", "#777777"),
+  arrowHeight: {
+    type: "number" as const,
+    label: "Arrow height",
+    min: 12,
+    max: 80,
+  },
+  arrowBackground: {
+    type: "radio" as const,
+    label: "Arrow background",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  showDots: {
+    type: "radio" as const,
+    label: "Show dots",
+    options: [
+      { label: "true", value: true },
+      { label: "false", value: false },
+    ],
+  },
+  selectedDotColor: createPuckColorField("Selected dot color", "#777777"),
+  unselectedDotColor: createPuckColorField("Unselected dot color", "#999999"),
+  dotsSize: {
+    type: "number" as const,
+    label: "Dots size",
+    min: 4,
+    max: 28,
+  },
+  selectedDotWidth: {
+    type: "number" as const,
+    label: "Selected dot width (%)",
+    min: 100,
+    step: 50,
+  },
+  dotsLocation: {
+    type: "radio" as const,
+    label: "Dots location",
+    options: [
+      { label: "Left", value: "left" },
+      { label: "Center", value: "center" },
+      { label: "Right", value: "right" },
+    ],
+  },
+  spaceBetweenDots: {
+    type: "number" as const,
+    label: "Space between dots",
+    min: 0,
+    max: 40,
+  },
+  items: {
+    type: "array" as const,
+    label: "Slots",
+    arrayFields: {
+      slot: {
+        type: "slot" as const,
+        label: "Slot",
       },
     },
   },
+} as ComponentConfig<Components["Slider"]>["fields"];
+
+const SliderInternal: ComponentConfig<Components["Slider"]> = {
+  fields: sliderFields,
   resolveData: (data) => {
     const props = data.props || {};
     const screenCount = Math.max(1, Math.min(20, Number(props.numberOfSlides) || 1));
@@ -236,6 +267,11 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       changed = true;
     }
 
+    const clampedDotWidth = clampSelectedDotWidthPercent(props.selectedDotWidth);
+    if (clampedDotWidth !== props.selectedDotWidth) {
+      changed = true;
+    }
+
     if (!changed) {
       return {};
     }
@@ -247,11 +283,14 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
         slidesPerPage: clampedSpp,
         items,
         currentSlideIndex,
+        selectedDotWidth: clampedDotWidth,
       },
     };
   },
   resolveFields: (data) => {
-    const fields = { ...SliderInternal.fields } as any;
+    const fields = { ...sliderFields } as any;
+    // 侧栏不展示：长度由 numberOfSlides × slidesPerPage 自动维护，内容在画布 slot 内编辑
+    delete fields.items;
     if (data.props?.mode === "loop") {
       delete fields.rewind;
     }
@@ -275,7 +314,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     slidesPerPage: 1,
     currentSlideIndex: 0,
     animation: "slide-medium",
-    autoSlide: true,
+    autoSlide: false,
     showEachSlideSeconds: 5,
     pauseAutoplayOnHover: false,
     controlsOverContent: false,
@@ -333,6 +372,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       0,
       Math.min(currentSlideIndex ?? 0, maxScreenIndexForEdit)
     );
+    const activePage = isEditing ? clampedScreenIndex : currentPage;
 
     useEffect(() => {
       if (currentPage > pageCount - 1) {
@@ -403,60 +443,35 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     const dotsJustify =
       dotsLocation === "left" ? "flex-start" : dotsLocation === "right" ? "flex-end" : "center";
 
-    const controlsPositionStyle = controlsOverContent
-      ? { position: "absolute" as const, top: "50%", transform: "translateY(-50%)", zIndex: 2 }
-      : { position: "static" as const, transform: "none" };
+    const arrowButtonStyle = (side: "left" | "right"): CSSProperties => ({
+      border: "none",
+      cursor: isEditing ? "default" : "pointer",
+      flexShrink: 0,
+      width: arrowHeight + 8,
+      height: arrowHeight + 8,
+      borderRadius: 999,
+      background: arrowBackground ? "rgba(0,0,0,0.35)" : "transparent",
+      lineHeight: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      pointerEvents: isEditing ? "none" : "auto",
+      ...(controlsOverContent
+        ? {
+            position: "absolute",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 2,
+            ...(side === "left" ? { left: 8 } : { right: 8 }),
+          }
+        : {}),
+    });
 
-    // 编辑模式：一次展示「当前屏」上的全部 slot（与前台每屏 Grid 列数一致）
-    if (isEditing) {
-      if (effectiveItems.length === 0) {
-        return (
-          <Section>
-            <div style={{ marginTop: 8, color: "#666", fontSize: 13 }}>
-              Add at least one slot (check screens × slots per screen).
-            </div>
-          </Section>
-        );
-      }
+    if (effectiveItems.length === 0) {
       return (
         <Section>
-          <div style={{ position: "relative" }}>
-            <div
-              style={{
-                marginBottom: 10,
-                fontSize: 12,
-                color: "#666",
-                fontWeight: 500,
-              }}
-            >
-              Editing screen {clampedScreenIndex + 1} / {screenCount} — adjust &quot;Current screen
-              (for editing)&quot; to switch screens
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${safeSlidesPerPage}, minmax(0, 1fr))`,
-                gap: 12,
-                borderRadius: 8,
-                minHeight: 48,
-                alignItems: "stretch",
-              }}
-            >
-              {Array.from({ length: safeSlidesPerPage }).map((_, col) => {
-                const item = effectiveItems[clampedScreenIndex * safeSlidesPerPage + col];
-                const cellSlot = item?.slot;
-                return (
-                  <div key={`edit-slot-${clampedScreenIndex}-${col}`} style={{ minHeight: 48 }}>
-                    {cellSlot
-                      ? (() => {
-                          const SlideContent = cellSlot as any;
-                          return <SlideContent disallow={["Hero"]} />;
-                        })()
-                      : null}
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ marginTop: 8, color: "#666", fontSize: 13 }}>
+            Add at least one slot (check slides × slides per page).
           </div>
         </Section>
       );
@@ -469,51 +484,50 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
         >
-          {showArrows ? (
-            <button
-              type="button"
-              onPointerDownCapture={(e) => {
-                if (puck?.isEditing) {
-                  e.preventDefault();
+          <div
+            style={
+              controlsOverContent
+                ? { position: "relative", width: "100%" }
+                : {
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                  }
+            }
+          >
+            {showArrows ? (
+              <button
+                type="button"
+                disabled={isEditing}
+                aria-disabled={isEditing}
+                onClick={(e) => {
                   e.stopPropagation();
-                }
-              }}
-              onMouseDownCapture={(e) => {
-                if (puck?.isEditing) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                prev();
-              }}
+                  prev();
+                }}
+                style={arrowButtonStyle("left")}
+                aria-label="Previous slide"
+              >
+                <SliderArrowIcon side="left" color={arrowColor} size={arrowHeight} />
+              </button>
+            ) : null}
+
+            <div
               style={{
-                ...controlsPositionStyle,
-                left: 8,
-                border: "none",
-                cursor: "pointer",
-                width: arrowHeight + 8,
-                height: arrowHeight + 8,
-                borderRadius: 999,
-                background: arrowBackground ? "rgba(0,0,0,0.35)" : "transparent",
-                color: arrowColor,
-                fontSize: arrowHeight,
-                lineHeight: 1,
+                flex: controlsOverContent ? undefined : 1,
+                minWidth: 0,
+                width: controlsOverContent ? "100%" : undefined,
+                overflow: "hidden",
+                borderRadius: 8,
               }}
             >
-              {"<"}
-            </button>
-          ) : null}
-
-          <div style={{ overflow: "hidden", borderRadius: 8 }}>
             {isSlideAnimation ? (
               <div
                 style={{
                   display: "flex",
                   width: `${pages.length * 100}%`,
-                  transform: `translateX(-${(currentPage * 100) / pages.length}%)`,
-                  transition: `transform ${transitionDuration} ease`,
+                  transform: `translateX(-${(activePage * 100) / pages.length}%)`,
+                  transition: isEditing ? "none" : `transform ${transitionDuration} ease`,
                 }}
               >
                 {pages.map((pageItems, pageIndex) => (
@@ -545,7 +559,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
               </div>
             ) : (
               <div
-                key={`non-slide-${currentPage}-${animation}`}
+                key={`non-slide-${activePage}-${animation}`}
                 style={{
                   display: "grid",
                   gridTemplateColumns: `repeat(${safeSlidesPerPage}, minmax(0, 1fr))`,
@@ -566,10 +580,10 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
                   transition: animation === "none" ? "none" : "all 320ms ease",
                 }}
               >
-                {(pages[currentPage] || []).map((item, itemIndex) => {
+                {(pages[activePage] || []).map((item, itemIndex) => {
                   const pageSlot = item?.slot;
                   return (
-                    <div key={`slider-item-non-slide-${currentPage}-${itemIndex}`}>
+                    <div key={`slider-item-non-slide-${activePage}-${itemIndex}`}>
                       {pageSlot
                         ? (() => {
                             const SlideContent = pageSlot as any;
@@ -581,44 +595,24 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
                 })}
               </div>
             )}
-          </div>
+            </div>
 
-          {showArrows ? (
-            <button
-              type="button"
-              onPointerDownCapture={(e) => {
-                if (puck?.isEditing) {
-                  e.preventDefault();
+            {showArrows ? (
+              <button
+                type="button"
+                disabled={isEditing}
+                aria-disabled={isEditing}
+                onClick={(e) => {
                   e.stopPropagation();
-                }
-              }}
-              onMouseDownCapture={(e) => {
-                if (puck?.isEditing) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                next();
-              }}
-              style={{
-                ...controlsPositionStyle,
-                right: 8,
-                border: "none",
-                cursor: "pointer",
-                width: arrowHeight + 8,
-                height: arrowHeight + 8,
-                borderRadius: 999,
-                background: arrowBackground ? "rgba(0,0,0,0.35)" : "transparent",
-                color: arrowColor,
-                fontSize: arrowHeight,
-                lineHeight: 1,
-              }}
-            >
-              {">"}
-            </button>
-          ) : null}
+                  next();
+                }}
+                style={arrowButtonStyle("right")}
+                aria-label="Next slide"
+              >
+                <SliderArrowIcon side="right" color={arrowColor} size={arrowHeight} />
+              </button>
+            ) : null}
+          </div>
 
           {showDots ? (
             <div
@@ -631,34 +625,26 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
               }}
             >
               {Array.from({ length: pageCount }).map((_, idx) => {
-                const active = idx === currentPage;
+                const active = idx === activePage;
                 return (
                   <button
                     key={`dot-${idx}`}
                     type="button"
-                    onPointerDownCapture={(e) => {
-                      if (puck?.isEditing) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
-                    onMouseDownCapture={(e) => {
-                      if (puck?.isEditing) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
+                    disabled={isEditing}
+                    aria-disabled={isEditing}
                     onClick={(e) => {
                       e.stopPropagation();
                       jumpTo(idx);
                     }}
                     style={{
                       border: "none",
-                      cursor: "pointer",
+                      cursor: isEditing ? "default" : "pointer",
+                      pointerEvents: isEditing ? "none" : "auto",
                       borderRadius: 999,
                       height: dotsSize,
-                      width: active ? `${selectedDotWidth}%` : dotsSize,
-                      maxWidth: active ? 80 : dotsSize,
+                      width: active
+                        ? selectedDotWidthPx(dotsSize, selectedDotWidth)
+                        : dotsSize,
                       background: active ? selectedDotColor : unselectedDotColor,
                       transition: "all 220ms ease",
                     }}

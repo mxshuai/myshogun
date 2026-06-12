@@ -276,7 +276,7 @@ export type Components = {
     selectedDotColor: string;
     unselectedDotColor: string;
     dotsSize: number;
-    selectedDotWidth: number;
+    selectedDotWidth: number; /** % of dotsSize; min 100, step 50 */
     dotsLocation: "left" | "center" | "right";
     spaceBetweenDots: number;
     items: Array<{

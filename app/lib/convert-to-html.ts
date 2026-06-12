@@ -20,6 +20,7 @@ import {
   columnsGridStyle,
   COLUMNS_EXPORT_CSS,
 } from "~/components/columns-styles";
+import { serializeSliderArrowSvg, selectedDotWidthPx, clampSelectedDotWidthPercent } from "~/components/slider-styles";
 import {
   clampActiveTabIndex,
   DEFAULT_ACTIVE_TAB_COLOR_GROUP,
@@ -1178,7 +1179,7 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   const unselectedDotColor = props.unselectedDotColor || '#999999';
   const mode = props.mode || 'slide';
   const rewind = props.rewind !== false;
-  const autoSlide = props.autoSlide !== false;
+  const autoSlide = props.autoSlide === true;
   const showEachSlideSeconds = Math.max(1, props.showEachSlideSeconds || 5);
   const pauseAutoplayOnHover = props.pauseAutoplayOnHover === true;
   const showArrows = props.showArrows !== false;
@@ -1187,7 +1188,8 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   const arrowBackground = props.arrowBackground === true;
   const controlsOverContent = props.controlsOverContent === true;
   const dotsSize = props.dotsSize || 14;
-  const selectedDotWidth = Math.min(80, props.selectedDotWidth || 40);
+  const selectedDotWidthPercent = clampSelectedDotWidthPercent(props.selectedDotWidth);
+  const activeDotWidthPx = selectedDotWidthPx(dotsSize, selectedDotWidthPercent);
   const spaceBetweenDots = props.spaceBetweenDots || 8;
 
   if (items.length === 0) {
@@ -1206,11 +1208,21 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   const sliderId = `slider-${Math.random().toString(36).slice(2, 10)}`;
 
   let html = `${spaces}<div id="${sliderId}" style="width: 100%; position: relative;">\n`;
+  const arrowBaseStyle = `border: none; cursor: pointer; flex-shrink: 0; width: ${arrowHeight + 8}px; height: ${arrowHeight + 8}px; border-radius: 999px; background: ${arrowBackground ? "rgba(0,0,0,0.35)" : "transparent"}; line-height: 1; display: flex; align-items: center; justify-content: center;`;
+  const arrowOverlayStyle = "position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;";
+  const controlsRowStyle = controlsOverContent
+    ? "position: relative; width: 100%;"
+    : "display: flex; align-items: center; gap: 8px; width: 100%;";
+  const trackWrapStyle = controlsOverContent
+    ? "overflow: hidden; border-radius: 8px; width: 100%;"
+    : "flex: 1; min-width: 0; overflow: hidden; border-radius: 8px;";
+
+  html += `${spaces}  <div style="${controlsRowStyle}">\n`;
   if (showArrows) {
-    html += `${spaces}  <button type="button" data-slider-prev style="${controlsOverContent ? 'position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;' : ''} left: 8px; border: none; cursor: pointer; width: ${arrowHeight + 8}px; height: ${arrowHeight + 8}px; border-radius: 999px; background: ${arrowBackground ? 'rgba(0,0,0,0.35)' : 'transparent'}; color: ${arrowColor}; font-size: ${arrowHeight}px; line-height: 1;">&lt;</button>\n`;
+    html += `${spaces}    <button type="button" data-slider-prev aria-label="Previous slide" style="${arrowBaseStyle}${controlsOverContent ? ` ${arrowOverlayStyle} left: 8px;` : ""}">${serializeSliderArrowSvg("left", arrowColor, arrowHeight)}</button>\n`;
   }
 
-  html += `${spaces}  <div style="overflow: hidden; border-radius: 8px;">\n`;
+  html += `${spaces}    <div style="${trackWrapStyle}">\n`;
   html += `${spaces}    <div data-slider-track style="display: flex; width: ${pages.length * 100}%; transform: translateX(0%); transition: transform 450ms ease;">\n`;
   pages.forEach((pageItems: any[], pageIndex: number) => {
     html += `${spaces}      <div style="width: ${100 / pages.length}%; display: grid; grid-template-columns: repeat(${slidesPerPage}, minmax(0, 1fr)); gap: 12px;">\n`;
@@ -1224,18 +1236,19 @@ function generateSlider(props: any, spaces: string, indent: number): string {
     });
     html += `${spaces}      </div>\n`;
   });
+  html += `${spaces}      </div>\n`;
   html += `${spaces}    </div>\n`;
-  html += `${spaces}  </div>\n`;
 
   if (showArrows) {
-    html += `${spaces}  <button type="button" data-slider-next style="${controlsOverContent ? 'position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;' : ''} right: 8px; border: none; cursor: pointer; width: ${arrowHeight + 8}px; height: ${arrowHeight + 8}px; border-radius: 999px; background: ${arrowBackground ? 'rgba(0,0,0,0.35)' : 'transparent'}; color: ${arrowColor}; font-size: ${arrowHeight}px; line-height: 1;">&gt;</button>\n`;
+    html += `${spaces}    <button type="button" data-slider-next aria-label="Next slide" style="${arrowBaseStyle}${controlsOverContent ? ` ${arrowOverlayStyle} right: 8px;` : ""}">${serializeSliderArrowSvg("right", arrowColor, arrowHeight)}</button>\n`;
   }
+  html += `${spaces}  </div>\n`;
 
   if (showDots) {
     html += `${spaces}  <div data-slider-dots style="display: flex; justify-content: ${dotsJustify}; align-items: center; gap: ${spaceBetweenDots}px; margin-top: 12px;">\n`;
     for (let i = 0; i < pageCount; i++) {
       const active = i === 0;
-      html += `${spaces}    <button type="button" data-slider-dot="${i}" style="border: none; cursor: pointer; border-radius: 999px; height: ${dotsSize}px; width: ${active ? selectedDotWidth : dotsSize}px; background: ${active ? selectedDotColor : unselectedDotColor}; transition: all 220ms ease;"></button>\n`;
+      html += `${spaces}    <button type="button" data-slider-dot="${i}" style="border: none; cursor: pointer; border-radius: 999px; height: ${dotsSize}px; width: ${active ? activeDotWidthPx : dotsSize}px; background: ${active ? selectedDotColor : unselectedDotColor}; transition: all 220ms ease;"></button>\n`;
     }
     html += `${spaces}  </div>\n`;
   }
@@ -1261,7 +1274,7 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   html += `${spaces}      if (dots && dots.length) {\n`;
   html += `${spaces}        dots.forEach(function(dot, idx) {\n`;
   html += `${spaces}          var active = idx === currentPage;\n`;
-  html += `${spaces}          dot.style.width = active ? '${selectedDotWidth}px' : '${dotsSize}px';\n`;
+  html += `${spaces}          dot.style.width = active ? '${activeDotWidthPx}px' : '${dotsSize}px';\n`;
   html += `${spaces}          dot.style.background = active ? '${selectedDotColor}' : '${unselectedDotColor}';\n`;
   html += `${spaces}        });\n`;
   html += `${spaces}      }\n`;
