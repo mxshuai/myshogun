@@ -8,6 +8,7 @@ import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
 import {
   ACCORDION_CARET_FA_CLASS,
   ACCORDION_PLUS_FA_CLASS,
+  clampCurrentAccordionIndex,
 } from "./accordion-styles";
 import "./accordion.css";
 
@@ -117,6 +118,12 @@ const colorsFieldGroup: ObjectField<AccordionProps["colors"]> = {
 };
 
 const accordionFields = {
+  currentAccordionIndex: {
+    type: "number" as const,
+    label: "Active Accordion Index (for editing)",
+    min: 1,
+    max: 1,
+  },
   items: {
     type: "array" as const,
     label: "Manage accordion sections",
@@ -169,7 +176,32 @@ const accordionFields = {
 
 const AccordionInternal: ComponentConfig<AccordionProps> = {
   fields: accordionFields,
+  resolveData: (data) => {
+    const props = data.props || {};
+    const itemCount = Math.max(1, props.items?.length ?? 1);
+    const clamped = clampCurrentAccordionIndex(
+      props.currentAccordionIndex,
+      itemCount
+    );
+    if (clamped !== props.currentAccordionIndex) {
+      return { props: { ...props, currentAccordionIndex: clamped } };
+    }
+    return {};
+  },
+  resolveFields: (data) => {
+    const itemCount = Math.max(1, data.props?.items?.length ?? 1);
+    return {
+      ...accordionFields,
+      currentAccordionIndex: {
+        type: "number" as const,
+        label: "Active Accordion Index (for editing)",
+        min: 1,
+        max: itemCount,
+      },
+    } as NonNullable<ComponentConfig<AccordionProps>["fields"]>;
+  },
   defaultProps: {
+    currentAccordionIndex: 1,
     items: [
       {
         title: "Accordion 1",
@@ -194,6 +226,7 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
   },
   render: ({
     items,
+    currentAccordionIndex,
     onlyOneOpen,
     openIcon,
     paneHeaderText,
@@ -213,11 +246,25 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
       borderColor = "#dddddd",
     } = colors ?? {};
     const safeItems = (items ?? []) as unknown as AccordionItem[];
+    const itemCount = safeItems.length;
+    const editingIndex =
+      itemCount > 0
+        ? clampCurrentAccordionIndex(currentAccordionIndex, itemCount) - 1
+        : 0;
     const contentOpenMapFromProps = useMemo(
       () => deriveEffectiveOpen(safeItems, Boolean(onlyOneOpen)),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [safeItems, onlyOneOpen]
     );
+    /** 编辑态：默认沿用各 pane 的 open；仅当 Active Index 指向折叠项时才展开该项 */
+    const editingOpenMap = useMemo(() => {
+      const base = contentOpenMapFromProps;
+      if (itemCount === 0) return base;
+      if (base[editingIndex]) return base;
+      const next = [...base];
+      next[editingIndex] = true;
+      return next;
+    }, [contentOpenMapFromProps, editingIndex, itemCount]);
 
     const [internalOpenMap, setInternalOpenMap] = useState<boolean[]>(
       contentOpenMapFromProps
@@ -233,7 +280,9 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
       }
     }, [contentOpenMapFromProps, puck?.isEditing]);
 
-    const effectiveOpenMap = puck?.isEditing ? contentOpenMapFromProps : internalOpenMap;
+    const effectiveOpenMap = puck?.isEditing
+      ? editingOpenMap
+      : internalOpenMap;
 
     const borderStyle: React.CSSProperties = useMemo(
       () => ({

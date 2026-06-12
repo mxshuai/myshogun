@@ -232,6 +232,8 @@ export type Components = {
   }>;
 
   Accordion: WithLayout<{
+    /** 1-based，编辑时指定当前展开的 accordion pane（侧栏 Active Accordion Index） */
+    currentAccordionIndex?: number;
     items: Array<{
       title: string;
       open: boolean;

@@ -3,6 +3,16 @@ export const ACCORDION_CONTENT_FADE_MS = 500;
 export const ACCORDION_CARET_FA_CLASS = "fa fa-caret-down";
 export const ACCORDION_PLUS_FA_CLASS = "fa fa-plus";
 
+/** 侧栏 Active Accordion Index 为 1-based */
+export function clampCurrentAccordionIndex(
+  oneBased: number | undefined,
+  itemCount: number
+): number {
+  const count = Math.max(1, itemCount);
+  const raw = oneBased ?? 1;
+  return Math.min(Math.max(1, Math.floor(raw)), count);
+}
+
 export const ACCORDION_EXPORT_CSS = `/* Accordion */
 @keyframes visbuild-accordion-fade-in {
   from { opacity: 0; }
