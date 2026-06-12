@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type TransitionEvent } from "react";
 import type { CSSProperties } from "react";
 import type { ComponentConfig, Slot } from "@puckeditor/core";
 import type { Components } from "./types";
@@ -11,6 +11,18 @@ import {
   SLIDER_ARROW_VIEWBOX,
   clampSelectedDotWidthPercent,
   selectedDotWidthPx,
+  buildLoopExtendedPages,
+  isSliderSlideAnimation,
+  sliderSlideTransitionMs,
+  sliderTrackTranslateX,
+  useLoopDirectionalTrack,
+  loopNextNavState,
+  loopPrevNavState,
+  loopJumpNavState,
+  loopNavAfterForwardWrap,
+  loopNavAfterBackwardWrap,
+  loopTrackIndexForPage,
+  type LoopNavState,
 } from "./slider-styles";
 
 function SliderArrowIcon({
@@ -45,6 +57,69 @@ function SliderArrowIcon({
 type SliderItem = {
   slot: Slot;
 };
+
+type SliderNavState = LoopNavState;
+
+type SliderNavAction =
+  | { type: "reset"; useLoopTrack: boolean }
+  | { type: "next"; useLoopTrack: boolean; pageCount: number; mode: string; rewind: boolean }
+  | { type: "prev"; useLoopTrack: boolean; pageCount: number; mode: string; rewind: boolean }
+  | { type: "jump"; index: number; useLoopTrack: boolean; pageCount: number }
+  | { type: "loop_wrap_forward" }
+  | { type: "loop_wrap_backward"; pageCount: number }
+  | { type: "clamp"; pageCount: number };
+
+function sliderNavReducer(state: SliderNavState, action: SliderNavAction): SliderNavState {
+  switch (action.type) {
+    case "reset":
+      return { currentPage: 0, trackIndex: action.useLoopTrack ? 1 : 0 };
+    case "next":
+      if (action.useLoopTrack) {
+        return loopNextNavState(state.currentPage, action.pageCount);
+      }
+      if (state.currentPage < action.pageCount - 1) {
+        const page = state.currentPage + 1;
+        return { currentPage: page, trackIndex: page };
+      }
+      if (action.mode === "loop" || action.rewind) {
+        return { currentPage: 0, trackIndex: 0 };
+      }
+      return state;
+    case "prev":
+      if (action.useLoopTrack) {
+        return loopPrevNavState(state.currentPage, action.pageCount);
+      }
+      if (state.currentPage > 0) {
+        const page = state.currentPage - 1;
+        return { currentPage: page, trackIndex: page };
+      }
+      if (action.mode === "loop" || action.rewind) {
+        const page = action.pageCount - 1;
+        return { currentPage: page, trackIndex: page };
+      }
+      return state;
+    case "jump": {
+      const page = Math.max(0, Math.min(action.index, action.pageCount - 1));
+      if (action.useLoopTrack) {
+        return loopJumpNavState(page, action.pageCount);
+      }
+      return { currentPage: page, trackIndex: page };
+    }
+    case "loop_wrap_forward":
+      return loopNavAfterForwardWrap();
+    case "loop_wrap_backward":
+      return loopNavAfterBackwardWrap(state.currentPage, action.pageCount);
+    case "clamp": {
+      const page = Math.max(0, Math.min(state.currentPage, action.pageCount - 1));
+      if (page === state.currentPage && state.trackIndex === loopTrackIndexForPage(page)) {
+        return state;
+      }
+      return { currentPage: page, trackIndex: loopTrackIndexForPage(page) };
+    }
+    default:
+      return state;
+  }
+}
 
 const animationOptions = [
   { label: "No Animation", value: "none" },
@@ -100,7 +175,7 @@ const sliderFields = {
   currentSlideIndex: {
     type: "number" as const,
     label: "Current screen (for editing)",
-    min: 0,
+    min: 1,
     max: 19,
   },
   animation: {
@@ -257,13 +332,13 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     }
 
     let currentSlideIndex = Number(props.currentSlideIndex);
-    if (!Number.isFinite(currentSlideIndex)) currentSlideIndex = 0;
-    if (currentSlideIndex < 0) {
-      currentSlideIndex = 0;
+    if (!Number.isFinite(currentSlideIndex)) currentSlideIndex = 1;
+    if (currentSlideIndex < 1) {
+      currentSlideIndex = 1;
       changed = true;
     }
-    if (currentSlideIndex > screenCount - 1) {
-      currentSlideIndex = Math.max(0, screenCount - 1);
+    if (currentSlideIndex > screenCount) {
+      currentSlideIndex = Math.max(1, screenCount);
       changed = true;
     }
 
@@ -302,7 +377,8 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     if (fields.currentSlideIndex) {
       fields.currentSlideIndex = {
         ...fields.currentSlideIndex,
-        max: Math.max(0, screenCount - 1),
+        min: 1,
+        max: Math.max(1, screenCount),
       };
     }
     return fields;
@@ -312,7 +388,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     rewind: true,
     numberOfSlides: 1,
     slidesPerPage: 1,
-    currentSlideIndex: 0,
+    currentSlideIndex: 1,
     animation: "slide-medium",
     autoSlide: false,
     showEachSlideSeconds: 5,
@@ -363,34 +439,39 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     /** 单屏并列 slot 数（横向 Grid 列数） */
     const safeSlidesPerPage = Math.max(1, Math.min(12, slidesPerPage || 1));
     const pageCount = screenCount;
-    const [currentPage, setCurrentPage] = useState(0);
+    const [nav, dispatchNav] = useReducer(sliderNavReducer, {
+      currentPage: 0,
+      trackIndex: 1,
+    });
+    const [transitionEnabled, setTransitionEnabled] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
 
     const isEditing = puck?.isEditing === true;
+    const useLoopTrack = useLoopDirectionalTrack(mode, animation, pageCount, isEditing);
+    const currentPage = nav.currentPage;
+    const trackIndex = nav.trackIndex;
     const maxScreenIndexForEdit = Math.max(0, screenCount - 1);
     const clampedScreenIndex = Math.max(
       0,
-      Math.min(currentSlideIndex ?? 0, maxScreenIndexForEdit)
+      Math.min((currentSlideIndex ?? 1) - 1, maxScreenIndexForEdit)
     );
     const activePage = isEditing ? clampedScreenIndex : currentPage;
 
     useEffect(() => {
-      if (currentPage > pageCount - 1) {
-        setCurrentPage(Math.max(0, pageCount - 1));
-      }
-    }, [currentPage, pageCount]);
+      dispatchNav({ type: "reset", useLoopTrack });
+      setTransitionEnabled(true);
+    }, [pageCount, mode, animation, useLoopTrack]);
+
+    useEffect(() => {
+      dispatchNav({ type: "clamp", pageCount });
+    }, [pageCount]);
 
     useEffect(() => {
       if (isEditing || !autoSlide || pageCount <= 1) return;
       if (pauseAutoplayOnHover && isHovering) return;
       const ms = Math.max(1, showEachSlideSeconds || 5) * 1000;
       const timer = setInterval(() => {
-        setCurrentPage((prev) => {
-          const next = prev + 1;
-          if (next <= pageCount - 1) return next;
-          if (mode === "loop") return 0;
-          return rewind ? 0 : prev;
-        });
+        goNextRef.current();
       }, ms);
       return () => clearInterval(timer);
     }, [
@@ -400,13 +481,13 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       pauseAutoplayOnHover,
       isHovering,
       showEachSlideSeconds,
+      useLoopTrack,
       mode,
       rewind,
     ]);
 
-    const transitionDuration = animation === "slide-slow" ? "800ms" : animation === "slide-fast" ? "220ms" : "450ms";
-    const isSlideAnimation =
-      animation === "slide-slow" || animation === "slide-medium" || animation === "slide-fast";
+    const transitionDuration = `${sliderSlideTransitionMs(animation)}ms`;
+    const isSlideAnimation = isSliderSlideAnimation(animation);
 
     /** 每屏一行：第 p 屏对应扁平 items 中下标 [p*spp, (p+1)*spp) */
     const pages = useMemo(() => {
@@ -421,24 +502,50 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       return chunks;
     }, [effectiveItems, screenCount, safeSlidesPerPage]);
 
+    const trackSlides = useMemo(
+      () => (useLoopTrack ? buildLoopExtendedPages(pages) : pages),
+      [pages, useLoopTrack]
+    );
+    const trackSlideCount = trackSlides.length;
+    const visualTrackIndex = useLoopTrack ? trackIndex : activePage;
+
+    const goNext = useCallback(() => {
+      dispatchNav({ type: "next", useLoopTrack, pageCount, mode, rewind });
+    }, [useLoopTrack, pageCount, mode, rewind]);
+
+    const goPrev = useCallback(() => {
+      dispatchNav({ type: "prev", useLoopTrack, pageCount, mode, rewind });
+    }, [useLoopTrack, pageCount, mode, rewind]);
+
+    const goNextRef = useRef(goNext);
+    goNextRef.current = goNext;
+
     const jumpTo = (index: number) => {
-      const next = Math.max(0, Math.min(index, pageCount - 1));
-      setCurrentPage(next);
+      dispatchNav({ type: "jump", index, useLoopTrack, pageCount });
     };
 
-    const prev = () => {
-      setCurrentPage((p) => {
-        if (p > 0) return p - 1;
-        return mode === "loop" || rewind ? pageCount - 1 : p;
-      });
+    const handleTrackTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget || e.propertyName !== "transform") return;
+      if (!useLoopTrack || !transitionEnabled) return;
+      if (trackIndex === pageCount + 1) {
+        setTransitionEnabled(false);
+        dispatchNav({ type: "loop_wrap_forward" });
+      } else if (trackIndex === 0) {
+        setTransitionEnabled(false);
+        dispatchNav({ type: "loop_wrap_backward", pageCount });
+      }
     };
 
-    const next = () => {
-      setCurrentPage((p) => {
-        if (p < pageCount - 1) return p + 1;
-        return mode === "loop" || rewind ? 0 : p;
+    useEffect(() => {
+      if (transitionEnabled) return;
+      const frame = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setTransitionEnabled(true));
       });
-    };
+      return () => cancelAnimationFrame(frame);
+    }, [transitionEnabled]);
+
+    const prev = () => goPrev();
+    const next = () => goNext();
 
     const dotsJustify =
       dotsLocation === "left" ? "flex-start" : dotsLocation === "right" ? "flex-end" : "center";
@@ -523,18 +630,22 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
             >
             {isSlideAnimation ? (
               <div
+                onTransitionEnd={handleTrackTransitionEnd}
                 style={{
                   display: "flex",
-                  width: `${pages.length * 100}%`,
-                  transform: `translateX(-${(activePage * 100) / pages.length}%)`,
-                  transition: isEditing ? "none" : `transform ${transitionDuration} ease`,
+                  width: `${trackSlideCount * 100}%`,
+                  transform: sliderTrackTranslateX(visualTrackIndex, trackSlideCount),
+                  transition:
+                    isEditing || !transitionEnabled
+                      ? "none"
+                      : `transform ${transitionDuration} ease`,
                 }}
               >
-                {pages.map((pageItems, pageIndex) => (
+                {trackSlides.map((pageItems, pageIndex) => (
                   <div
                     key={`slider-page-${pageIndex}`}
                     style={{
-                      width: `${100 / pages.length}%`,
+                      width: `${100 / trackSlideCount}%`,
                       display: "grid",
                       gridTemplateColumns: `repeat(${safeSlidesPerPage}, minmax(0, 1fr))`,
                       gap: 12,

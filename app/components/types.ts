@@ -261,7 +261,7 @@ export type Components = {
     numberOfSlides: number;
     /** 每一屏横向并列的 slot 数量，类似 Grid 列数 */
     slidesPerPage: number;
-    /** 编辑模式：当前编辑第几屏（0-based，与 `numberOfSlides` 对应） */
+    /** 编辑模式：当前编辑第几屏（1-based，与 `numberOfSlides` 对应） */
     currentSlideIndex: number;
     animation: string;
     autoSlide: boolean;

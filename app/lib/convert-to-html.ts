@@ -20,7 +20,7 @@ import {
   columnsGridStyle,
   COLUMNS_EXPORT_CSS,
 } from "~/components/columns-styles";
-import { serializeSliderArrowSvg, selectedDotWidthPx, clampSelectedDotWidthPercent } from "~/components/slider-styles";
+import { serializeSliderArrowSvg, selectedDotWidthPx, clampSelectedDotWidthPercent, buildLoopExtendedPages, sliderTrackTranslateX, sliderSlideTransitionMs, isSliderSlideAnimation } from "~/components/slider-styles";
 import {
   clampActiveTabIndex,
   DEFAULT_ACTIVE_TAB_COLOR_GROUP,
@@ -1206,6 +1206,27 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   }
   const dotsJustify = dotsLocation === 'left' ? 'flex-start' : dotsLocation === 'right' ? 'flex-end' : 'center';
   const sliderId = `slider-${Math.random().toString(36).slice(2, 10)}`;
+  const animation = props.animation || 'slide-medium';
+  const useLoopTrack = mode === 'loop' && pageCount > 1 && isSliderSlideAnimation(animation);
+  const trackSlides = useLoopTrack ? buildLoopExtendedPages(pages) : pages;
+  const slideCount = trackSlides.length;
+  const transitionMs = sliderSlideTransitionMs(animation);
+  const initialTrackIndex = useLoopTrack ? 1 : 0;
+  const initialTransform = sliderTrackTranslateX(initialTrackIndex, slideCount);
+
+  const appendTrackPage = (pageItems: any[], pageIndex: number) => {
+    let chunk = `${spaces}      <div style="width: ${100 / slideCount}%; display: grid; grid-template-columns: repeat(${slidesPerPage}, minmax(0, 1fr)); gap: 12px;">\n`;
+    pageItems.forEach((item: any, itemIndex: number) => {
+      const content = item?.slot ?? [];
+      chunk += `${spaces}        <div data-slider-item="${pageIndex}-${itemIndex}">\n`;
+      content.forEach((child: any) => {
+        chunk += generateComponentHTML(child, indent + 10);
+      });
+      chunk += `${spaces}        </div>\n`;
+    });
+    chunk += `${spaces}      </div>\n`;
+    return chunk;
+  };
 
   let html = `${spaces}<div id="${sliderId}" style="width: 100%; position: relative;">\n`;
   const arrowBaseStyle = `border: none; cursor: pointer; flex-shrink: 0; width: ${arrowHeight + 8}px; height: ${arrowHeight + 8}px; border-radius: 999px; background: ${arrowBackground ? "rgba(0,0,0,0.35)" : "transparent"}; line-height: 1; display: flex; align-items: center; justify-content: center;`;
@@ -1223,18 +1244,9 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   }
 
   html += `${spaces}    <div style="${trackWrapStyle}">\n`;
-  html += `${spaces}    <div data-slider-track style="display: flex; width: ${pages.length * 100}%; transform: translateX(0%); transition: transform 450ms ease;">\n`;
-  pages.forEach((pageItems: any[], pageIndex: number) => {
-    html += `${spaces}      <div style="width: ${100 / pages.length}%; display: grid; grid-template-columns: repeat(${slidesPerPage}, minmax(0, 1fr)); gap: 12px;">\n`;
-    pageItems.forEach((item: any, itemIndex: number) => {
-      const content = item?.slot ?? [];
-      html += `${spaces}        <div data-slider-item="${pageIndex}-${itemIndex}">\n`;
-      content.forEach((child: any) => {
-        html += generateComponentHTML(child, indent + 10);
-      });
-      html += `${spaces}        </div>\n`;
-    });
-    html += `${spaces}      </div>\n`;
+  html += `${spaces}    <div data-slider-track style="display: flex; width: ${slideCount * 100}%; transform: ${initialTransform}; transition: transform ${transitionMs}ms ease;">\n`;
+  trackSlides.forEach((pageItems: any[], pageIndex: number) => {
+    html += appendTrackPage(pageItems, pageIndex);
   });
   html += `${spaces}      </div>\n`;
   html += `${spaces}    </div>\n`;
@@ -1261,6 +1273,10 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   html += `${spaces}    if (!track) return;\n`;
   html += `${spaces}    var pageCount = ${pageCount};\n`;
   html += `${spaces}    var currentPage = 0;\n`;
+  html += `${spaces}    var useLoopTrack = ${useLoopTrack ? 'true' : 'false'};\n`;
+  html += `${spaces}    var slideCount = ${slideCount};\n`;
+  html += `${spaces}    var trackIndex = ${initialTrackIndex};\n`;
+  html += `${spaces}    var transitionMs = ${transitionMs};\n`;
   html += `${spaces}    var mode = '${mode}';\n`;
   html += `${spaces}    var rewind = ${rewind ? 'true' : 'false'};\n`;
   html += `${spaces}    var autoSlide = ${autoSlide ? 'true' : 'false'};\n`;
@@ -1270,7 +1286,8 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   html += `${spaces}    var dots = root.querySelectorAll('[data-slider-dot]');\n`;
   html += `${spaces}\n`;
   html += `${spaces}    function render() {\n`;
-  html += `${spaces}      track.style.transform = 'translateX(-' + ((currentPage * 100) / pageCount) + '%)';\n`;
+  html += `${spaces}      var index = useLoopTrack ? trackIndex : currentPage;\n`;
+  html += `${spaces}      track.style.transform = 'translateX(-' + ((index * 100) / slideCount) + '%)';\n`;
   html += `${spaces}      if (dots && dots.length) {\n`;
   html += `${spaces}        dots.forEach(function(dot, idx) {\n`;
   html += `${spaces}          var active = idx === currentPage;\n`;
@@ -1280,14 +1297,48 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   html += `${spaces}      }\n`;
   html += `${spaces}    }\n`;
   html += `${spaces}\n`;
+  html += `${spaces}    function resetLoopTrackPosition() {\n`;
+  html += `${spaces}      if (!useLoopTrack) return;\n`;
+  html += `${spaces}      if (trackIndex === pageCount + 1) trackIndex = 1;\n`;
+  html += `${spaces}      else if (trackIndex === 0) trackIndex = pageCount;\n`;
+  html += `${spaces}    }\n`;
+  html += `${spaces}\n`;
+  html += `${spaces}    track.addEventListener('transitionend', function(e) {\n`;
+  html += `${spaces}      if (e.target !== track || e.propertyName !== 'transform') return;\n`;
+  html += `${spaces}      if (!useLoopTrack) return;\n`;
+  html += `${spaces}      if (trackIndex === pageCount + 1 || trackIndex === 0) {\n`;
+  html += `${spaces}        track.style.transition = 'none';\n`;
+  html += `${spaces}        resetLoopTrackPosition();\n`;
+  html += `${spaces}        render();\n`;
+  html += `${spaces}        track.offsetHeight;\n`;
+  html += `${spaces}        track.style.transition = 'transform ' + transitionMs + 'ms ease';\n`;
+  html += `${spaces}      }\n`;
+  html += `${spaces}    });\n`;
+  html += `${spaces}\n`;
   html += `${spaces}    function prev() {\n`;
-  html += `${spaces}      if (currentPage > 0) currentPage -= 1;\n`;
+  html += `${spaces}      if (useLoopTrack) {\n`;
+  html += `${spaces}        if (currentPage > 0) {\n`;
+  html += `${spaces}          trackIndex -= 1;\n`;
+  html += `${spaces}          currentPage -= 1;\n`;
+  html += `${spaces}        } else {\n`;
+  html += `${spaces}          trackIndex = 0;\n`;
+  html += `${spaces}          currentPage = pageCount - 1;\n`;
+  html += `${spaces}        }\n`;
+  html += `${spaces}      } else if (currentPage > 0) currentPage -= 1;\n`;
   html += `${spaces}      else if (mode === 'loop' || rewind) currentPage = pageCount - 1;\n`;
   html += `${spaces}      render();\n`;
   html += `${spaces}    }\n`;
   html += `${spaces}\n`;
   html += `${spaces}    function next() {\n`;
-  html += `${spaces}      if (currentPage < pageCount - 1) currentPage += 1;\n`;
+  html += `${spaces}      if (useLoopTrack) {\n`;
+  html += `${spaces}        if (currentPage < pageCount - 1) {\n`;
+  html += `${spaces}          trackIndex += 1;\n`;
+  html += `${spaces}          currentPage += 1;\n`;
+  html += `${spaces}        } else {\n`;
+  html += `${spaces}          trackIndex = pageCount + 1;\n`;
+  html += `${spaces}          currentPage = 0;\n`;
+  html += `${spaces}        }\n`;
+  html += `${spaces}      } else if (currentPage < pageCount - 1) currentPage += 1;\n`;
   html += `${spaces}      else if (mode === 'loop' || rewind) currentPage = 0;\n`;
   html += `${spaces}      render();\n`;
   html += `${spaces}    }\n`;
@@ -1301,6 +1352,7 @@ function generateSlider(props: any, spaces: string, indent: number): string {
   html += `${spaces}      dots.forEach(function(dot, idx) {\n`;
   html += `${spaces}        dot.addEventListener('click', function() {\n`;
   html += `${spaces}          currentPage = idx;\n`;
+  html += `${spaces}          if (useLoopTrack) trackIndex = idx + 1;\n`;
   html += `${spaces}          render();\n`;
   html += `${spaces}        });\n`;
   html += `${spaces}      });\n`;
