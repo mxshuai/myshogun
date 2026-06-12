@@ -143,6 +143,17 @@ const animationOptions = [
   { label: "Zoom In Up", value: "zoom-in-up" },
 ];
 
+function nonSlideActiveTransform(animation: string): string {
+  if (animation.indexOf("left") >= 0) return "translateX(-6px)";
+  if (animation.indexOf("right") >= 0) return "translateX(6px)";
+  if (animation.indexOf("up") >= 0) return "translateY(-6px)";
+  if (animation.indexOf("down") >= 0) return "translateY(6px)";
+  if (animation.indexOf("zoom") >= 0) return "scale(0.98)";
+  return "none";
+}
+
+const nonSlideTransition = "opacity 320ms ease, transform 320ms ease";
+
 const sliderFields = {
   mode: {
     type: "radio" as const,
@@ -445,6 +456,8 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     });
     const [transitionEnabled, setTransitionEnabled] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
+    const [maxPageHeight, setMaxPageHeight] = useState(0);
+    const pageMeasureRefs = useRef<(HTMLDivElement | null)[]>([]);
 
     const isEditing = puck?.isEditing === true;
     const useLoopTrack = useLoopDirectionalTrack(mode, animation, pageCount, isEditing);
@@ -508,6 +521,47 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     );
     const trackSlideCount = trackSlides.length;
     const visualTrackIndex = useLoopTrack ? trackIndex : activePage;
+
+    const measurePageIndices = useMemo(
+      () => Array.from({ length: pageCount }, (_, i) => i),
+      [pageCount]
+    );
+
+    // 非 Slide 动画原先只渲染当前屏，切换时高度会变；用 ResizeObserver 锁定为最高屏
+    useEffect(() => {
+      if (isSlideAnimation) {
+        setMaxPageHeight(0);
+        return;
+      }
+
+      pageMeasureRefs.current.length = pageCount;
+
+      const measure = () => {
+        let max = 0;
+        for (const i of measurePageIndices) {
+          const el = pageMeasureRefs.current[i];
+          if (el) max = Math.max(max, el.getBoundingClientRect().height);
+        }
+        setMaxPageHeight((prev) => (prev === max ? prev : max));
+      };
+
+      const observer = new ResizeObserver(measure);
+      for (const i of measurePageIndices) {
+        const el = pageMeasureRefs.current[i];
+        if (el) observer.observe(el);
+      }
+      measure();
+      return () => observer.disconnect();
+    }, [isSlideAnimation, measurePageIndices, pages, pageCount, effectiveItems]);
+
+    const viewportStyle: CSSProperties = {
+      flex: controlsOverContent ? undefined : 1,
+      minWidth: 0,
+      width: controlsOverContent ? "100%" : undefined,
+      overflow: "hidden",
+      borderRadius: 8,
+      ...(!isSlideAnimation && maxPageHeight > 0 ? { minHeight: maxPageHeight } : {}),
+    };
 
     const goNext = useCallback(() => {
       dispatchNav({ type: "next", useLoopTrack, pageCount, mode, rewind });
@@ -619,15 +673,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
               </button>
             ) : null}
 
-            <div
-              style={{
-                flex: controlsOverContent ? undefined : 1,
-                minWidth: 0,
-                width: controlsOverContent ? "100%" : undefined,
-                overflow: "hidden",
-                borderRadius: 8,
-              }}
-            >
+            <div style={viewportStyle}>
             {isSlideAnimation ? (
               <div
                 onTransitionEnd={handleTrackTransitionEnd}
@@ -669,38 +715,42 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
                 ))}
               </div>
             ) : (
-              <div
-                key={`non-slide-${activePage}-${animation}`}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${safeSlidesPerPage}, minmax(0, 1fr))`,
-                  gap: 12,
-                  opacity: 1,
-                  transform:
-                    animation.indexOf("left") >= 0
-                      ? "translateX(-6px)"
-                      : animation.indexOf("right") >= 0
-                      ? "translateX(6px)"
-                      : animation.indexOf("up") >= 0
-                      ? "translateY(-6px)"
-                      : animation.indexOf("down") >= 0
-                      ? "translateY(6px)"
-                      : animation.indexOf("zoom") >= 0
-                      ? "scale(0.98)"
-                      : "none",
-                  transition: animation === "none" ? "none" : "all 320ms ease",
-                }}
-              >
-                {(pages[activePage] || []).map((item, itemIndex) => {
-                  const pageSlot = item?.slot;
+              <div style={{ display: "grid", width: "100%" }}>
+                {pages.map((pageItems, pageIndex) => {
+                  const isActive = pageIndex === activePage;
                   return (
-                    <div key={`slider-item-non-slide-${activePage}-${itemIndex}`}>
-                      {pageSlot
-                        ? (() => {
-                            const SlideContent = pageSlot as any;
-                            return <SlideContent disallow={["Hero"]} />;
-                          })()
-                        : null}
+                    <div
+                      key={`non-slide-page-${pageIndex}`}
+                      ref={(el) => {
+                        pageMeasureRefs.current[pageIndex] = el;
+                      }}
+                      style={{
+                        gridArea: "1 / 1",
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${safeSlidesPerPage}, minmax(0, 1fr))`,
+                        gap: 12,
+                        opacity: isActive ? 1 : 0,
+                        pointerEvents: isActive ? "auto" : "none",
+                        zIndex: isActive ? 1 : 0,
+                        transform: isActive
+                          ? nonSlideActiveTransform(animation)
+                          : "none",
+                        transition: animation === "none" ? "none" : nonSlideTransition,
+                      }}
+                    >
+                      {pageItems.map((item, itemIndex) => {
+                        const pageSlot = item?.slot;
+                        return (
+                          <div key={`slider-item-non-slide-${pageIndex}-${itemIndex}`}>
+                            {pageSlot
+                              ? (() => {
+                                  const SlideContent = pageSlot as any;
+                                  return <SlideContent disallow={["Hero"]} />;
+                                })()
+                              : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
