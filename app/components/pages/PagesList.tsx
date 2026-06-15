@@ -13,6 +13,7 @@ import type { PageStatus } from "~/lib/page-metadata.server";
 import type { ShopifyPageRow } from "~/lib/shopify-pages.server";
 import { formatPublishesIn } from "~/lib/relative-time";
 import { shopEditPath } from "~/lib/shop-url";
+import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
 
 const accent = "#7c3aed";
 const danger = "#7c3aed";
@@ -450,6 +451,7 @@ export function PagesList({
             Pages
           </h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {!HIDE_SHOPIFY_ADMIN_UI ? (
           <Link
             to="/admin/shops"
             style={{
@@ -464,6 +466,7 @@ export function PagesList({
           >
             Shopify admin
           </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -488,6 +491,7 @@ export function PagesList({
           </div>
         </div>
 
+        {!HIDE_SHOPIFY_ADMIN_UI ? (
         <div
           style={{
             display: "flex",
@@ -518,6 +522,7 @@ export function PagesList({
             </button>
           ))}
         </div>
+        ) : null}
 
         <div
           style={{
@@ -528,7 +533,7 @@ export function PagesList({
             boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          {tab === "shogun" ? (
+          {HIDE_SHOPIFY_ADMIN_UI || tab === "shogun" ? (
             <>
               <div
                 style={{

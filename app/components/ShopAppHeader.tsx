@@ -3,6 +3,7 @@
 import { useNavigate } from "react-router";
 
 import { shopPagesPath } from "~/lib/shop-url";
+import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
 
 export type ShopHeaderOption = {
   domain: string;
@@ -65,12 +66,14 @@ export function ShopAppHeader({
           ) : null}
         </select>
       </div>
+      {!HIDE_SHOPIFY_ADMIN_UI ? (
       <a
         href={`/auth/shopify/start?next=${encodeURIComponent(shopPagesPath(currentDomain))}`}
         style={{ color: "#7c3aed", fontWeight: 600, textDecoration: "none" }}
       >
         Connect another shop
       </a>
+      ) : null}
     </header>
   );
 }
