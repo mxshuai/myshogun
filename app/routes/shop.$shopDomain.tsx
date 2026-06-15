@@ -4,6 +4,7 @@ import type { Route } from "./+types/shop.$shopDomain";
 import { ShopAppHeader } from "~/components/ShopAppHeader";
 import { ensureServerContext } from "~/lib/server/factory";
 import { requireShopRouteContext } from "~/lib/server/shop-route.server";
+import { isShopHiddenFromSwitcher } from "~/lib/ui-flags";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const ctx = await ensureServerContext();
@@ -16,11 +17,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const all = await ctx.repo.listShops();
   const shops: { domain: string; name: string }[] = [];
   for (const s of all) {
+    if (isShopHiddenFromSwitcher(s.domain)) continue;
     if (await ctx.secrets.getShopToken(s.id)) {
       shops.push({ domain: s.domain, name: s.name });
     }
   }
-  if (!shops.some((s) => s.domain === shop.domain)) {
+  if (
+    !isShopHiddenFromSwitcher(shop.domain) &&
+    !shops.some((s) => s.domain === shop.domain)
+  ) {
     shops.unshift({ domain: shop.domain, name: shop.name });
   }
 
