@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ComponentConfig, ObjectField } from "@puckeditor/core";
+import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
@@ -25,6 +26,26 @@ export type Tab = {
 
 type TabsProps = Components["Tabs"];
 
+type TabsViewProps = {
+  id?: string;
+  tabs: TabsProps["tabs"];
+  activeTabIndex?: number;
+  theme: TabsProps["theme"];
+  borderColor: string;
+  borderThickness: number;
+  font: string;
+  fontSize: number;
+  defaultColor?: TabsProps["defaultColor"];
+  activeColors?: TabsProps["activeColors"];
+  isEditing: boolean;
+  effectiveActiveTab: number;
+  onSelectTab: (index: number, e: React.MouseEvent) => void;
+};
+
+function getTabTitle(index: number, title?: string) {
+  return title?.trim() ? title : `Tab ${index + 1}`;
+}
+
 const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
   label: o.label,
   value: o.value,
@@ -49,12 +70,6 @@ const activeColorsField: ObjectField<TabColorGroup> = {
 };
 
 const tabsFields = {
-  activeTabIndex: {
-    type: "number" as const,
-    label: "Active Tab Index (for editing)",
-    min: 1,
-    max: 1,
-  },
   tabs: {
     type: "array" as const,
     label: "Manage tabs",
@@ -68,6 +83,12 @@ const tabsFields = {
         label: "Content",
       },
     },
+    defaultItemProps: (index: number) => ({
+      title: `Tab ${index + 1}`,
+      content: [],
+    }),
+    getItemSummary: (item: { title?: string }, index: number) =>
+      getTabTitle(index, item?.title),
   },
   theme: {
     type: "radio" as const,
@@ -100,28 +121,312 @@ const tabsFields = {
   activeColors: activeColorsField,
 } as ComponentConfig<TabsProps>["fields"];
 
+function TabHeader({
+  index,
+  isActive,
+  isEditing,
+  style,
+  onSelect,
+  setButtonRef,
+  children,
+}: {
+  index: number;
+  isActive: boolean;
+  isEditing: boolean;
+  style: React.CSSProperties;
+  onSelect: (index: number, e: React.MouseEvent) => void;
+  setButtonRef: (index: number, el: HTMLDivElement | null) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    return registerOverlayPortal(ref.current);
+  }, [isEditing, isActive, children]);
+
+  return (
+    <div
+      ref={(el) => {
+        ref.current = el;
+        setButtonRef(index, el);
+      }}
+      role="tab"
+      aria-selected={isActive}
+      style={{ ...style, cursor: "pointer" }}
+      onClick={(e) => onSelect(index, e)}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TabsView({
+  tabs,
+  theme,
+  borderColor,
+  borderThickness,
+  font,
+  fontSize,
+  defaultColor,
+  activeColors,
+  isEditing,
+  effectiveActiveTab,
+  onSelectTab,
+}: TabsViewProps) {
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const tabButtonRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [trail, setTrail] = useState({
+    left: { width: 0 },
+    right: { left: 0, width: 0 },
+  });
+
+  const tabCount = tabs?.length ?? 0;
+
+  const resolvedDefault: TabColorGroup = {
+    backgroundColor:
+      defaultColor?.backgroundColor ?? DEFAULT_TAB_COLOR_GROUP.backgroundColor,
+    textColor: defaultColor?.textColor ?? DEFAULT_TAB_COLOR_GROUP.textColor,
+  };
+  const resolvedActive: TabColorGroup = {
+    backgroundColor:
+      activeColors?.backgroundColor ??
+      DEFAULT_ACTIVE_TAB_COLOR_GROUP.backgroundColor,
+    textColor:
+      activeColors?.textColor ?? DEFAULT_ACTIVE_TAB_COLOR_GROUP.textColor,
+  };
+
+  const trailColor = tabsTrailBorderColor(borderColor);
+  const showTrails =
+    tabCount > 0 && theme !== "sloped" && borderThickness > 0;
+
+  useLayoutEffect(() => {
+    if (!showTrails) {
+      setTrail({
+        left: { width: 0 },
+        right: { left: 0, width: 0 },
+      });
+      return;
+    }
+    const bar = tabBarRef.current;
+    const activeEl = tabButtonRefs.current[effectiveActiveTab];
+    if (!bar || !activeEl) return;
+    const barRect = bar.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const activeLeft = activeRect.left - barRect.left;
+    const activeRight = activeRect.right - barRect.left;
+    const segments = computeTabsTrailSegments(
+      barRect.width,
+      activeLeft,
+      activeRight,
+    );
+    setTrail({
+      left: {
+        width: effectiveActiveTab > 0 ? segments.left.width : 0,
+      },
+      right: {
+        left: segments.right.left,
+        width: effectiveActiveTab < tabCount - 1 ? segments.right.width : 0,
+      },
+    });
+  }, [
+    showTrails,
+    effectiveActiveTab,
+    tabCount,
+    theme,
+    borderThickness,
+    fontSize,
+    font,
+  ]);
+
+  if (tabCount === 0) {
+    return <Section>No tabs defined</Section>;
+  }
+
+  const contentStyle: React.CSSProperties = {
+    borderTop:
+      theme === "sloped"
+        ? `${borderThickness}px solid ${borderColor}`
+        : "none",
+    padding: TAB_CONTENT_PADDING,
+    backgroundColor: resolvedActive.backgroundColor,
+    borderRadius: "0 0 8px 8px",
+  };
+
+  return (
+    <Section>
+      <div>
+        <div
+          ref={tabBarRef}
+          style={{
+            position: "relative",
+            display: "flex",
+            gap: "4px",
+            alignItems: "flex-end",
+            width: "100%",
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <TabHeader
+              key={`tab-${index}`}
+              index={index}
+              isActive={index === effectiveActiveTab}
+              isEditing={isEditing}
+              setButtonRef={(i, el) => {
+                tabButtonRefs.current[i] = el;
+              }}
+              onSelect={onSelectTab}
+              style={buildTabButtonStyle({
+                theme,
+                isActive: index === effectiveActiveTab,
+                borderColor,
+                borderThickness,
+                font,
+                fontSize,
+                defaultColor: resolvedDefault,
+                activeColors: resolvedActive,
+              })}
+            >
+              {getTabTitle(index, tab.title)}
+            </TabHeader>
+          ))}
+          {showTrails && trail.left.width > 0 ? (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: trail.left.width,
+                height: borderThickness,
+                backgroundColor: trailColor,
+                pointerEvents: "none",
+              }}
+            />
+          ) : null}
+          {showTrails && trail.right.width > 0 ? (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: trail.right.left,
+                width: trail.right.width,
+                height: borderThickness,
+                backgroundColor: trailColor,
+                pointerEvents: "none",
+              }}
+            />
+          ) : null}
+        </div>
+
+        <div style={contentStyle}>
+          {tabs.map((tab, index) => {
+            if (index !== effectiveActiveTab) return null;
+            const TabContent = tab.content;
+            return (
+              <div
+                key={`tab-content-panel-${index}`}
+                className="visbuild-tabs-content-panel"
+              >
+                {TabContent ? <TabContent /> : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/** Only mounted inside <Puck> editor — may call useGetPuck. */
+function TabsEditor(
+  props: Omit<TabsViewProps, "effectiveActiveTab" | "onSelectTab" | "isEditing">,
+) {
+  const getPuck = useGetPuck();
+  const tabCount = props.tabs?.length ?? 0;
+  const editingIndex =
+    tabCount > 0
+      ? clampActiveTabIndex(props.activeTabIndex, tabCount) - 1
+      : 0;
+
+  const onSelectTab = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!props.id) return;
+    const puckApi = getPuck();
+    const item = puckApi.getItemById(props.id);
+    const selector = puckApi.getSelectorForId(props.id);
+    if (!item || !selector) return;
+    const nextIndex = clampActiveTabIndex(index + 1, tabCount);
+    if (nextIndex === clampActiveTabIndex(props.activeTabIndex, tabCount)) {
+      return;
+    }
+    puckApi.dispatch({
+      type: "replace",
+      data: {
+        ...item,
+        props: {
+          ...item.props,
+          activeTabIndex: nextIndex,
+        },
+      },
+      destinationIndex: selector.index,
+      destinationZone: selector.zone,
+    });
+  };
+
+  return (
+    <TabsView
+      {...props}
+      isEditing
+      effectiveActiveTab={editingIndex}
+      onSelectTab={onSelectTab}
+    />
+  );
+}
+
+function TabsPreview(props: Omit<TabsViewProps, "effectiveActiveTab" | "onSelectTab" | "isEditing">) {
+  const [internalActiveTab, setInternalActiveTab] = useState(0);
+
+  const onSelectTab = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInternalActiveTab(index);
+  };
+
+  return (
+    <TabsView
+      {...props}
+      isEditing={false}
+      effectiveActiveTab={internalActiveTab}
+      onSelectTab={onSelectTab}
+    />
+  );
+}
+
 const TabsInternal: ComponentConfig<TabsProps> = {
   fields: tabsFields,
   resolveData: (data) => {
     const props = data.props || {};
-    const tabCount = Math.max(1, props.tabs?.length ?? 1);
+    const tabs = props.tabs ?? [];
+    let tabsChanged = false;
+    const normalizedTabs = tabs.map((tab, index) => {
+      const trimmed = tab?.title?.trim();
+      if (trimmed) return tab;
+      tabsChanged = true;
+      return { ...tab, title: getTabTitle(index, tab?.title) };
+    });
+    const tabCount = Math.max(1, normalizedTabs.length);
     const clamped = clampActiveTabIndex(props.activeTabIndex, tabCount);
-    if (clamped !== props.activeTabIndex) {
-      return { props: { ...props, activeTabIndex: clamped } };
+    if (tabsChanged || clamped !== props.activeTabIndex) {
+      return {
+        props: {
+          ...props,
+          tabs: normalizedTabs,
+          activeTabIndex: clamped,
+        },
+      };
     }
     return {};
-  },
-  resolveFields: (data) => {
-    const tabCount = Math.max(1, data.props?.tabs?.length ?? 1);
-    return {
-      ...tabsFields,
-      activeTabIndex: {
-        type: "number" as const,
-        label: "Active Tab Index (for editing)",
-        min: 1,
-        max: tabCount,
-      },
-    } as NonNullable<ComponentConfig<TabsProps>["fields"]>;
   },
   defaultProps: {
     activeTabIndex: 1,
@@ -134,190 +439,25 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     defaultColor: { ...DEFAULT_TAB_COLOR_GROUP },
     activeColors: { ...DEFAULT_ACTIVE_TAB_COLOR_GROUP },
   },
-  render: ({
-    tabs,
-    activeTabIndex,
-    theme,
-    borderColor,
-    borderThickness,
-    font,
-    fontSize,
-    defaultColor,
-    activeColors,
-    puck,
-  }) => {
-    const [internalActiveTab, setInternalActiveTab] = useState(0);
-    const tabBarRef = useRef<HTMLDivElement>(null);
-    const tabButtonRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const [trail, setTrail] = useState({
-      left: { width: 0 },
-      right: { left: 0, width: 0 },
-    });
-
-    const tabCount = tabs?.length ?? 0;
-    const editingIndex =
-      tabCount > 0 ? clampActiveTabIndex(activeTabIndex, tabCount) - 1 : 0;
-    const effectiveActiveTab = puck.isEditing
-      ? editingIndex
-      : internalActiveTab;
-
-    const resolvedDefault: TabColorGroup = {
-      backgroundColor:
-        defaultColor?.backgroundColor ?? DEFAULT_TAB_COLOR_GROUP.backgroundColor,
-      textColor: defaultColor?.textColor ?? DEFAULT_TAB_COLOR_GROUP.textColor,
-    };
-    const resolvedActive: TabColorGroup = {
-      backgroundColor:
-        activeColors?.backgroundColor ??
-        DEFAULT_ACTIVE_TAB_COLOR_GROUP.backgroundColor,
-      textColor:
-        activeColors?.textColor ?? DEFAULT_ACTIVE_TAB_COLOR_GROUP.textColor,
+  render: (props) => {
+    const viewProps: Omit<TabsViewProps, "effectiveActiveTab" | "onSelectTab" | "isEditing"> = {
+      id: props.id,
+      tabs: props.tabs,
+      activeTabIndex: props.activeTabIndex,
+      theme: props.theme,
+      borderColor: props.borderColor,
+      borderThickness: props.borderThickness,
+      font: props.font,
+      fontSize: props.fontSize,
+      defaultColor: props.defaultColor,
+      activeColors: props.activeColors,
     };
 
-    const trailColor = tabsTrailBorderColor(borderColor);
-    const showTrails =
-      tabCount > 0 && theme !== "sloped" && borderThickness > 0;
-
-    useLayoutEffect(() => {
-      if (!showTrails) {
-        setTrail({
-          left: { width: 0 },
-          right: { left: 0, width: 0 },
-        });
-        return;
-      }
-      const bar = tabBarRef.current;
-      const activeEl = tabButtonRefs.current[effectiveActiveTab];
-      if (!bar || !activeEl) return;
-      const barRect = bar.getBoundingClientRect();
-      const activeRect = activeEl.getBoundingClientRect();
-      const activeLeft = activeRect.left - barRect.left;
-      const activeRight = activeRect.right - barRect.left;
-      const segments = computeTabsTrailSegments(
-        barRect.width,
-        activeLeft,
-        activeRight
-      );
-      setTrail({
-        left: {
-          width: effectiveActiveTab > 0 ? segments.left.width : 0,
-        },
-        right: {
-          left: segments.right.left,
-          width:
-            effectiveActiveTab < tabCount - 1 ? segments.right.width : 0,
-        },
-      });
-    }, [
-      showTrails,
-      effectiveActiveTab,
-      tabCount,
-      theme,
-      borderThickness,
-      fontSize,
-      font,
-    ]);
-
-    if (tabCount === 0) {
-      return <Section>No tabs defined</Section>;
+    if (props.puck?.isEditing) {
+      return <TabsEditor {...viewProps} />;
     }
 
-    const contentStyle: React.CSSProperties = {
-      borderTop:
-        theme === "sloped"
-          ? `${borderThickness}px solid ${borderColor}`
-          : "none",
-      padding: TAB_CONTENT_PADDING,
-      backgroundColor: resolvedActive.backgroundColor,
-      borderRadius: "0 0 8px 8px",
-    };
-
-    return (
-      <Section>
-        <div>
-          <div
-            ref={tabBarRef}
-            style={{
-              position: "relative",
-              display: "flex",
-              gap: "4px",
-              alignItems: "flex-end",
-              width: "100%",
-            }}
-          >
-            {tabs.map((tab, index) => (
-              <div
-                key={`tab-${index}`}
-                ref={(el) => {
-                  tabButtonRefs.current[index] = el;
-                }}
-                style={buildTabButtonStyle({
-                  theme,
-                  isActive: index === effectiveActiveTab,
-                  borderColor,
-                  borderThickness,
-                  font,
-                  fontSize,
-                  defaultColor: resolvedDefault,
-                  activeColors: resolvedActive,
-                })}
-                onClick={(e) => {
-                  if (!puck.isEditing) {
-                    e.stopPropagation();
-                    setInternalActiveTab(index);
-                  }
-                }}
-              >
-                {tab.title || `Tab ${index + 1}`}
-              </div>
-            ))}
-            {showTrails && trail.left.width > 0 ? (
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  width: trail.left.width,
-                  height: borderThickness,
-                  backgroundColor: trailColor,
-                  pointerEvents: "none",
-                }}
-              />
-            ) : null}
-            {showTrails && trail.right.width > 0 ? (
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: trail.right.left,
-                  width: trail.right.width,
-                  height: borderThickness,
-                  backgroundColor: trailColor,
-                  pointerEvents: "none",
-                }}
-              />
-            ) : null}
-          </div>
-
-          <div style={contentStyle}>
-            {tabs.map((tab, index) => {
-              if (index !== effectiveActiveTab) return null;
-              const TabContent = tab.content;
-              return (
-                <div
-                  key={`tab-content-panel-${index}`}
-                  className="visbuild-tabs-content-panel"
-                >
-                  {TabContent ? <TabContent /> : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </Section>
-    );
+    return <TabsPreview {...viewProps} />;
   },
 };
 

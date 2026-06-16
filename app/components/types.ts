@@ -209,7 +209,7 @@ export type Components = {
     content: Slot;
   }>;
   Tabs: WithLayout<{
-    /** 1-based，用于编辑时切换当前 tab */
+    /** 1-based，编辑时在画布点击 tab 头切换；发布 HTML 初始激活 tab */
     activeTabIndex?: number;
     tabs: Array<{
       id?: string;
@@ -232,7 +232,7 @@ export type Components = {
   }>;
 
   Accordion: WithLayout<{
-    /** 1-based，编辑时指定当前展开的 accordion pane（侧栏 Active Accordion Index） */
+    /** 1-based，编辑时在画布点击 header 切换当前 pane；发布态由 items[].open 控制 */
     currentAccordionIndex?: number;
     items: Array<{
       title: string;
