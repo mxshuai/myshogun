@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type TransitionEvent } from "react";
 import type { CSSProperties } from "react";
 import type { ComponentConfig, Slot } from "@puckeditor/core";
+import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
@@ -154,6 +155,80 @@ function nonSlideActiveTransform(animation: string): string {
 
 const nonSlideTransition = "opacity 320ms ease, transform 320ms ease";
 
+function clampScreenIndex(
+  currentSlideIndex: number | undefined,
+  screenCount: number,
+): number {
+  return Math.max(
+    0,
+    Math.min((currentSlideIndex ?? 1) - 1, Math.max(0, screenCount - 1)),
+  );
+}
+
+function nextScreenPage(
+  current: number,
+  pageCount: number,
+  mode: string,
+  rewind: boolean,
+): number {
+  if (pageCount <= 1) return 0;
+  if (current < pageCount - 1) return current + 1;
+  if (mode === "loop" || rewind) return 0;
+  return current;
+}
+
+function prevScreenPage(
+  current: number,
+  pageCount: number,
+  mode: string,
+  rewind: boolean,
+): number {
+  if (pageCount <= 1) return 0;
+  if (current > 0) return current - 1;
+  if (mode === "loop" || rewind) return pageCount - 1;
+  return current;
+}
+
+function SliderOverlayButton({
+  isEditing,
+  style,
+  onClick,
+  ...rest
+}: {
+  isEditing: boolean;
+  style?: CSSProperties;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "style" | "onClick">) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    return registerOverlayPortal(ref.current);
+  }, [isEditing]);
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      style={{ ...style, cursor: "pointer", pointerEvents: "auto" }}
+      onClick={onClick}
+      {...rest}
+    />
+  );
+}
+
+type SliderViewProps = Components["Slider"] & {
+  isEditing: boolean;
+  activePage: number;
+  visualTrackIndex: number;
+  transitionEnabled: boolean;
+  onTrackTransitionEnd: (e: TransitionEvent<HTMLDivElement>) => void;
+  onPrev: (e: React.MouseEvent) => void;
+  onNext: (e: React.MouseEvent) => void;
+  onJumpTo: (index: number, e: React.MouseEvent) => void;
+  onHoverChange: (hovering: boolean) => void;
+};
+
 const sliderFields = {
   mode: {
     type: "radio" as const,
@@ -182,12 +257,6 @@ const sliderFields = {
     label: "Slides per page",
     min: 1,
     max: 12,
-  },
-  currentSlideIndex: {
-    type: "number" as const,
-    label: "Current screen (for editing)",
-    min: 1,
-    max: 19,
   },
   animation: {
     type: "select" as const,
@@ -384,14 +453,6 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       delete fields.showEachSlideSeconds;
       delete fields.pauseAutoplayOnHover;
     }
-    const screenCount = Math.max(1, Math.min(20, Number(data.props?.numberOfSlides) || 1));
-    if (fields.currentSlideIndex) {
-      fields.currentSlideIndex = {
-        ...fields.currentSlideIndex,
-        min: 1,
-        max: Math.max(1, screenCount),
-      };
-    }
     return fields;
   },
   defaultProps: {
@@ -418,265 +479,196 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
     spaceBetweenDots: 8,
     items: [{ slot: [] }],
   },
-  render: ({
-    mode,
-    rewind,
-    numberOfSlides,
-    slidesPerPage,
-    currentSlideIndex,
-    animation,
-    autoSlide,
-    showEachSlideSeconds,
-    pauseAutoplayOnHover,
-    controlsOverContent,
-    showArrows,
-    arrowColor,
-    arrowHeight,
-    arrowBackground,
-    showDots,
-    selectedDotColor,
-    unselectedDotColor,
-    dotsSize,
-    selectedDotWidth,
-    dotsLocation,
-    spaceBetweenDots,
-    items,
-    puck,
-  }) => {
-    const rawItems = (items || []) as unknown as SliderItem[];
-    const effectiveItems = rawItems;
-    /** 可滑动屏数（与点数、切换步长一致） */
-    const screenCount = Math.max(1, numberOfSlides || 1);
-    /** 单屏并列 slot 数（横向 Grid 列数） */
-    const safeSlidesPerPage = Math.max(1, Math.min(12, slidesPerPage || 1));
-    const pageCount = screenCount;
-    const [nav, dispatchNav] = useReducer(sliderNavReducer, {
-      currentPage: 0,
-      trackIndex: 1,
-    });
-    const [transitionEnabled, setTransitionEnabled] = useState(true);
-    const [isHovering, setIsHovering] = useState(false);
-    const [maxPageHeight, setMaxPageHeight] = useState(0);
-    const pageMeasureRefs = useRef<(HTMLDivElement | null)[]>([]);
+  render: (allProps) => {
+    const { puck, ...props } = allProps;
+    const sliderProps = props as unknown as SliderRuntimeProps;
+    if (puck?.isEditing) {
+      return <SliderEditor {...sliderProps} />;
+    }
+    return <SliderPreview {...sliderProps} />;
+  },
+};
 
-    const isEditing = puck?.isEditing === true;
-    const useLoopTrack = useLoopDirectionalTrack(mode, animation, pageCount, isEditing);
-    const currentPage = nav.currentPage;
-    const trackIndex = nav.trackIndex;
-    const maxScreenIndexForEdit = Math.max(0, screenCount - 1);
-    const clampedScreenIndex = Math.max(
-      0,
-      Math.min((currentSlideIndex ?? 1) - 1, maxScreenIndexForEdit)
-    );
-    const activePage = isEditing ? clampedScreenIndex : currentPage;
+function SliderView({
+  mode,
+  rewind,
+  numberOfSlides,
+  slidesPerPage,
+  animation,
+  controlsOverContent,
+  showArrows,
+  arrowColor,
+  arrowHeight,
+  arrowBackground,
+  showDots,
+  selectedDotColor,
+  unselectedDotColor,
+  dotsSize,
+  selectedDotWidth,
+  dotsLocation,
+  spaceBetweenDots,
+  items,
+  isEditing,
+  activePage,
+  visualTrackIndex,
+  transitionEnabled,
+  onTrackTransitionEnd,
+  onPrev,
+  onNext,
+  onJumpTo,
+  onHoverChange,
+}: SliderViewProps) {
+  const rawItems = (items || []) as unknown as SliderItem[];
+  const screenCount = Math.max(1, numberOfSlides || 1);
+  const safeSlidesPerPage = Math.max(1, Math.min(12, slidesPerPage || 1));
+  const pageCount = screenCount;
+  const [maxPageHeight, setMaxPageHeight] = useState(0);
+  const pageMeasureRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-    useEffect(() => {
-      dispatchNav({ type: "reset", useLoopTrack });
-      setTransitionEnabled(true);
-    }, [pageCount, mode, animation, useLoopTrack]);
+  const useLoopTrack = useLoopDirectionalTrack(mode, animation, pageCount, isEditing);
+  const transitionDuration = `${sliderSlideTransitionMs(animation)}ms`;
+  const isSlideAnimation = isSliderSlideAnimation(animation);
 
-    useEffect(() => {
-      dispatchNav({ type: "clamp", pageCount });
-    }, [pageCount]);
-
-    useEffect(() => {
-      if (isEditing || !autoSlide || pageCount <= 1) return;
-      if (pauseAutoplayOnHover && isHovering) return;
-      const ms = Math.max(1, showEachSlideSeconds || 5) * 1000;
-      const timer = setInterval(() => {
-        goNextRef.current();
-      }, ms);
-      return () => clearInterval(timer);
-    }, [
-      isEditing,
-      autoSlide,
-      pageCount,
-      pauseAutoplayOnHover,
-      isHovering,
-      showEachSlideSeconds,
-      useLoopTrack,
-      mode,
-      rewind,
-    ]);
-
-    const transitionDuration = `${sliderSlideTransitionMs(animation)}ms`;
-    const isSlideAnimation = isSliderSlideAnimation(animation);
-
-    /** 每屏一行：第 p 屏对应扁平 items 中下标 [p*spp, (p+1)*spp) */
-    const pages = useMemo(() => {
-      const chunks: SliderItem[][] = [];
-      for (let p = 0; p < screenCount; p++) {
-        const row: SliderItem[] = [];
-        for (let c = 0; c < safeSlidesPerPage; c++) {
-          row.push(effectiveItems[p * safeSlidesPerPage + c]);
-        }
-        chunks.push(row);
+  const pages = useMemo(() => {
+    const chunks: SliderItem[][] = [];
+    for (let p = 0; p < screenCount; p++) {
+      const row: SliderItem[] = [];
+      for (let c = 0; c < safeSlidesPerPage; c++) {
+        row.push(rawItems[p * safeSlidesPerPage + c]);
       }
-      return chunks;
-    }, [effectiveItems, screenCount, safeSlidesPerPage]);
+      chunks.push(row);
+    }
+    return chunks;
+  }, [rawItems, screenCount, safeSlidesPerPage]);
 
-    const trackSlides = useMemo(
-      () => (useLoopTrack ? buildLoopExtendedPages(pages) : pages),
-      [pages, useLoopTrack]
-    );
-    const trackSlideCount = trackSlides.length;
-    const visualTrackIndex = useLoopTrack ? trackIndex : activePage;
+  const trackSlides = useMemo(
+    () => (useLoopTrack ? buildLoopExtendedPages(pages) : pages),
+    [pages, useLoopTrack],
+  );
+  const trackSlideCount = trackSlides.length;
 
-    const measurePageIndices = useMemo(
-      () => Array.from({ length: pageCount }, (_, i) => i),
-      [pageCount]
-    );
+  const measurePageIndices = useMemo(
+    () => Array.from({ length: pageCount }, (_, i) => i),
+    [pageCount],
+  );
 
-    // 非 Slide 动画原先只渲染当前屏，切换时高度会变；用 ResizeObserver 锁定为最高屏
-    useEffect(() => {
-      if (isSlideAnimation) {
-        setMaxPageHeight(0);
-        return;
-      }
-
-      pageMeasureRefs.current.length = pageCount;
-
-      const measure = () => {
-        let max = 0;
-        for (const i of measurePageIndices) {
-          const el = pageMeasureRefs.current[i];
-          if (el) max = Math.max(max, el.getBoundingClientRect().height);
-        }
-        setMaxPageHeight((prev) => (prev === max ? prev : max));
-      };
-
-      const observer = new ResizeObserver(measure);
-      for (const i of measurePageIndices) {
-        const el = pageMeasureRefs.current[i];
-        if (el) observer.observe(el);
-      }
-      measure();
-      return () => observer.disconnect();
-    }, [isSlideAnimation, measurePageIndices, pages, pageCount, effectiveItems]);
-
-    const viewportStyle: CSSProperties = {
-      flex: controlsOverContent ? undefined : 1,
-      minWidth: 0,
-      width: controlsOverContent ? "100%" : undefined,
-      overflow: "hidden",
-      borderRadius: 8,
-      ...(!isSlideAnimation && maxPageHeight > 0 ? { minHeight: maxPageHeight } : {}),
-    };
-
-    const goNext = useCallback(() => {
-      dispatchNav({ type: "next", useLoopTrack, pageCount, mode, rewind });
-    }, [useLoopTrack, pageCount, mode, rewind]);
-
-    const goPrev = useCallback(() => {
-      dispatchNav({ type: "prev", useLoopTrack, pageCount, mode, rewind });
-    }, [useLoopTrack, pageCount, mode, rewind]);
-
-    const goNextRef = useRef(goNext);
-    goNextRef.current = goNext;
-
-    const jumpTo = (index: number) => {
-      dispatchNav({ type: "jump", index, useLoopTrack, pageCount });
-    };
-
-    const handleTrackTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
-      if (e.target !== e.currentTarget || e.propertyName !== "transform") return;
-      if (!useLoopTrack || !transitionEnabled) return;
-      if (trackIndex === pageCount + 1) {
-        setTransitionEnabled(false);
-        dispatchNav({ type: "loop_wrap_forward" });
-      } else if (trackIndex === 0) {
-        setTransitionEnabled(false);
-        dispatchNav({ type: "loop_wrap_backward", pageCount });
-      }
-    };
-
-    useEffect(() => {
-      if (transitionEnabled) return;
-      const frame = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setTransitionEnabled(true));
-      });
-      return () => cancelAnimationFrame(frame);
-    }, [transitionEnabled]);
-
-    const prev = () => goPrev();
-    const next = () => goNext();
-
-    const dotsJustify =
-      dotsLocation === "left" ? "flex-start" : dotsLocation === "right" ? "flex-end" : "center";
-
-    const arrowButtonStyle = (side: "left" | "right"): CSSProperties => ({
-      border: "none",
-      cursor: isEditing ? "default" : "pointer",
-      flexShrink: 0,
-      width: arrowHeight + 8,
-      height: arrowHeight + 8,
-      borderRadius: 999,
-      background: arrowBackground ? "rgba(0,0,0,0.35)" : "transparent",
-      lineHeight: 1,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      pointerEvents: isEditing ? "none" : "auto",
-      ...(controlsOverContent
-        ? {
-            position: "absolute",
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 2,
-            ...(side === "left" ? { left: 8 } : { right: 8 }),
-          }
-        : {}),
-    });
-
-    if (effectiveItems.length === 0) {
-      return (
-        <Section>
-          <div style={{ marginTop: 8, color: "#666", fontSize: 13 }}>
-            Add at least one slot (check slides × slides per page).
-          </div>
-        </Section>
-      );
+  useEffect(() => {
+    if (isSlideAnimation) {
+      setMaxPageHeight(0);
+      return;
     }
 
+    pageMeasureRefs.current.length = pageCount;
+
+    const measure = () => {
+      let max = 0;
+      for (const i of measurePageIndices) {
+        const el = pageMeasureRefs.current[i];
+        if (el) max = Math.max(max, el.getBoundingClientRect().height);
+      }
+      setMaxPageHeight((prev) => (prev === max ? prev : max));
+    };
+
+    const observer = new ResizeObserver(measure);
+    for (const i of measurePageIndices) {
+      const el = pageMeasureRefs.current[i];
+      if (el) observer.observe(el);
+    }
+    measure();
+    return () => observer.disconnect();
+  }, [isSlideAnimation, measurePageIndices, pages, pageCount, rawItems]);
+
+  const viewportStyle: CSSProperties = {
+    flex: controlsOverContent ? undefined : 1,
+    minWidth: 0,
+    width: controlsOverContent ? "100%" : undefined,
+    overflow: "hidden",
+    borderRadius: 8,
+    ...(!isSlideAnimation && maxPageHeight > 0 ? { minHeight: maxPageHeight } : {}),
+  };
+
+  const dotsJustify =
+    dotsLocation === "left" ? "flex-start" : dotsLocation === "right" ? "flex-end" : "center";
+
+  const arrowButtonStyle = (side: "left" | "right"): CSSProperties => ({
+    border: "none",
+    cursor: "pointer",
+    flexShrink: 0,
+    width: arrowHeight + 8,
+    height: arrowHeight + 8,
+    borderRadius: 999,
+    background: arrowBackground ? "rgba(0,0,0,0.35)" : "transparent",
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+    ...(controlsOverContent
+      ? {
+          position: "absolute",
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 2,
+          ...(side === "left" ? { left: 8 } : { right: 8 }),
+        }
+      : {}),
+  });
+
+  const dotButtonStyle = (active: boolean): CSSProperties => ({
+    border: "none",
+    cursor: "pointer",
+    pointerEvents: "auto",
+    borderRadius: 999,
+    height: dotsSize,
+    width: active ? selectedDotWidthPx(dotsSize, selectedDotWidth) : dotsSize,
+    background: active ? selectedDotColor : unselectedDotColor,
+    transition: "all 220ms ease",
+  });
+
+  if (rawItems.length === 0) {
     return (
       <Section>
-        <div
-          style={{ position: "relative" }}
-          onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
-        >
-          <div
-            style={
-              controlsOverContent
-                ? { position: "relative", width: "100%" }
-                : {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                  }
-            }
-          >
-            {showArrows ? (
-              <button
-                type="button"
-                disabled={isEditing}
-                aria-disabled={isEditing}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prev();
-                }}
-                style={arrowButtonStyle("left")}
-                aria-label="Previous slide"
-              >
-                <SliderArrowIcon side="left" color={arrowColor} size={arrowHeight} />
-              </button>
-            ) : null}
+        <div style={{ marginTop: 8, color: "#666", fontSize: 13 }}>
+          Add at least one slot (check slides × slides per page).
+        </div>
+      </Section>
+    );
+  }
 
-            <div style={viewportStyle}>
+  return (
+    <Section>
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => onHoverChange(true)}
+        onMouseLeave={() => onHoverChange(false)}
+      >
+        <div
+          style={
+            controlsOverContent
+              ? { position: "relative", width: "100%" }
+              : {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                }
+          }
+        >
+          {showArrows ? (
+            <SliderOverlayButton
+              isEditing={isEditing}
+              onClick={onPrev}
+              style={arrowButtonStyle("left")}
+              aria-label="Previous slide"
+            >
+              <SliderArrowIcon side="left" color={arrowColor} size={arrowHeight} />
+            </SliderOverlayButton>
+          ) : null}
+
+          <div style={viewportStyle}>
             {isSlideAnimation ? (
               <div
-                onTransitionEnd={handleTrackTransitionEnd}
+                onTransitionEnd={onTrackTransitionEnd}
                 style={{
                   display: "flex",
                   width: `${trackSlideCount * 100}%`,
@@ -756,70 +748,245 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
                 })}
               </div>
             )}
-            </div>
-
-            {showArrows ? (
-              <button
-                type="button"
-                disabled={isEditing}
-                aria-disabled={isEditing}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  next();
-                }}
-                style={arrowButtonStyle("right")}
-                aria-label="Next slide"
-              >
-                <SliderArrowIcon side="right" color={arrowColor} size={arrowHeight} />
-              </button>
-            ) : null}
           </div>
 
-          {showDots ? (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: dotsJustify,
-                alignItems: "center",
-                gap: `${spaceBetweenDots}px`,
-                marginTop: 12,
-              }}
+          {showArrows ? (
+            <SliderOverlayButton
+              isEditing={isEditing}
+              onClick={onNext}
+              style={arrowButtonStyle("right")}
+              aria-label="Next slide"
             >
-              {Array.from({ length: pageCount }).map((_, idx) => {
-                const active = idx === activePage;
-                return (
-                  <button
-                    key={`dot-${idx}`}
-                    type="button"
-                    disabled={isEditing}
-                    aria-disabled={isEditing}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      jumpTo(idx);
-                    }}
-                    style={{
-                      border: "none",
-                      cursor: isEditing ? "default" : "pointer",
-                      pointerEvents: isEditing ? "none" : "auto",
-                      borderRadius: 999,
-                      height: dotsSize,
-                      width: active
-                        ? selectedDotWidthPx(dotsSize, selectedDotWidth)
-                        : dotsSize,
-                      background: active ? selectedDotColor : unselectedDotColor,
-                      transition: "all 220ms ease",
-                    }}
-                  />
-                );
-              })}
-            </div>
+              <SliderArrowIcon side="right" color={arrowColor} size={arrowHeight} />
+            </SliderOverlayButton>
           ) : null}
-
         </div>
-      </Section>
-    );
-  },
+
+        {showDots ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: dotsJustify,
+              alignItems: "center",
+              gap: `${spaceBetweenDots}px`,
+              marginTop: 12,
+            }}
+          >
+            {Array.from({ length: pageCount }).map((_, idx) => {
+              const active = idx === activePage;
+              return (
+                <SliderOverlayButton
+                  key={`dot-${idx}`}
+                  isEditing={isEditing}
+                  onClick={(e) => onJumpTo(idx, e)}
+                  style={dotButtonStyle(active)}
+                  aria-label={`Go to slide ${idx + 1}`}
+                  aria-current={active ? "true" : undefined}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </Section>
+  );
+}
+
+type SliderRuntimeProps = Omit<Components["Slider"], "items"> & {
+  id?: string;
+  items: SliderItem[];
 };
+
+/** Only mounted inside <Puck> editor — may call useGetPuck. */
+function SliderEditor(props: SliderRuntimeProps) {
+  const getPuck = useGetPuck();
+  const screenCount = Math.max(1, props.numberOfSlides || 1);
+  const pageCount = screenCount;
+  const activePage = clampScreenIndex(props.currentSlideIndex, screenCount);
+
+  const dispatchSlideIndex = (nextPage: number) => {
+    if (!props.id) return;
+    const nextSlideIndex = nextPage + 1;
+    const currentSlideIndex =
+      clampScreenIndex(props.currentSlideIndex, screenCount) + 1;
+    if (nextSlideIndex === currentSlideIndex) return;
+
+    const puckApi = getPuck();
+    const item = puckApi.getItemById(props.id);
+    const selector = puckApi.getSelectorForId(props.id);
+    if (!item || !selector) return;
+
+    puckApi.dispatch({
+      type: "replace",
+      data: {
+        ...item,
+        props: {
+          ...item.props,
+          currentSlideIndex: nextSlideIndex,
+        },
+      },
+      destinationIndex: selector.index,
+      destinationZone: selector.zone,
+    });
+  };
+
+  const onPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatchSlideIndex(
+      prevScreenPage(activePage, pageCount, props.mode, props.rewind),
+    );
+  };
+
+  const onNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatchSlideIndex(
+      nextScreenPage(activePage, pageCount, props.mode, props.rewind),
+    );
+  };
+
+  const onJumpTo = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatchSlideIndex(Math.max(0, Math.min(index, pageCount - 1)));
+  };
+
+  return (
+    <SliderView
+      {...props}
+      isEditing
+      activePage={activePage}
+      visualTrackIndex={activePage}
+      transitionEnabled
+      onTrackTransitionEnd={() => {}}
+      onPrev={onPrev}
+      onNext={onNext}
+      onJumpTo={onJumpTo}
+      onHoverChange={() => {}}
+    />
+  );
+}
+
+function SliderPreview(props: SliderRuntimeProps) {
+  const screenCount = Math.max(1, props.numberOfSlides || 1);
+  const pageCount = screenCount;
+  const [nav, dispatchNav] = useReducer(sliderNavReducer, {
+    currentPage: 0,
+    trackIndex: 1,
+  });
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
+
+  const useLoopTrack = useLoopDirectionalTrack(
+    props.mode,
+    props.animation,
+    pageCount,
+    false,
+  );
+  const currentPage = nav.currentPage;
+  const trackIndex = nav.trackIndex;
+  const activePage = currentPage;
+  const visualTrackIndex = useLoopTrack ? trackIndex : activePage;
+
+  useEffect(() => {
+    dispatchNav({ type: "reset", useLoopTrack });
+    setTransitionEnabled(true);
+  }, [pageCount, props.mode, props.animation, useLoopTrack]);
+
+  useEffect(() => {
+    dispatchNav({ type: "clamp", pageCount });
+  }, [pageCount]);
+
+  const goNext = useCallback(() => {
+    dispatchNav({
+      type: "next",
+      useLoopTrack,
+      pageCount,
+      mode: props.mode,
+      rewind: props.rewind,
+    });
+  }, [useLoopTrack, pageCount, props.mode, props.rewind]);
+
+  const goPrev = useCallback(() => {
+    dispatchNav({
+      type: "prev",
+      useLoopTrack,
+      pageCount,
+      mode: props.mode,
+      rewind: props.rewind,
+    });
+  }, [useLoopTrack, pageCount, props.mode, props.rewind]);
+
+  const goNextRef = useRef(goNext);
+  goNextRef.current = goNext;
+
+  useEffect(() => {
+    if (!props.autoSlide || pageCount <= 1) return;
+    if (props.pauseAutoplayOnHover && isHovering) return;
+    const ms = Math.max(1, props.showEachSlideSeconds || 5) * 1000;
+    const timer = setInterval(() => {
+      goNextRef.current();
+    }, ms);
+    return () => clearInterval(timer);
+  }, [
+    props.autoSlide,
+    pageCount,
+    props.pauseAutoplayOnHover,
+    isHovering,
+    props.showEachSlideSeconds,
+    useLoopTrack,
+    props.mode,
+    props.rewind,
+  ]);
+
+  const handleTrackTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || e.propertyName !== "transform") return;
+    if (!useLoopTrack || !transitionEnabled) return;
+    if (trackIndex === pageCount + 1) {
+      setTransitionEnabled(false);
+      dispatchNav({ type: "loop_wrap_forward" });
+    } else if (trackIndex === 0) {
+      setTransitionEnabled(false);
+      dispatchNav({ type: "loop_wrap_backward", pageCount });
+    }
+  };
+
+  useEffect(() => {
+    if (transitionEnabled) return;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setTransitionEnabled(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [transitionEnabled]);
+
+  const onPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goPrev();
+  };
+
+  const onNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goNext();
+  };
+
+  const onJumpTo = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatchNav({ type: "jump", index, useLoopTrack, pageCount });
+  };
+
+  return (
+    <SliderView
+      {...props}
+      isEditing={false}
+      activePage={activePage}
+      visualTrackIndex={visualTrackIndex}
+      transitionEnabled={transitionEnabled}
+      onTrackTransitionEnd={handleTrackTransitionEnd}
+      onPrev={onPrev}
+      onNext={onNext}
+      onJumpTo={onJumpTo}
+      onHoverChange={setIsHovering}
+    />
+  );
+}
 
 export const Slider = withLayout(SliderInternal);
 
