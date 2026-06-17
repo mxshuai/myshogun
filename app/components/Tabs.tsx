@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ComponentConfig, ObjectField } from "@puckeditor/core";
 import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
@@ -46,6 +46,31 @@ function getTabTitle(index: number, title?: string) {
   return title?.trim() ? title : `Tab ${index + 1}`;
 }
 
+/** 编辑态 title 可能为 Puck InlineTextField（ReactNode）；预览/导出仍为 string */
+function renderTabTitle(
+  title: unknown,
+  index: number,
+  isEditing: boolean,
+): ReactNode {
+  if (isEditing) {
+    if (title != null && typeof title !== "string") {
+      return title as ReactNode;
+    }
+    return getTabTitle(index, title as string | undefined);
+  }
+  return getTabTitle(index, typeof title === "string" ? title : undefined);
+}
+
+function isInlineEditableTarget(target: EventTarget | null): boolean {
+  let el = target as HTMLElement | null;
+  while (el) {
+    const ce = el.getAttribute("contenteditable");
+    if (ce === "true" || ce === "plaintext-only") return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
   label: o.label,
   value: o.value,
@@ -77,6 +102,7 @@ const tabsFields = {
       title: {
         type: "text" as const,
         label: "Title",
+        contentEditable: true,
       },
       content: {
         type: "slot" as const,
@@ -87,8 +113,11 @@ const tabsFields = {
       title: `Tab ${index + 1}`,
       content: [],
     }),
-    getItemSummary: (item: { title?: string }, index: number) =>
-      getTabTitle(index, item?.title),
+    getItemSummary: (item: { title?: unknown }, index: number) =>
+      getTabTitle(
+        index,
+        typeof item?.title === "string" ? item.title : undefined,
+      ),
   },
   theme: {
     type: "radio" as const,
@@ -154,7 +183,10 @@ function TabHeader({
       role="tab"
       aria-selected={isActive}
       style={{ ...style, cursor: "pointer" }}
-      onClick={(e) => onSelect(index, e)}
+      onClick={(e) => {
+        if (isEditing && isInlineEditableTarget(e.target)) return;
+        onSelect(index, e);
+      }}
     >
       {children}
     </div>
@@ -287,7 +319,7 @@ function TabsView({
                 activeColors: resolvedActive,
               })}
             >
-              {getTabTitle(index, tab.title)}
+              {renderTabTitle(tab.title, index, isEditing)}
             </TabHeader>
           ))}
           {showTrails && trail.left.width > 0 ? (
@@ -410,10 +442,11 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     const tabs = props.tabs ?? [];
     let tabsChanged = false;
     const normalizedTabs = tabs.map((tab, index) => {
-      const trimmed = tab?.title?.trim();
+      if (typeof tab?.title !== "string") return tab;
+      const trimmed = tab.title.trim();
       if (trimmed) return tab;
       tabsChanged = true;
-      return { ...tab, title: getTabTitle(index, tab?.title) };
+      return { ...tab, title: getTabTitle(index, tab.title) };
     });
     const tabCount = Math.max(1, normalizedTabs.length);
     const clamped = clampActiveTabIndex(props.activeTabIndex, tabCount);

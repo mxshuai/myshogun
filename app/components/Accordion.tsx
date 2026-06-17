@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ComponentConfig, ObjectField, Slot } from "@puckeditor/core";
 import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
@@ -43,8 +43,33 @@ function deriveEffectiveOpen(items: AccordionItem[], onlyOneOpen: boolean) {
   return openMap.map((_, idx) => idx === firstIndex);
 }
 
-function getItemTitle(index: number, item: Partial<AccordionItem> | undefined) {
-  return item?.title?.trim() ? item.title : `Accordion ${index + 1}`;
+function getItemTitle(index: number, title?: string) {
+  return title?.trim() ? title : `Accordion ${index + 1}`;
+}
+
+/** 编辑态 title 可能为 Puck InlineTextField（ReactNode）；预览/导出仍为 string */
+function renderItemTitle(
+  title: unknown,
+  index: number,
+  isEditing: boolean,
+): ReactNode {
+  if (isEditing) {
+    if (title != null && typeof title !== "string") {
+      return title as ReactNode;
+    }
+    return getItemTitle(index, title as string | undefined);
+  }
+  return getItemTitle(index, typeof title === "string" ? title : undefined);
+}
+
+function isInlineEditableTarget(target: EventTarget | null): boolean {
+  let el = target as HTMLElement | null;
+  while (el) {
+    const ce = el.getAttribute("contenteditable");
+    if (ce === "true" || ce === "plaintext-only") return true;
+    el = el.parentElement;
+  }
+  return false;
 }
 
 function renderOpenIcon({
@@ -138,6 +163,7 @@ const accordionFields = {
       title: {
         type: "text" as const,
         label: "Title",
+        contentEditable: true,
       },
       open: {
         type: "radio" as const,
@@ -157,8 +183,11 @@ const accordionFields = {
       open: false,
       content: [],
     }),
-    getItemSummary: (item: { title?: string }, index: number) =>
-      getItemTitle(index, item),
+    getItemSummary: (item: { title?: unknown }, index: number) =>
+      getItemTitle(
+        index,
+        typeof item?.title === "string" ? item.title : undefined,
+      ),
   },
   onlyOneOpen: {
     type: "radio" as const,
@@ -195,7 +224,7 @@ function AccordionHeader({
   isEditing: boolean;
   style: React.CSSProperties;
   textAlign: React.CSSProperties["textAlign"];
-  title: string;
+  title: ReactNode;
   isOpen: boolean;
   openIcon: AccordionProps["openIcon"];
   onHeaderClick: (index: number, e: React.MouseEvent) => void;
@@ -211,7 +240,10 @@ function AccordionHeader({
     <div
       ref={ref}
       style={{ ...style, cursor: "pointer" }}
-      onClick={(e) => onHeaderClick(index, e)}
+      onClick={(e) => {
+        if (isEditing && isInlineEditableTarget(e.target)) return;
+        onHeaderClick(index, e);
+      }}
     >
       <div style={{ flex: 1, textAlign }}>{title}</div>
       {renderOpenIcon({ open: isOpen, openIcon })}
@@ -288,7 +320,6 @@ function AccordionView({
       <div style={borderStyle}>
         {safeItems.map((item, index) => {
           const isOpen = Boolean(effectiveOpenMap[index]);
-          const title = getItemTitle(index, item);
           return (
             <div key={`accordion-pane-${index}`}>
               <AccordionHeader
@@ -302,7 +333,7 @@ function AccordionView({
                       : `1px solid ${borderColor}`,
                 }}
                 textAlign={headerTextAlignment}
-                title={title}
+                title={renderItemTitle(item.title, index, isEditing)}
                 isOpen={isOpen}
                 openIcon={openIcon}
                 onHeaderClick={onHeaderClick}
@@ -492,13 +523,28 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
   fields: accordionFields,
   resolveData: (data) => {
     const props = data.props || {};
-    const itemCount = Math.max(1, props.items?.length ?? 1);
+    const items = props.items ?? [];
+    let itemsChanged = false;
+    const normalizedItems = items.map((item, index) => {
+      if (typeof item?.title !== "string") return item;
+      const trimmed = item.title.trim();
+      if (trimmed) return item;
+      itemsChanged = true;
+      return { ...item, title: getItemTitle(index, item.title) };
+    });
+    const itemCount = Math.max(1, normalizedItems.length);
     const clamped = clampCurrentAccordionIndex(
       props.currentAccordionIndex,
       itemCount,
     );
-    if (clamped !== props.currentAccordionIndex) {
-      return { props: { ...props, currentAccordionIndex: clamped } };
+    if (itemsChanged || clamped !== props.currentAccordionIndex) {
+      return {
+        props: {
+          ...props,
+          items: normalizedItems,
+          currentAccordionIndex: clamped,
+        },
+      };
     }
     return {};
   },

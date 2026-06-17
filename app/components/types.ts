@@ -213,6 +213,7 @@ export type Components = {
     activeTabIndex?: number;
     tabs: Array<{
       id?: string;
+      /** 持久化为 string；编辑画布中 Puck 内联编辑时可能为 ReactNode */
       title: string;
       content: Slot;
     }>;
@@ -235,6 +236,7 @@ export type Components = {
     /** 1-based，编辑时在画布点击 header 切换当前 pane；发布态由 items[].open 控制 */
     currentAccordionIndex?: number;
     items: Array<{
+      /** 持久化为 string；编辑画布中 Puck 内联编辑时可能为 ReactNode */
       title: string;
       open: boolean;
       content: Slot;
