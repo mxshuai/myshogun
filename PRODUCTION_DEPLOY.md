@@ -390,8 +390,8 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 | 保存 Token | Secrets Manager：`visbuild-shopify/token/...`；DDB `SHOP#<id>` 元数据 | 无 |
 | Verify token | SSR 用 Token 调 GraphQL `shop { name }` | 读店铺 |
 | Import pages | DDB 写入 `PAGE#...`、页面 body（Visbuild/RawHTML 数据） | `pages` 查询 |
-| Publish Now | DDB 版本快照；SSR `pageUpdate` | 页面 HTML 更新 |
-| Schedule Update | DDB `JOB#...`；EventBridge schedule `visbuild-publish-<jobId>`；到点 Lambda 执行 | 到点 `pageUpdate` |
+| Publish Now | DDB 版本快照；SSR `pageCreate` / `pageUpdate`（`templateSuffix: visbuild`） | 页面 HTML 更新；Theme template 为 **visbuild** |
+| Schedule Update | DDB `JOB#...`；EventBridge schedule `visbuild-publish-<jobId>`；到点 Lambda 执行 | 到点 `pageUpdate`（同样带 visbuild 模板） |
 
 **控制台观察点：**
 
@@ -459,6 +459,21 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 
 ---
 
+## Shopify 主题模板（visbuild，上线前必配）
+
+与 [`DEPLOYMENT.md`](DEPLOYMENT.md) 中说明一致：应用在代码中写死 `SHOPIFY_PAGE_TEMPLATE_SUFFIX = "visbuild"`（[`app/lib/server/shopify.ts`](app/lib/server/shopify.ts)），**无需** Amplify 环境变量。每个店铺在 **Publish / 定时发布** 时都会向 Shopify 写入 `templateSuffix: "visbuild"`。
+
+**上线前 checklist（每个店铺主题各做一次）：**
+
+1. 主题 `templates/page.visbuild.json` 已存在（可从 `page.json` 复制并精简）
+2. 模板引用的 section 正确输出 `{{ page.content }}`
+3. 执行一次 **Publish Now** 后，Shopify Admin → Pages → Theme template 显示 **visbuild**
+4. 前台 `/pages/<handle>` 样式与编辑器 Preview 一致（无双重 header / 多余 padding）
+
+若发布报 `templateSuffix` 相关 userErrors，先在主题代码中补全 `page.visbuild.json` 再重试 Publish。
+
+---
+
 ## 故障排查
 
 | 现象 | 检查 |
@@ -468,6 +483,7 @@ Amplify 上的 Node SSR **不是**你本机 `aws configure` 的用户，而是 *
 | `/pages` Schedule 400 PassRole | 确认已部署 Schedule Lambda（步骤 2b）、Amplify 配 `SCHEDULE_LAMBDA_ARN`、compute 角色有 `lambda:Invoke`（见 `amplify-ssr-iam-policy.json`） |
 | 定时不到点 | `SCHEDULE_LAMBDA_ARN`；步骤 2/2b 两个 Lambda 代码已更新；EventBridge 是否有 `visbuild-publish-<jobId>` |
 | Shopify 401/404 | Token、scope、店铺域名 `*.myshopify.com` |
+| Publish 失败 / 模板不对 | 主题是否已有 `templates/page.visbuild.json`；Page → Theme template 是否为 visbuild；见上文「Shopify 主题模板」 |
 | 本地缺包 | `npm install`（含 `@aws-sdk/client-s3` 等） |
 
 ---

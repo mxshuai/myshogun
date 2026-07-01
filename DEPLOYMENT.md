@@ -233,6 +233,48 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 - Callback: `/auth/shopify/callback`
 - 登录成功默认跳转：`/`
 
+### Shopify 页面主题模板（visbuild，部署必配）
+
+本应用发布页面时，会通过 Admin GraphQL 为 **全店所有页面** 写入固定主题模板后缀 **`visbuild`**（代码写死，无需环境变量）。实现位置：[`app/lib/server/shopify.ts`](app/lib/server/shopify.ts) 中的 `SHOPIFY_PAGE_TEMPLATE_SUFFIX`；`pageCreate` / `pageUpdate`（含 Publish Now、定时发布、seed 脚本）均自动带上 `templateSuffix: "visbuild"`。若要改用其他模板，只改该常量并同步更新主题文件即可。
+
+**部署前必须在 Shopify 在线商店主题中创建对应模板文件**，否则发布可能报错或回退为默认 `page` 模板：
+
+| 项 | 说明 |
+|----|------|
+| 主题文件 | `templates/page.visbuild.json`（Online Store 2.0） |
+| 后台显示名 | Theme template → **visbuild** |
+| 页面内容来源 | Visbuild 将编辑器 JSON 转为 HTML + 内联 CSS，写入 Page 的 `body`；模板 section 需输出 `{{ page.content }}` |
+
+**推荐最小模板**（按主题已有 section 调整 `type`，常见为 `main-page`）：
+
+```json
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {}
+    }
+  },
+  "order": ["main"]
+}
+```
+
+**创建步骤：**
+
+1. Shopify Admin → **Online Store → Themes → … → Edit code**
+2. 在 `templates/` 下新建 **`page.visbuild.json`**（可复制 `page.json` 再精简，或粘贴上文 JSON）
+3. 确认所用 section（如 `main-page`）的 liquid 会渲染 `{{ page.content }}`，且不要与 Visbuild 自带 `<style>` / 布局重复包一层
+4. 保存主题后，在 Visbuild 编辑器 **Publish** 一次
+5. Shopify Admin → **Pages → 该页 → Theme template** 应为 **visbuild**
+
+**验证（本地 / 生产通用）：**
+
+| 步骤 | 预期 |
+|------|------|
+| 新建页 → Publish | Shopify 创建 Page，模板为 visbuild |
+| 已发布页再次 Publish | 内容更新，模板仍为 visbuild |
+|  storefront 访问 `/pages/<handle>` | 页面按 visbuild 模板展示 Visbuild HTML |
+
 基础设施模板见 [`infra/template.yaml`](infra/template.yaml)。
 
 **生产全链路（悉尼区）**：见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md)（含五步在 AWS / 本地的详细变化说明；Account `124074140777`，Region `ap-southeast-2`，资源前缀 **visbuild**）。

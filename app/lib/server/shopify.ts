@@ -27,6 +27,9 @@ export class ShopifyApiError extends Error {
 const DEFAULT_VERSION = "2024-10";
 const MAX_RETRIES = 5;
 
+/** 全店统一 Shopify 页面主题模板（主题文件 templates/page.visbuild.json） */
+export const SHOPIFY_PAGE_TEMPLATE_SUFFIX = "visbuild";
+
 function normalizeDomain(domain: string): string {
   const d = domain.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
   return d.includes(".") ? d : `${d}.myshopify.com`;
@@ -165,6 +168,7 @@ export function createAdminClient(config: ShopifyClientConfig) {
             handle: input.handle,
             body: input.body,
             isPublished: input.isPublished ?? true,
+            templateSuffix: SHOPIFY_PAGE_TEMPLATE_SUFFIX,
           },
         }
       );
@@ -204,6 +208,7 @@ export function createAdminClient(config: ShopifyClientConfig) {
             handle: input.handle,
             body: input.body,
             isPublished: input.isPublished,
+            templateSuffix: SHOPIFY_PAGE_TEMPLATE_SUFFIX,
           },
         }
       );
