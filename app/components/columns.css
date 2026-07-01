@@ -7,6 +7,20 @@
   align-items: stretch;
 }
 
+/* Puck 编辑态：每列 slot 都显示虚线边界，空列由 Puck :empty 默认虚线呈现，
+   有内容的列补充 outline，便于识别每一列都是独立可拖放区域 */
+[data-puck-entry] .visbuild-columns--editing .visbuild-column-slot[data-puck-dropzone] {
+  min-height: var(--min-empty-height, 80px);
+}
+
+[data-puck-entry]
+  .visbuild-columns--editing
+  .visbuild-column-slot[data-puck-dropzone]:not(:empty) {
+  outline: 1px dashed
+    color-mix(in srgb, var(--puck-color-azure-08, #7c93b8) 70%, transparent);
+  outline-offset: -1px;
+}
+
 @media (max-width: 768px) {
   .visbuild-columns--stack {
     display: flex !important;

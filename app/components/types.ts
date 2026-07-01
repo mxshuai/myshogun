@@ -53,7 +53,10 @@ export type Components = {
     equalColumnHeights: boolean;
     stackOnSmallScreens: boolean;
     stackingBehavior: "leftFirst" | "rightFirst";
-    items: Slot;
+    /** 每列一个独立 slot，列数由 numColumns 驱动（resolveData 同步） */
+    columns: Array<{ content: Slot }>;
+    /** @deprecated 旧的单 slot 模型，仅用于迁移读取 */
+    items?: Slot;
   };
   /** @deprecated 已更名为 Columns，保留以兼容旧页面 JSON */
   Grid: {
@@ -62,7 +65,9 @@ export type Components = {
     equalColumnHeights?: boolean;
     stackOnSmallScreens?: boolean;
     stackingBehavior?: "leftFirst" | "rightFirst";
-    items: Slot;
+    columns?: Array<{ content: Slot }>;
+    /** @deprecated 旧的单 slot 模型，仅用于迁移读取 */
+    items?: Slot;
   };
   Hero: {
     title: string;

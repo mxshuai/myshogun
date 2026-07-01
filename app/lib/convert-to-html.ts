@@ -427,14 +427,15 @@ function generateColumns(props: any, spaces: string, indent: number): string {
   const stackingBehavior = props.stackingBehavior === "rightFirst"
     ? "rightFirst"
     : "leftFirst";
-  const items = props.items || [];
+  const columns = Array.isArray(props.columns) ? props.columns : null;
+  const count = columns && columns.length ? columns.length : numColumns;
 
   const className = columnsGridClassName({
     equalColumnHeights,
     stackOnSmallScreens,
     stackingBehavior,
   });
-  const style = columnsGridStyle(numColumns, gap);
+  const style = columnsGridStyle(count, gap);
   const styleAttr = Object.entries(style)
     .map(([key, value]) => {
       const cssKey = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
@@ -444,9 +445,21 @@ function generateColumns(props: any, spaces: string, indent: number): string {
 
   let html = `${spaces}<div class="${className}" style="${styleAttr}">\n`;
 
-  items.forEach((item: any) => {
-    html += generateComponentHTML(item, indent + 2);
-  });
+  if (columns && columns.length) {
+    // 每列一个 div 单元格，列内组件纵向堆叠
+    columns.forEach((col: any) => {
+      html += `${spaces}  <div>\n`;
+      (col?.content || []).forEach((item: any) => {
+        html += generateComponentHTML(item, indent + 4);
+      });
+      html += `${spaces}  </div>\n`;
+    });
+  } else {
+    // 兼容旧数据：单 items slot 直接作为网格子项铺入
+    (props.items || []).forEach((item: any) => {
+      html += generateComponentHTML(item, indent + 2);
+    });
+  }
 
   html += `${spaces}</div>\n`;
 
