@@ -1429,12 +1429,6 @@ body {
   color: #333;
 }
 
-.visbuild-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
 .visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; }
 .visbuild-text p { margin: 0 0 0.75em; }
 .visbuild-text p:last-child { margin-bottom: 0; }
@@ -1452,12 +1446,5 @@ ${COLUMNS_EXPORT_CSS}
 ${TABS_EXPORT_CSS}
 
 ${ACCORDION_EXPORT_CSS}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .visbuild-page {
-    padding: 0 12px;
-  }
-}
 `;
 }

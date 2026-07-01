@@ -12,7 +12,7 @@ export type SectionSpacingValue = {
   sectionPaddingLeft?: string;
   /** 外层 min-height，有值时才应用 */
   sectionMinHeight?: string;
-  /** 内层 max-width，未设置时 Section 使用默认 1280px */
+  /** 内层 max-width，有值时才应用 */
   sectionMaxWidth?: string;
 };
 

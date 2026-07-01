@@ -128,7 +128,7 @@ const defaultSectionSides = {
 
 /** 供各组件 defaultProps.layout 与 withLayout 合并 */
 export const defaultLayoutSpacing = {
-  dimensions: { minHeight: 0, maxWidth: 1280 },
+  dimensions: { minHeight: 0 },
   sectionMargin: { ...defaultSectionSides },
   sectionPadding: { ...defaultSectionSides },
 } satisfies Partial<LayoutFieldProps>;

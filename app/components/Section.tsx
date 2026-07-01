@@ -53,8 +53,7 @@ export const Section = forwardRef<HTMLDivElement, SectionProps>(
       maxWidthProp ??
       (ctx.sectionMaxWidth != null && ctx.sectionMaxWidth !== ""
         ? ctx.sectionMaxWidth
-        : undefined) ??
-      "1280px";
+        : undefined);
 
     return (
       <div
@@ -75,8 +74,8 @@ export const Section = forwardRef<HTMLDivElement, SectionProps>(
       >
         <div
           style={{
-            maxWidth: resolvedMaxWidth,
-            margin: "0 auto",
+            ...(resolvedMaxWidth ? { maxWidth: resolvedMaxWidth } : {}),
+            ...(resolvedMaxWidth ? { margin: "0 auto" } : {}),
             width: "100%",
           }}
         >

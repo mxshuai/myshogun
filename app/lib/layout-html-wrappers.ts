@@ -35,11 +35,11 @@ export function sectionOuterStyle(layout: Record<string, unknown>): string {
   return parts.join("; ");
 }
 
-/** 与 Section 内层一致：默认 1280px，可被组件 props（如 Text.maxWidth）覆盖 */
+/** 与 Section 内层一致：仅当 Layout dimensions.maxWidth 或组件 props 指定时才限制宽度 */
 export function sectionInnerMaxWidthCss(
   layout: Record<string, unknown>,
   propMaxWidth?: string
-): string {
+): string | undefined {
   const raw = propMaxWidth?.trim();
   if (raw) {
     if (/%|px|rem|em|ch|vw|vh|vmin|vmax/.test(raw)) return raw;
@@ -49,7 +49,7 @@ export function sectionInnerMaxWidthCss(
   const dim = layout.dimensions as { maxWidth?: number } | undefined;
   const w = dim?.maxWidth;
   if (w != null && Number(w) > 0) return `${w}px`;
-  return "1280px";
+  return undefined;
 }
 
 export function sectionInnerStyle(
@@ -57,7 +57,12 @@ export function sectionInnerStyle(
   propMaxWidth?: string
 ): string {
   const mw = sectionInnerMaxWidthCss(layout, propMaxWidth);
-  return `max-width: ${mw}; margin: 0 auto; width: 100%;`;
+  const parts = ["width: 100%"];
+  if (mw) {
+    parts.unshift(`max-width: ${mw}`);
+    parts.push("margin: 0 auto");
+  }
+  return parts.join("; ");
 }
 
 /** 在组件内核外包两层：Section 外层 → Section 内层（max-width） */
