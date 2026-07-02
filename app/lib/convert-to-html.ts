@@ -1416,17 +1416,55 @@ function escapeHtml(text: string): string {
  * 生成 CSS 文件内容
  */
 export function generateCSS(): string {
-  return `/* Visbuild Page Styles */
-* {
-  margin: 0;
-  padding: 0;
+  return `/* Visbuild Page Styles — 全部作用域化到 .visbuild-page，避免与主题双向污染 */
+.visbuild-page,
+.visbuild-page *,
+.visbuild-page *::before,
+.visbuild-page *::after {
   box-sizing: border-box;
 }
 
-body {
+/* 容器继承基线：拦截主题 body / 外部 CSS 下发的继承属性（字体/颜色/行高/字距/对齐等） */
+.visbuild-page {
+  margin: 0;
+  padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
   line-height: 1.6;
   color: #333;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  font-style: normal;
+  text-decoration: none;
+}
+
+/* 常见原生标签基线：压过主题的裸标签选择器（p/h1.../ul 等），visbuild 自身带类的样式仍优先 */
+.visbuild-page p,
+.visbuild-page h1,
+.visbuild-page h2,
+.visbuild-page h3,
+.visbuild-page h4,
+.visbuild-page h5,
+.visbuild-page h6,
+.visbuild-page ul,
+.visbuild-page ol,
+.visbuild-page li,
+.visbuild-page figure,
+.visbuild-page blockquote,
+.visbuild-page dl,
+.visbuild-page dd,
+.visbuild-page table {
+  margin: 0;
+  padding: 0;
+}
+
+.visbuild-page img {
+  max-width: 100%;
+  height: auto;
+  border: 0;
 }
 
 .visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; }
