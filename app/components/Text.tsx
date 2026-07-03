@@ -1,4 +1,9 @@
-import { cloneElement, isValidElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import type { Editor } from "@tiptap/react";
 import type { ComponentConfig } from "@puckeditor/core";
 import { RichTextMenu } from "@puckeditor/core";
@@ -41,7 +46,7 @@ function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
   /** 编辑态：Puck 将 html 替换为 inline TipTap（含 overlay portal），避免再包一层 div 阻断选中 */
   if (isValidElement(htmlProp)) {
     const existing = (htmlProp.props as { className?: string }).className;
-    return cloneElement(htmlProp, {
+    return cloneElement(htmlProp as ReactElement<{ className?: string }>, {
       className: mergeClassNames(existing, "visbuild-text", "visbuild-text--editing"),
     });
   }

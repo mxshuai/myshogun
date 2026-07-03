@@ -156,7 +156,7 @@ export async function createPage(
       props: {
         title: title.trim() || "Untitled",
         pagePath: p,
-      },
+      } as { title?: string; pagePath?: string },
     },
   };
   await savePage(p, data);
@@ -202,7 +202,7 @@ export async function duplicatePage(pagePath: string): Promise<string | null> {
       ...(clone.root?.props as object),
       title: `Copy of ${sourceTitle}`,
       pagePath: newPath,
-    },
+    } as { title?: string; pagePath?: string },
   };
 
   pages[newPath] = clone;

@@ -10,7 +10,7 @@ import { SidebarColorInput } from "./SidebarColorInput";
 export function createPuckColorField(
   label: string,
   fallback = "#000000"
-): CustomField<string | undefined> {
+): CustomField<string> {
   return {
     type: "custom",
     label,

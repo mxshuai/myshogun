@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from "@puckeditor/core";
+import type { ComponentConfig, Fields, Slot } from "@puckeditor/core";
 import type { Components } from "./types";
 import { resolveBackgroundSizeCss } from "./container-background-size";
 import { Section } from "./Section";
@@ -43,7 +43,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
       type: "slot",
       label: "Content",
     },
-  },
+  } as Fields<Components["Container"]>,
   defaultProps: {
     entireContainerClickable: false,
     containerUrl: "",

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { ComponentConfig, ObjectField } from "@puckeditor/core";
+import type { ComponentConfig, ObjectField, SlotComponent } from "@puckeditor/core";
 import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
@@ -28,7 +28,7 @@ type TabsProps = Components["Tabs"];
 
 type TabsViewProps = {
   id?: string;
-  tabs: TabsProps["tabs"];
+  tabs: Array<{ id?: string; title: string; content: SlotComponent }>;
   activeTabIndex?: number;
   theme: TabsProps["theme"];
   borderColor: string;

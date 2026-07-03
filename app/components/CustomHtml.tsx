@@ -1,4 +1,4 @@
-import type { ComponentConfig } from "@puckeditor/core";
+import type { ComponentConfig, Fields } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
@@ -17,7 +17,7 @@ const CustomHtmlInternal: ComponentConfig<Components["CustomHtml"]> = {
       placeholder: ".my-class { ... }",
       initialHeight: 160,
     },
-  },
+  } as Fields<Components["CustomHtml"]>,
   defaultProps: {
     html: '<p class="custom-html-intro">Custom HTML</p>',
     css: ".custom-html-intro {\n  margin: 0;\n  color: #333;\n  font-size: 1rem;\n}",

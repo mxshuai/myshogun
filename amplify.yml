@@ -12,8 +12,10 @@ frontend:
       commands:
         # Write selected env vars into runtime-readable .env.production for SSR compute
         - rm -f .env.production
-        - env | grep -E '^(SHOPIFY_|SCOPES=|HOST=|USE_AWS_|APP_|PUBLISH_|SCHEDULE_|SCHEDULER_|SHOP_CUSTOM_DOMAIN|ADMIN_AUTH_MODE|ADMIN_API_KEY|ASSETS_BUCKET)' >> .env.production || true
-        - npm run build
+          - env | grep -E '^(SHOPIFY_|SCOPES=|HOST=|USE_AWS_|APP_|PUBLISH_|SCHEDULE_|SCHEDULER_|SHOP_CUSTOM_DOMAIN|ADMIN_AUTH_MODE|ADMIN_API_KEY|ASSETS_BUCKET)' >> .env.production || true
+          # 类型门禁：类型错误应拦截部署（react-router build 本身不做类型检查）
+          - npm run typecheck
+          - npm run build
   artifacts:
     baseDirectory: .amplify-hosting
     files:

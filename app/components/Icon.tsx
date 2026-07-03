@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ComponentConfig } from "@puckeditor/core";
+import type { ComponentConfig, Fields } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
@@ -158,7 +158,7 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
       delete fields.linkHref;
       delete fields.openInNewWindow;
     }
-    return fields as typeof IconInternal.fields;
+    return fields as Fields<Components["Icon"]>;
   },
   defaultProps: {
     iconId: "shg-fa-address-book-o",

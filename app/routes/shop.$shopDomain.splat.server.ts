@@ -172,7 +172,7 @@ export async function action({ params, request }: Route.ActionArgs) {
       });
     }
 
-    const runAt = new Date(body.runAt);
+    const runAt = new Date((body as { runAt?: string }).runAt as string);
     if (Number.isNaN(runAt.getTime())) {
       return data(
         { ok: false as const, error: "Invalid schedule time" },

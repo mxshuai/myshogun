@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ComponentConfig, ObjectField, Slot } from "@puckeditor/core";
+import type {
+  ComponentConfig,
+  ObjectField,
+  Slot,
+  SlotComponent,
+} from "@puckeditor/core";
 import { registerOverlayPortal, useGetPuck } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
@@ -23,7 +28,7 @@ type AccordionProps = Components["Accordion"];
 
 type AccordionViewProps = {
   id?: string;
-  items: AccordionProps["items"];
+  items: Array<{ title: string; open: boolean; content: SlotComponent }>;
   currentAccordionIndex?: number;
   onlyOneOpen: boolean;
   openIcon: AccordionProps["openIcon"];
