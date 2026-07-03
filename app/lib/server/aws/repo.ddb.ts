@@ -40,6 +40,9 @@ const TableName = () => getDynamoTableName();
 const TERMINAL_JOB_TTL_DAYS = 30;
 const TERMINAL_JOB_STATUSES = new Set(["done", "failed", "cancelled"]);
 
+/** Keep at most this many versions per page; older ones pruned on append. */
+const VERSION_HISTORY_LIMIT = 10;
+
 export function createDdbRepo(): Repo {
   const doc = client();
 
@@ -235,6 +238,34 @@ export function createDdbRepo(): Repo {
       await doc.send(
         new PutCommand({ TableName: TableName(), Item: versionToItem(version) })
       );
+      // Prune: keep only the most recent N versions for this page.
+      const res = await doc.send(
+        new QueryCommand({
+          TableName: TableName(),
+          KeyConditionExpression: "PK = :pk AND begins_with(SK, :v)",
+          ExpressionAttributeValues: {
+            ":pk": pagePk(version.pageId),
+            ":v": "VERSION#",
+          },
+          ProjectionExpression: "PK, SK",
+        })
+      );
+      const items = res.Items ?? [];
+      if (items.length > VERSION_HISTORY_LIMIT) {
+        // SK sorts chronologically (VERSION#{pageId}#{ts}#{source}); drop oldest.
+        const sorted = [...items].sort((a, b) =>
+          String(a.SK) < String(b.SK) ? -1 : String(a.SK) > String(b.SK) ? 1 : 0
+        );
+        const stale = sorted.slice(0, items.length - VERSION_HISTORY_LIMIT);
+        for (const it of stale) {
+          await doc.send(
+            new DeleteCommand({
+              TableName: TableName(),
+              Key: { PK: it.PK, SK: it.SK },
+            })
+          );
+        }
+      }
     },
 
     async getPageVersion(versionId) {

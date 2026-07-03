@@ -18,6 +18,9 @@ type Store = {
 
 const FILE = "repo.json";
 
+/** Keep at most this many versions per page (mirrors DDB repo). */
+const VERSION_HISTORY_LIMIT = 10;
+
 async function load(): Promise<Store> {
   return readJsonFile<Store>(FILE, {
     shops: {},
@@ -105,6 +108,15 @@ export function createDevRepo(): Repo {
     async appendPageVersion(version) {
       const s = await load();
       s.versions[version.versionId] = version;
+      // Prune: keep only the most recent N versions for this page.
+      const forPage = Object.values(s.versions)
+        .filter((v) => v.pageId === version.pageId)
+        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+      if (forPage.length > VERSION_HISTORY_LIMIT) {
+        for (const v of forPage.slice(0, forPage.length - VERSION_HISTORY_LIMIT)) {
+          delete s.versions[v.versionId];
+        }
+      }
       await save(s);
     },
     async getPageVersion(versionId) {
