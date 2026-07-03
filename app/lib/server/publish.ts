@@ -215,7 +215,11 @@ export async function savePageDraft(
   });
 
   const index = await ctx.repo.getPageIndex(pageId);
-  if (index && index.status !== "scheduled") {
+  // "dirty" (shown as "Outdated") only makes sense once a page has a published
+  // baseline to diverge from. A page that has never been published/scheduled
+  // stays "draft" no matter how often it is saved; a "scheduled" page keeps its
+  // pending schedule. Only a currently "published" page flips to "dirty".
+  if (index && index.status === "published") {
     index.status = "dirty";
     await ctx.repo.putPageIndex(index);
   }
