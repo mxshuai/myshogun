@@ -15,6 +15,10 @@ Parameters:
 Resources:
   AppTable:
     Type: AWS::DynamoDB::Table
+    # Protect production data: keep the table if the stack is deleted or the
+    # resource would be replaced. (Test phase: safe to delete-stack + recreate.)
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Ref AppTableName
       BillingMode: PAY_PER_REQUEST
@@ -44,6 +48,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
 
   PublishLambdaRole:
     Type: AWS::IAM::Role

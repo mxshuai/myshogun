@@ -8,6 +8,32 @@ import type {
 
 export const GSI1_NAME = "GSI1";
 
+const PAGE_STATUSES = new Set(["draft", "dirty", "published", "scheduled"]);
+const VERSION_SOURCES = new Set([
+  "manual_save",
+  "publish",
+  "scheduled_publish",
+  "import",
+]);
+const JOB_STATUSES = new Set([
+  "pending",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+]);
+
+/**
+ * Observability-only guard for enum fields read back from DynamoDB.
+ * Logs unexpected values (schema drift / dirty data) but returns the value
+ * unchanged, so normal runtime behavior is identical to a plain cast.
+ */
+function checkEnum(field: string, value: unknown, allowed: Set<string>): void {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    console.warn(`[ddb] unexpected ${field} value: ${JSON.stringify(value)}`);
+  }
+}
+
 export function shopPk(shopId: string) {
   return `SHOP#${shopId}`;
 }
@@ -55,6 +81,7 @@ export function pageIndexToItem(index: PageIndex) {
 
 export function pageIndexFromItem(item: Record<string, unknown>): PageIndex {
   const handle = String(item.handle);
+  checkEnum("PageIndex.status", item.status, PAGE_STATUSES);
   return {
     pageId: String(item.pageId),
     shopId: String(item.shopId),
@@ -108,6 +135,7 @@ export function versionToItem(version: PageVersion) {
 }
 
 export function versionFromItem(item: Record<string, unknown>): PageVersion {
+  checkEnum("PageVersion.source", item.source, VERSION_SOURCES);
   return {
     versionId: String(item.versionId),
     pageId: String(item.pageId),
@@ -130,6 +158,7 @@ export function jobToItem(job: PublishJob) {
 }
 
 export function jobFromItem(item: Record<string, unknown>): PublishJob {
+  checkEnum("PublishJob.status", item.status, JOB_STATUSES);
   return {
     jobId: String(item.jobId),
     pageId: String(item.pageId),

@@ -52,9 +52,10 @@ flowchart TD
 | shop | `SHOP#{id}` | `META` | id, domain, name, tokenSecretRef, createdAt, updatedAt |
 | page_index | `SHOP#{shopId}` | `PAGE#{pageId}` | pageId, shopId, handle, title, status, shopifyPageGid, lastPublishedAt, pendingJobId, pagePath, updatedAt, scheduledPublishAt |
 | page_lookup | `PAGE_LOOKUP#{pageId}` | `META` | shopId, pageIndexSk(pageId → shopId 反查) |
+| gid_lookup | `GID_LOOKUP#{gid}` | `META` | shopId, pageId（Shopify GID → page 反查，webhook O(1) 命中） |
 | page_body | `PAGE#{pageId}` | `META` | pageId, currentVisbuildData, currentHtml |
-| version | `PAGE#{pageId}` | `VERSION#{versionId}` | versionId, pageId, visbuildData, html, source, createdAt |
-| job | `JOB#{jobId}` | `META` | jobId, pageId, shopId, payloadVersionId, runAt, timezone, status, attempts, maxAttempts, lastError, createdAt, updatedAt |
+| version | `PAGE#{pageId}` | `VERSION#{versionId}` | versionId, pageId, visbuildData, html, source, createdAt（每页仅保留最近 10 个） |
+| job | `JOB#{jobId}` | `META` | jobId, pageId, shopId, payloadVersionId, runAt, timezone, status, attempts, maxAttempts, lastError, createdAt, updatedAt, expiresAt（终态 TTL，约 30 天） |
 
 - `job` 为 `pending` 时额外写 `GSI1PK=JOB_STATUS#pending` / `GSI1SK=runAt`;转非 pending 时删除这两个键(从索引中移除)。
 - 页面状态机:`draft` → `dirty`(列表显示 outdated) → `published` / `scheduled`,由 [`publish.ts`](app/lib/server/publish.ts) 与 [`page-service.server.ts`](app/lib/server/page-service.server.ts) 驱动。
@@ -93,3 +94,26 @@ flowchart TD
 5. **Shopify 主题模板**:上线前在主题创建 `templates/page.visbuild.json`。
 
 **上线前门禁(新增)**:本地或 CI 先执行 `npm run verify`(typecheck + lambda 包校验),Amplify 构建阶段已内置 `npm run typecheck`,类型错误会拦截部署。
+
+## 7. 单表键与索引约定
+
+单表通过 key 前缀区分实体(entity overloading),约定如下,新增访问模式时请遵循并更新本表:
+
+- **PK 前缀语义**:`SHOP#` 店铺聚合(店铺自身 + 其下 page_index);`PAGE#` 页面聚合(page_body + version);`JOB#` 发布任务;`PAGE_LOOKUP#` / `GID_LOOKUP#` 为反查项(pageId / Shopify GID → 目标),SK 固定 `META`。
+- **SK 约定**:聚合内用 `META`(单例)或 `类型#{子ID}`(如 `PAGE#{pageId}`、`VERSION#{versionId}`)区分同 PK 下多条记录;`VERSION#{versionId}` 因 versionId 以 `{pageId}#{ts}#{source}` 开头,天然按时间有序,便于范围查询与裁剪。
+- **GSI1 overloading**:目前仅 `job` 复用 GSI1(`GSI1PK=JOB_STATUS#pending` / `GSI1SK=runAt`,稀疏,仅 pending 写)。若未来新增查询维度,优先评估能否复用 GSI1 的语义化 PK;不宜复用时再新增 **GSI2**,并沿用 `{维度}#{值}` 的 PK 命名规范,同时在本节登记其语义,避免多义冲突。
+- **反查项一致性**:`putPageIndex` 在有 GID 时自愈式写 `GID_LOOKUP`,`deletePage` 同步清理;新增写路径务必维护对应反查项。
+
+## 8. 已落地的数据层优化(DB 优化阶段)
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| 1 | webhook 用 `GID_LOOKUP` 反查替代 `listShops` 全表 Scan + 逐店铺遍历(O(1) 命中) | 已完成 |
+| 2 | 终态 job 写 `expiresAt`,表启用 TTL 自动清理(保留约 30 天) | 已完成(需重新部署栈生效) |
+| 3 | `appendPageVersion` 每页仅保留最近 10 个版本(超出按时间序裁剪) | 已完成 |
+| 4 | `*FromItem` 反序列化对枚举(status/source)做运行时校验:非法值 `console.warn` 记录、值原样返回(纯可观测、零行为变更) | 已完成 |
+| 5 | `AppTable` 增 `DeletionPolicy/UpdateReplacePolicy: Retain` 与 PITR;CloudWatch 告警 | 见下 |
+
+**阶段 5(上线前加固)说明**:`infra/template.yaml` 已为 `AppTable` 加 `DeletionPolicy: Retain`、`UpdateReplacePolicy: Retain` 与 `PointInTimeRecoverySpecification`(PITR,35 天时间点恢复)。GSI1 投影维持 `ALL`——因 GSI1 被多访问模式复用,精简为 `INCLUDE` 收益有限,暂不改。CloudWatch 告警(`ThrottledRequests` / `SystemErrors` / `UserErrors`)建议部署后在控制台或后续 IaC 中按通知渠道补充。
+
+> 注:测试期数据可删,阶段 2/5 涉及的表结构/属性变更可直接 `delete-stack` + 重新 `deploy` 重建;一旦进入生产(开启 Retain/PITR)后,结构变更不可再用删栈方式。
