@@ -36,6 +36,10 @@ function client() {
 
 const TableName = () => getDynamoTableName();
 
+/** Terminal jobs are kept this long, then auto-removed by DynamoDB TTL. */
+const TERMINAL_JOB_TTL_DAYS = 30;
+const TERMINAL_JOB_STATUSES = new Set(["done", "failed", "cancelled"]);
+
 export function createDdbRepo(): Repo {
   const doc = client();
 
@@ -251,6 +255,13 @@ export function createDdbRepo(): Repo {
       if (job.status !== "pending") {
         delete (item as { GSI1PK?: string }).GSI1PK;
         delete (item as { GSI1SK?: string }).GSI1SK;
+      }
+      // TTL: let DynamoDB auto-expire terminal jobs; keep pending/running forever.
+      if (TERMINAL_JOB_STATUSES.has(job.status)) {
+        (item as { expiresAt?: number }).expiresAt =
+          Math.floor(Date.now() / 1000) + TERMINAL_JOB_TTL_DAYS * 86400;
+      } else {
+        delete (item as { expiresAt?: number }).expiresAt;
       }
       await doc.send(new PutCommand({ TableName: TableName(), Item: item }));
     },

@@ -41,6 +41,9 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   PublishLambdaRole:
     Type: AWS::IAM::Role
