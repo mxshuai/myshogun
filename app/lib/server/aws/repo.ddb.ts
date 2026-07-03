@@ -269,16 +269,18 @@ export function createDdbRepo(): Repo {
     },
 
     async getPageVersion(versionId) {
+      // versionId is `${pageId}#${ts}#${source}` and pageId is a UUID (no "#"),
+      // so we can point-read the item instead of scanning the whole table.
+      const pageId = versionId.split("#")[0];
       const res = await doc.send(
-        new ScanCommand({
+        new GetCommand({
           TableName: TableName(),
-          FilterExpression: "#vid = :vid AND #e = :ver",
-          ExpressionAttributeNames: { "#vid": "versionId", "#e": "entity" },
-          ExpressionAttributeValues: { ":vid": versionId, ":ver": "version" },
+          Key: { PK: pagePk(pageId), SK: `VERSION#${versionId}` },
         })
       );
-      const item = res.Items?.[0];
-      return item ? versionFromItem(item) : null;
+      return res.Item && res.Item.entity === "version"
+        ? versionFromItem(res.Item)
+        : null;
     },
 
     async putJob(job) {
