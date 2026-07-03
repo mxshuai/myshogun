@@ -1,4 +1,6 @@
 export const ACCORDION_CONTENT_FADE_MS = 500;
+/** 收起 max-height / opacity 动画（约为展开一半时长） */
+export const ACCORDION_CONTENT_COLLAPSE_MS = 250;
 
 export const ACCORDION_CARET_FA_CLASS = "fa fa-caret-down";
 export const ACCORDION_PLUS_FA_CLASS = "fa fa-plus";
@@ -23,12 +25,13 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height ${ACCORDION_CONTENT_FADE_MS}ms ease, opacity ${ACCORDION_CONTENT_FADE_MS}ms ease;
+  transition: max-height ${ACCORDION_CONTENT_COLLAPSE_MS}ms ease, opacity ${ACCORDION_CONTENT_COLLAPSE_MS}ms ease;
 }
 
 .visbuild-accordion-content-panel--open {
   max-height: 4000px;
   opacity: 1;
+  transition: max-height ${ACCORDION_CONTENT_FADE_MS}ms ease, opacity ${ACCORDION_CONTENT_FADE_MS}ms ease;
 }
 
 .visbuild-accordion-content-inner {
@@ -44,7 +47,7 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
   margin-left: 8px;
   user-select: none;
   color: inherit;
-  transition: transform ${ACCORDION_CONTENT_FADE_MS}ms ease;
+  transition: transform ${ACCORDION_CONTENT_COLLAPSE_MS}ms ease;
 }
 
 .visbuild-accordion-icon .fa {
@@ -58,6 +61,7 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
 
 .visbuild-accordion-icon--caret.visbuild-accordion-icon--open {
   transform: rotate(0deg);
+  transition: transform ${ACCORDION_CONTENT_FADE_MS}ms ease;
 }
 
 /* Plus: fa-plus 收起，顺时针 405° 为展开 */
@@ -67,5 +71,6 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
 
 .visbuild-accordion-icon--plus.visbuild-accordion-icon--open {
   transform: rotate(405deg);
+  transition: transform ${ACCORDION_CONTENT_FADE_MS}ms ease;
 }
 `;

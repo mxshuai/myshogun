@@ -11,12 +11,13 @@
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.5s ease, opacity 0.5s ease;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
 }
 
 .visbuild-accordion-content-panel--open {
   max-height: 4000px;
   opacity: 1;
+  transition: max-height 0.5s ease, opacity 0.5s ease;
 }
 
 .visbuild-accordion-content-inner {
@@ -32,7 +33,7 @@
   margin-left: 8px;
   user-select: none;
   color: inherit;
-  transition: transform 0.5s ease;
+  transition: transform 0.25s ease;
 }
 
 .visbuild-accordion-icon .fa {
@@ -46,6 +47,7 @@
 
 .visbuild-accordion-icon--caret.visbuild-accordion-icon--open {
   transform: rotate(0deg);
+  transition: transform 0.5s ease;
 }
 
 /* Plus: fa-plus 收起，顺时针 405° 为展开 */
@@ -55,4 +57,5 @@
 
 .visbuild-accordion-icon--plus.visbuild-accordion-icon--open {
   transform: rotate(405deg);
+  transition: transform 0.5s ease;
 }
