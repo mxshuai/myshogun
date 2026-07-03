@@ -976,10 +976,6 @@ export function PagesList({
             zIndex: 100,
           }}
           role="presentation"
-          onClick={() => {
-            setCreateOpen(false);
-            setCreateError(null);
-          }}
         >
           <div
             role="dialog"
