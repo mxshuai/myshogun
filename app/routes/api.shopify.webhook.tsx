@@ -37,21 +37,16 @@ export async function action({ request }: Route.ActionArgs) {
   if (!gid) return data({ ok: true, skipped: true });
 
   const ctx = await ensureServerContext();
-  const shops = await ctx.repo.listShops();
-  for (const shop of shops) {
-    const pages = await ctx.repo.listPagesByShop(shop.id);
-    const match = pages.find((p) => p.shopifyPageGid === gid);
-    if (!match) continue;
-    const bodyHtml = payload.body_html ?? "";
-    const visbuildData = visbuildDataFromShopifyBody(
-      payload.title ?? match.title,
-      bodyHtml
-    );
-    await savePageDraft(match.pageId, ctx, visbuildData);
-    match.status = "dirty";
-    await ctx.repo.putPageIndex(match);
-    return data({ ok: true, pageId: match.pageId });
-  }
+  const match = await ctx.repo.getPageByGid(gid);
+  if (!match) return data({ ok: true, matched: false });
 
-  return data({ ok: true, matched: false });
+  const bodyHtml = payload.body_html ?? "";
+  const visbuildData = visbuildDataFromShopifyBody(
+    payload.title ?? match.title,
+    bodyHtml
+  );
+  await savePageDraft(match.pageId, ctx, visbuildData);
+  match.status = "dirty";
+  await ctx.repo.putPageIndex(match);
+  return data({ ok: true, pageId: match.pageId });
 }

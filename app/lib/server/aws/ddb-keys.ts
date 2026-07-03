@@ -20,6 +20,10 @@ export function jobPk(jobId: string) {
   return `JOB#${jobId}`;
 }
 
+export function gidLookupPk(gid: string) {
+  return `GID_LOOKUP#${gid}`;
+}
+
 export function shopToItem(shop: Shop) {
   return {
     PK: shopPk(shop.id),

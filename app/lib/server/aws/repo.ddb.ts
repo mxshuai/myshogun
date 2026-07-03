@@ -12,6 +12,7 @@ import { getAwsRegion, getDynamoTableName } from "../env";
 import type { PageBody, PageIndex, PageVersion, PublishJob, Repo, Shop } from "../types";
 import {
   GSI1_NAME,
+  gidLookupPk,
   jobFromItem,
   jobToItem,
   pageBodyFromItem,
@@ -99,6 +100,17 @@ export function createDdbRepo(): Repo {
       return null;
     },
 
+    async getPageByGid(gid) {
+      const lookup = await doc.send(
+        new GetCommand({
+          TableName: TableName(),
+          Key: { PK: gidLookupPk(gid), SK: "META" },
+        })
+      );
+      if (!lookup.Item?.pageId) return null;
+      return this.getPageIndex(String(lookup.Item.pageId));
+    },
+
     async listPagesByShop(shopId) {
       const res = await doc.send(
         new QueryCommand({
@@ -131,6 +143,23 @@ export function createDdbRepo(): Repo {
           },
         })
       );
+      // Reverse lookup GID -> page, so Shopify webhooks resolve in O(1)
+      // instead of scanning every shop's pages. Self-healing: rewritten on
+      // each save while a GID is set; removed in deletePage.
+      if (index.shopifyPageGid) {
+        await doc.send(
+          new PutCommand({
+            TableName: TableName(),
+            Item: {
+              PK: gidLookupPk(index.shopifyPageGid),
+              SK: "META",
+              entity: "gid_lookup",
+              shopId: index.shopId,
+              pageId: index.pageId,
+            },
+          })
+        );
+      }
     },
 
     async deletePage(pageId) {
@@ -149,6 +178,14 @@ export function createDdbRepo(): Repo {
           Key: { PK: `PAGE_LOOKUP#${pageId}`, SK: "META" },
         })
       );
+      if (index?.shopifyPageGid) {
+        await doc.send(
+          new DeleteCommand({
+            TableName: TableName(),
+            Key: { PK: gidLookupPk(index.shopifyPageGid), SK: "META" },
+          })
+        );
+      }
       const bodyKey = { PK: pagePk(pageId), SK: "META" };
       await doc.send(new DeleteCommand({ TableName: TableName(), Key: bodyKey }));
 

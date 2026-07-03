@@ -64,6 +64,12 @@ export function createDevRepo(): Repo {
       const s = await load();
       return s.pageIndex[pageId] ?? null;
     },
+    async getPageByGid(gid) {
+      const s = await load();
+      return (
+        Object.values(s.pageIndex).find((p) => p.shopifyPageGid === gid) ?? null
+      );
+    },
     async listPagesByShop(shopId) {
       const s = await load();
       return Object.values(s.pageIndex)

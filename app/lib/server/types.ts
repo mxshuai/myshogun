@@ -78,6 +78,7 @@ export interface Repo {
   deleteShop(id: string): Promise<void>;
 
   getPageIndex(pageId: string): Promise<PageIndex | null>;
+  getPageByGid(gid: string): Promise<PageIndex | null>;
   listPagesByShop(shopId: string): Promise<PageIndex[]>;
   putPageIndex(index: PageIndex): Promise<void>;
   deletePage(pageId: string): Promise<void>;
