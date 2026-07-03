@@ -92,8 +92,8 @@ export async function upsertShopRecord(
   // shop's pages (they are keyed by shopId).
   let id = params.id;
   if (!id) {
-    const shops = await repo.listShops();
-    id = shops.find((s) => s.domain === domain)?.id ?? newId();
+    const existing = await repo.getShopByDomain(domain);
+    id = existing?.id ?? newId();
   }
   const now = new Date().toISOString();
   const existing = await repo.getShop(id);

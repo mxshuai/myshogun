@@ -73,6 +73,7 @@ export interface PublishJob {
 
 export interface Repo {
   getShop(id: string): Promise<Shop | null>;
+  getShopByDomain(domain: string): Promise<Shop | null>;
   listShops(): Promise<Shop[]>;
   putShop(shop: Shop): Promise<void>;
   deleteShop(id: string): Promise<void>;

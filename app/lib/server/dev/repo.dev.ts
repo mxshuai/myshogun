@@ -41,6 +41,10 @@ export function createDevRepo(): Repo {
       const s = await load();
       return s.shops[id] ?? null;
     },
+    async getShopByDomain(domain) {
+      const s = await load();
+      return Object.values(s.shops).find((sh) => sh.domain === domain) ?? null;
+    },
     async listShops() {
       const s = await load();
       return Object.values(s.shops).sort((a, b) =>

@@ -13,8 +13,7 @@ export async function findShopByDomain(
   domainRaw: string,
 ): Promise<Shop | null> {
   const domain = normalizeShopDomain(decodeShopDomainParam(domainRaw));
-  const shops = await ctx.repo.listShops();
-  return shops.find((s) => s.domain === domain) ?? null;
+  return ctx.repo.getShopByDomain(domain);
 }
 
 /**

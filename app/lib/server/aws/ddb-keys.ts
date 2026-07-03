@@ -50,6 +50,19 @@ export function gidLookupPk(gid: string) {
   return `GID_LOOKUP#${gid}`;
 }
 
+/** Fixed partition holding one pointer item per shop, so listShops() can
+ *  Query a single partition instead of scanning the whole table. */
+export const SHOP_DIR_PK = "SHOP_DIR";
+
+export function shopDirSk(shopId: string) {
+  return `SHOP#${shopId}`;
+}
+
+/** Reverse lookup: shop domain -> shopId, for O(1) domain resolution. */
+export function shopDomainLookupPk(domain: string) {
+  return `SHOP_LOOKUP#${domain}`;
+}
+
 export function shopToItem(shop: Shop) {
   return {
     PK: shopPk(shop.id),

@@ -7,8 +7,21 @@ import type { PageVersion, PublishJob, ServerContext } from "./types";
 
 const MAX_ATTEMPTS = 5;
 
+/**
+ * EventBridge Scheduler rejects one-time targets less than ~1 min in the
+ * future (see `createScheduleAt`'s `minLeadMs`). Exponential backoff alone
+ * produces sub-60s delays for the early attempts, which made the reschedule
+ * throw and silently drop the pending job. Floor every retry above that limit
+ * (with headroom for the time spent between computing and scheduling it).
+ */
+const RETRY_MIN_LEAD_MS = 75_000;
+
 function backoffMs(attempts: number): number {
   return Math.min(60_000, 2 ** attempts * 1000);
+}
+
+function retryDelayMs(attempts: number): number {
+  return Math.max(backoffMs(attempts), RETRY_MIN_LEAD_MS);
 }
 
 /** Create on Shopify when no GID; otherwise update. Persists shopifyPageGid on create. */
@@ -130,7 +143,7 @@ export async function publishPageVersion(
     job.status = "pending";
     await repo.putJob(job);
 
-    const retryAt = new Date(Date.now() + backoffMs(job.attempts));
+    const retryAt = new Date(Date.now() + retryDelayMs(job.attempts));
     if (retryAt <= new Date(job.runAt)) {
       job.runAt = retryAt.toISOString();
       await repo.putJob(job);

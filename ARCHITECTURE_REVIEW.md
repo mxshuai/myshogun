@@ -50,6 +50,8 @@ flowchart TD
 | 实体 | PK | SK | 关键字段 |
 |------|----|----|----------|
 | shop | `SHOP#{id}` | `META` | id, domain, name, tokenSecretRef, createdAt, updatedAt |
+| shop_lookup | `SHOP_LOOKUP#{domain}` | `META` | shopId（店铺域名 → shopId 反查，域名解析 O(1)） |
+| shop_dir | `SHOP_DIR` | `SHOP#{id}` | 店铺全字段副本（listShops 单分区 Query，免全表 Scan） |
 | page_index | `SHOP#{shopId}` | `PAGE#{pageId}` | pageId, shopId, handle, title, status, shopifyPageGid, lastPublishedAt, pendingJobId, pagePath, updatedAt, scheduledPublishAt |
 | page_lookup | `PAGE_LOOKUP#{pageId}` | `META` | shopId, pageIndexSk(pageId → shopId 反查) |
 | gid_lookup | `GID_LOOKUP#{gid}` | `META` | shopId, pageId（Shopify GID → page 反查，webhook O(1) 命中） |
@@ -60,9 +62,9 @@ flowchart TD
 - `job` 为 `pending` 时额外写 `GSI1PK=JOB_STATUS#pending` / `GSI1SK=runAt`;转非 pending 时删除这两个键(从索引中移除)。
 - 页面状态机:`draft` → `dirty`(列表显示 outdated) → `published` / `scheduled`,由 [`publish.ts`](app/lib/server/publish.ts) 与 [`page-service.server.ts`](app/lib/server/page-service.server.ts) 驱动。
 
-## 4. 优化建议(建议清单,未在本次落地)
+## 4. 优化建议(建议清单)
 
-> 以下为可选优化;为避免影响线上数据面与运行逻辑,本次仅修复类型告警与构建门禁,未改动 `infra/` 与数据层运行时。
+> 首轮仅修复类型告警与构建门禁。此清单中的 6 项后续已在数据层优化(§8)与第二轮优化(§9)中**全部落地**,本节保留作为问题→方案的溯源记录。
 
 | 优先级 | 项 | 现状 | 建议 |
 |--------|----|------|------|
@@ -99,7 +101,7 @@ flowchart TD
 
 单表通过 key 前缀区分实体(entity overloading),约定如下,新增访问模式时请遵循并更新本表:
 
-- **PK 前缀语义**:`SHOP#` 店铺聚合(店铺自身 + 其下 page_index);`PAGE#` 页面聚合(page_body + version);`JOB#` 发布任务;`PAGE_LOOKUP#` / `GID_LOOKUP#` 为反查项(pageId / Shopify GID → 目标),SK 固定 `META`。
+- **PK 前缀语义**:`SHOP#` 店铺聚合(店铺自身 + 其下 page_index);`PAGE#` 页面聚合(page_body + version);`JOB#` 发布任务;`PAGE_LOOKUP#` / `GID_LOOKUP#` / `SHOP_LOOKUP#` 为反查项(pageId / Shopify GID / 店铺域名 → 目标),SK 固定 `META`;`SHOP_DIR` 为固定单分区的店铺目录,SK 用 `SHOP#{id}`,存店铺全字段副本,使 `listShops` 走单分区 `Query` 而非全表 `Scan`(冷启动/空目录时回落一次 `Scan` 并自愈回填)。
 - **SK 约定**:聚合内用 `META`(单例)或 `类型#{子ID}`(如 `PAGE#{pageId}`、`VERSION#{versionId}`)区分同 PK 下多条记录;`VERSION#{versionId}` 因 versionId 以 `{pageId}#{ts}#{source}` 开头,天然按时间有序,便于范围查询与裁剪。
 - **GSI1 overloading**:目前仅 `job` 复用 GSI1(`GSI1PK=JOB_STATUS#pending` / `GSI1SK=runAt`,稀疏,仅 pending 写)。若未来新增查询维度,优先评估能否复用 GSI1 的语义化 PK;不宜复用时再新增 **GSI2**,并沿用 `{维度}#{值}` 的 PK 命名规范,同时在本节登记其语义,避免多义冲突。
 - **反查项一致性**:`putPageIndex` 在有 GID 时自愈式写 `GID_LOOKUP`,`deletePage` 同步清理;新增写路径务必维护对应反查项。
@@ -117,3 +119,15 @@ flowchart TD
 **阶段 5(上线前加固)说明**:`infra/template.yaml` 已为 `AppTable` 加 `DeletionPolicy: Retain`、`UpdateReplacePolicy: Retain` 与 `PointInTimeRecoverySpecification`(PITR,35 天时间点恢复)。GSI1 投影维持 `ALL`——因 GSI1 被多访问模式复用,精简为 `INCLUDE` 收益有限,暂不改。CloudWatch 告警(`ThrottledRequests` / `SystemErrors` / `UserErrors`)建议部署后在控制台或后续 IaC 中按通知渠道补充。
 
 > 注:测试期数据可删,阶段 2/5 涉及的表结构/属性变更可直接 `delete-stack` + 重新 `deploy` 重建;一旦进入生产(开启 Retain/PITR)后,结构变更不可再用删栈方式。
+
+## 9. 第二轮优化(建议清单剩余项,全部落地)
+
+| 项 | 内容 | 影响 |
+|----|------|------|
+| listShops 去 Scan | 新增 `SHOP_DIR` 目录分区 + `SHOP_LOOKUP#{domain}` 反查;`getShopByDomain` O(1) 解析域名,`listShops` 走单分区 `Query`。热路径(`findShopByDomain`、`upsertShopRecord`、店铺切换器)不再全表 Scan;空目录时回落一次 Scan 并自愈回填,无迁移窗口 | `repo.ddb.ts` / `repo.dev.ts` / `types.ts` / `shop-route.server.ts` / `page-ops.ts` |
+| putPageIndex 原子化 | 三写(page_index + page_lookup + 可选 gid_lookup)改为 `TransactWriteItems`,一次性提交,消除部分失败导致反查悬挂 | `repo.ddb.ts` |
+| 重试提前量修复 | 定时发布重试的退避(2/4/8/16s)全都 <60s,会被 `createScheduleAt` 的 `minLeadMs` 拒绝而**静默丢任务**;现将重试提前量下限收敛到 75s(含缓冲) | `publish.ts` |
+| 观测加固 | Publish Lambda 加 SQS DLQ(`DeadLetterConfig`,保留 14 天)+ `sqs:SendMessage` 权限;新增 Schedule Lambda `Errors` 告警与 `AppTable` `ThrottledRequests` 告警 | `infra/template.yaml` |
+| SDK 版本对齐 | `@aws-sdk/client-lambda` 声明区间统一为 `^3.758.0`,解析版本对齐到 3.1050.0(与其余 client 一致,`@aws-sdk/core` 单例 dedupe) | `package.json` |
+
+> 部署:数据层(DLQ/告警)需重新 `deploy:data-plane`;两个 Lambda 因代码/依赖变更需重新 `deploy:publish-lambda` / `deploy:schedule-lambda`;SSR 侧改动经 Amplify 构建流水线上线。

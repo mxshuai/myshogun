@@ -5,13 +5,16 @@ import {
   PutCommand,
   QueryCommand,
   ScanCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import type { TransactWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
 import { getAwsRegion, getDynamoTableName } from "../env";
 import type { PageBody, PageIndex, PageVersion, PublishJob, Repo, Shop } from "../types";
 import {
   GSI1_NAME,
+  SHOP_DIR_PK,
   gidLookupPk,
   jobFromItem,
   jobToItem,
@@ -20,6 +23,8 @@ import {
   pageIndexFromItem,
   pageIndexToItem,
   pagePk,
+  shopDirSk,
+  shopDomainLookupPk,
   shopFromItem,
   shopPk,
   shopToItem,
@@ -54,8 +59,38 @@ export function createDdbRepo(): Repo {
       return res.Item ? shopFromItem(res.Item) : null;
     },
 
+    async getShopByDomain(domain) {
+      const lookup = await doc.send(
+        new GetCommand({
+          TableName: TableName(),
+          Key: { PK: shopDomainLookupPk(domain), SK: "META" },
+        })
+      );
+      if (lookup.Item?.shopId) {
+        return this.getShop(String(lookup.Item.shopId));
+      }
+      // Pre-migration fallback: listShops() self-heals the directory and the
+      // domain lookups, so the next call hits the O(1) lookup above.
+      const shops = await this.listShops();
+      return shops.find((s) => s.domain === domain) ?? null;
+    },
+
     async listShops() {
       const res = await doc.send(
+        new QueryCommand({
+          TableName: TableName(),
+          KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+          ExpressionAttributeValues: { ":pk": SHOP_DIR_PK, ":sk": "SHOP#" },
+        })
+      );
+      if (res.Items && res.Items.length > 0) {
+        return res.Items
+          .map((i) => shopFromItem(i))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+      // Empty directory (pre-migration): fall back to a one-time full scan and
+      // backfill the directory + domain lookups so later calls are Queries.
+      const scan = await doc.send(
         new ScanCommand({
           TableName: TableName(),
           FilterExpression: "#e = :shop",
@@ -63,18 +98,54 @@ export function createDdbRepo(): Repo {
           ExpressionAttributeValues: { ":shop": "shop" },
         })
       );
-      return (res.Items ?? [])
-        .map((i) => shopFromItem(i))
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const shops = (scan.Items ?? []).map((i) => shopFromItem(i));
+      for (const shop of shops) await this.putShop(shop);
+      return shops.sort((a, b) => a.name.localeCompare(b.name));
     },
 
     async putShop(shop) {
+      // Fetch prior record first so a domain change can clean up its stale
+      // domain -> shop lookup below.
+      const prev = await this.getShop(shop.id);
       await doc.send(
         new PutCommand({ TableName: TableName(), Item: shopToItem(shop) })
       );
+      // Directory pointer (denormalized copy) powers listShops() via Query.
+      await doc.send(
+        new PutCommand({
+          TableName: TableName(),
+          Item: {
+            PK: SHOP_DIR_PK,
+            SK: shopDirSk(shop.id),
+            entity: "shop_dir",
+            ...shop,
+          },
+        })
+      );
+      // Reverse lookup domain -> shopId for O(1) domain resolution.
+      await doc.send(
+        new PutCommand({
+          TableName: TableName(),
+          Item: {
+            PK: shopDomainLookupPk(shop.domain),
+            SK: "META",
+            entity: "shop_lookup",
+            shopId: shop.id,
+          },
+        })
+      );
+      if (prev && prev.domain !== shop.domain) {
+        await doc.send(
+          new DeleteCommand({
+            TableName: TableName(),
+            Key: { PK: shopDomainLookupPk(prev.domain), SK: "META" },
+          })
+        );
+      }
     },
 
     async deleteShop(id) {
+      const shop = await this.getShop(id);
       const pages = await this.listPagesByShop(id);
       for (const p of pages) await this.deletePage(p.pageId);
       await doc.send(
@@ -83,6 +154,20 @@ export function createDdbRepo(): Repo {
           Key: { PK: shopPk(id), SK: "META" },
         })
       );
+      await doc.send(
+        new DeleteCommand({
+          TableName: TableName(),
+          Key: { PK: SHOP_DIR_PK, SK: shopDirSk(id) },
+        })
+      );
+      if (shop) {
+        await doc.send(
+          new DeleteCommand({
+            TableName: TableName(),
+            Key: { PK: shopDomainLookupPk(shop.domain), SK: "META" },
+          })
+        );
+      }
     },
 
     async getPageIndex(pageId) {
@@ -135,27 +220,30 @@ export function createDdbRepo(): Repo {
     },
 
     async putPageIndex(index) {
-      await doc.send(
-        new PutCommand({ TableName: TableName(), Item: pageIndexToItem(index) })
-      );
-      await doc.send(
-        new PutCommand({
-          TableName: TableName(),
-          Item: {
-            PK: `PAGE_LOOKUP#${index.pageId}`,
-            SK: "META",
-            entity: "page_lookup",
-            shopId: index.shopId,
-            pageIndexSk: `PAGE#${index.pageId}`,
+      // Atomic multi-write: the page index, its pageId -> shop lookup, and (when
+      // present) the GID -> page reverse lookup all commit together, so a partial
+      // failure can't leave a lookup pointing at a missing/half-written page.
+      const items: NonNullable<TransactWriteCommandInput["TransactItems"]> = [
+        { Put: { TableName: TableName(), Item: pageIndexToItem(index) } },
+        {
+          Put: {
+            TableName: TableName(),
+            Item: {
+              PK: `PAGE_LOOKUP#${index.pageId}`,
+              SK: "META",
+              entity: "page_lookup",
+              shopId: index.shopId,
+              pageIndexSk: `PAGE#${index.pageId}`,
+            },
           },
-        })
-      );
-      // Reverse lookup GID -> page, so Shopify webhooks resolve in O(1)
-      // instead of scanning every shop's pages. Self-healing: rewritten on
-      // each save while a GID is set; removed in deletePage.
+        },
+      ];
+      // Reverse lookup GID -> page, so Shopify webhooks resolve in O(1) instead
+      // of scanning every shop's pages. Self-healing: rewritten on each save
+      // while a GID is set; removed in deletePage.
       if (index.shopifyPageGid) {
-        await doc.send(
-          new PutCommand({
+        items.push({
+          Put: {
             TableName: TableName(),
             Item: {
               PK: gidLookupPk(index.shopifyPageGid),
@@ -164,9 +252,10 @@ export function createDdbRepo(): Repo {
               shopId: index.shopId,
               pageId: index.pageId,
             },
-          })
-        );
+          },
+        });
       }
+      await doc.send(new TransactWriteCommand({ TransactItems: items }));
     },
 
     async deletePage(pageId) {
