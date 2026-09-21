@@ -42,6 +42,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     content: {
       type: "slot",
       label: "Content",
+      disallow: ["Hero"],
     },
   } as Fields<Components["Container"]>,
   defaultProps: {
@@ -247,6 +248,7 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
     fields.content = {
       type: "slot",
       label: "Content",
+      disallow: ["Hero"],
     };
 
     return fields;

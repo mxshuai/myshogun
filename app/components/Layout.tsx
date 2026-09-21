@@ -135,6 +135,7 @@ export const defaultLayoutSpacing = {
 
 export const layoutField: ObjectField<LayoutFieldProps> = {
   type: "object",
+  label: "Layout",
   objectFields: {
     spanCol: {
       label: "Grid Columns",

@@ -1,0 +1,46 @@
+.visbuild-collapsible-object {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.visbuild-collapsible-object__summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-weight: 600;
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  color: var(--puck-color-text, #1a1a1a);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.visbuild-collapsible-object__summary::-webkit-details-marker {
+  display: none;
+}
+
+.visbuild-collapsible-object__chevron {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid currentColor;
+  opacity: 0.65;
+  transition: transform 0.15s ease;
+}
+
+.visbuild-collapsible-object[open] .visbuild-collapsible-object__chevron {
+  transform: rotate(90deg);
+}
+
+.visbuild-collapsible-object__body {
+  padding: 0 0 4px;
+}
+
+/* 只藏当前 object 自己的分组标题，不要动内部 Min Height / Top 等字段 label */
+.visbuild-collapsible-object__body > [class*="Input"] > [class*="Input-label"] {
+  display: none;
+}

@@ -37,6 +37,7 @@ const FlexInternal: ComponentConfig<Components["Flex"]> = {
     },
     items: {
       type: "slot",
+      disallow: ["Hero"],
     },
   },
   defaultProps: {

@@ -14,6 +14,8 @@ import {
   schedulePageUpdate,
 } from "~/lib/server/publish";
 import editorStyles from "@puckeditor/core/puck.css?url";
+import { visbuildPuckFieldTypes } from "~/components/editor/puck-overrides";
+import "~/components/editor/puck-overrides.css";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireAdmin(request);
@@ -201,6 +203,7 @@ export default function AdminPageEditor() {
           data={editorData}
           onChange={setEditorData}
           overrides={{
+            fieldTypes: visbuildPuckFieldTypes,
             headerActions: () => <></>,
           }}
         />

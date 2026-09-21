@@ -360,6 +360,7 @@ const sliderFields = {
       slot: {
         type: "slot" as const,
         label: "Slot",
+        disallow: ["Hero"],
       },
     },
   },

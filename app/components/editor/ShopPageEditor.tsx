@@ -13,6 +13,8 @@ import {
 } from "~/components/editor/EditorPublishActions";
 import { shopEditPath } from "~/lib/shop-url";
 import editorStyles from "@puckeditor/core/puck.css?url";
+import { visbuildPuckFieldTypes } from "~/components/editor/puck-overrides";
+import "~/components/editor/puck-overrides.css";
 import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
 import { PreviewModal } from "~/components/PreviewModal";
 import { ViewPageModal } from "~/components/ViewPageModal";
@@ -169,6 +171,7 @@ export function ShopPageEditor({
         data={editorData}
         onChange={setEditorData}
         overrides={{
+          fieldTypes: visbuildPuckFieldTypes,
           header: ({ children }) => (
             <VisbuildEditorHeader shopDomain={shopDomain} onPersist={persistPage}>
               {children}

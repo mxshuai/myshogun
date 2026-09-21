@@ -82,6 +82,7 @@ const tableFields = {
       content: {
         type: "slot" as const,
         label: "Content",
+        disallow: ["Hero"],
       },
     },
   },
