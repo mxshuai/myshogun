@@ -1,6 +1,7 @@
 import { data } from "react-router";
 
 import type { Route } from "./+types/api.assets.media";
+import { isAllowedMediaUrl } from "~/lib/server/assets.server";
 import { requireMediaShopAccess } from "~/lib/server/media-auth.server";
 import { ensureServerContext } from "~/lib/server/factory";
 import type { MediaAsset } from "~/lib/server/types";
@@ -53,6 +54,12 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   const shop = await requireMediaShopAccess(request, shopDomain, ctx);
+  if (!isAllowedMediaUrl(url, shop.id)) {
+    return data(
+      { error: "Image URL must be an upload for this shop" },
+      { status: 400 },
+    );
+  }
   const filename =
     body.filename?.trim() || url.split("/").pop()?.split("?")[0] || "image";
   const asset: MediaAsset = {

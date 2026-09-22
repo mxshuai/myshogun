@@ -6,6 +6,7 @@ import { getAssetsBucket, getAwsRegion } from "../env";
 export async function createAssetUploadUrl(params: {
   key: string;
   contentType: string;
+  contentLength?: number;
   expiresIn?: number;
 }): Promise<{ uploadUrl: string; publicUrl: string }> {
   const bucket = getAssetsBucket();
@@ -18,6 +19,9 @@ export async function createAssetUploadUrl(params: {
     Bucket: bucket,
     Key: params.key,
     ContentType: params.contentType,
+    ...(params.contentLength != null
+      ? { ContentLength: params.contentLength }
+      : {}),
   });
 
   const uploadUrl = await getSignedUrl(client, command, {

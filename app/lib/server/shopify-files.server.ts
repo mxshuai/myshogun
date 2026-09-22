@@ -11,16 +11,30 @@ export type ShopifyFileRow = {
   size: number | null;
 };
 
+export type ShopifyFilesResult =
+  | {
+      ok: true;
+      files: ShopifyFileRow[];
+      endCursor: string | null;
+      hasNextPage: boolean;
+    }
+  | { ok: false; error: string };
+
 export async function listShopifyFilesForShop(
   ctx: ServerContext,
   shopId: string,
   params?: { query?: string; after?: string; first?: number },
-): Promise<{ files: ShopifyFileRow[]; endCursor: string | null; hasNextPage: boolean }> {
+): Promise<ShopifyFilesResult> {
   const shop = await ctx.repo.getShop(shopId);
-  if (!shop) return { files: [], endCursor: null, hasNextPage: false };
+  if (!shop) return { ok: false, error: "Shop not found" };
 
   const token = await ctx.secrets.getShopToken(shopId);
-  if (!token) return { files: [], endCursor: null, hasNextPage: false };
+  if (!token) {
+    return { ok: false, error: "Shopify token is not configured for this shop" };
+  }
+
+  const term = params?.query?.trim();
+  const query = term ? `media_type:IMAGE ${term}` : "media_type:IMAGE";
 
   try {
     const client = createAdminClient({
@@ -30,14 +44,18 @@ export async function listShopifyFilesForShop(
     const result = await client.listFiles({
       first: params?.first ?? 50,
       after: params?.after,
-      query: params?.query,
+      query,
     });
     return {
+      ok: true,
       files: result.files,
       endCursor: result.pageInfo.endCursor,
       hasNextPage: result.pageInfo.hasNextPage,
     };
-  } catch {
-    return { files: [], endCursor: null, hasNextPage: false };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }

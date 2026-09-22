@@ -3,7 +3,17 @@ import {
   buildDevPublicUrl,
   buildDevUploadUrl,
 } from "./dev/assets.dev";
-import { getAssetsBucket, useAwsDataLayer } from "./env";
+import { getAssetsBucket, getAwsRegion, useAwsDataLayer } from "./env";
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+]);
 
 export type AssetUploadTarget = {
   uploadUrl: string;
@@ -14,6 +24,45 @@ export type AssetUploadTarget = {
 
 function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+export function assertAllowedImageUpload(params: {
+  contentType: string;
+  size?: number | null;
+}): void {
+  const contentType = params.contentType.trim().toLowerCase();
+  if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+    throw new Error(
+      "Only JPEG, PNG, GIF, WebP, and AVIF images can be uploaded",
+    );
+  }
+  if (params.size == null || params.size <= 0 || params.size > MAX_IMAGE_BYTES) {
+    throw new Error("Image must be between 1 byte and 10 MB");
+  }
+}
+
+export function isAllowedMediaUrl(url: string, shopId: string): boolean {
+  const prefix = `/uploads/${shopId}/`;
+  if (url.startsWith(`/dev-uploads${prefix}`)) return true;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:" || !parsed.pathname.startsWith(prefix)) {
+    return false;
+  }
+
+  const bucket = getAssetsBucket();
+  if (!bucket) return false;
+  const region = getAwsRegion();
+  return parsed.hostname === `${bucket}.s3.${region}.amazonaws.com`;
+}
+
+export function isOwnedUploadKey(key: string, shopId: string): boolean {
+  return key.startsWith(`uploads/${shopId}/`) && !key.includes("..");
 }
 
 export function resolveAssetStorage(): "s3" | "dev" {
@@ -28,7 +77,12 @@ export async function createAssetUploadTarget(params: {
   shopId: string;
   filename: string;
   contentType: string;
+  size?: number | null;
 }): Promise<AssetUploadTarget> {
+  assertAllowedImageUpload({
+    contentType: params.contentType,
+    size: params.size,
+  });
   const safeName = sanitizeFilename(params.filename.trim() || `upload-${Date.now()}`);
   const key = `uploads/${params.shopId}/${crypto.randomUUID()}/${safeName}`;
   const storage = resolveAssetStorage();
@@ -37,6 +91,7 @@ export async function createAssetUploadTarget(params: {
     const urls = await createAssetUploadUrl({
       key,
       contentType: params.contentType,
+      contentLength: params.size ?? undefined,
     });
     return { ...urls, key, storage: "s3" };
   }

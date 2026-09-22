@@ -242,11 +242,25 @@ export function buildImageDimensionalStyle(
   };
 }
 
+function supportsResponsiveImageParams(src: string): boolean {
+  if (src.startsWith("/dev-uploads/")) return false;
+  try {
+    const url = new URL(src);
+    if (url.hostname.endsWith(".amazonaws.com")) return false;
+    return (
+      url.hostname === "cdn.shopify.com" ||
+      url.hostname.endsWith(".shopifycdn.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function buildResponsiveSrcSet(
   src: string,
   quality: number
 ): string | undefined {
-  if (!src.trim()) return undefined;
+  if (!src.trim() || !supportsResponsiveImageParams(src)) return undefined;
   const widths = [400, 800, 1200, 1600];
   return widths
     .map((w) => {
@@ -307,7 +321,7 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
   inset: 0;
   opacity: 0;
 }
-.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--default {
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--default.visbuild-image__img--stacked {
   opacity: 0;
 }
 .visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--hover {

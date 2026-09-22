@@ -68,6 +68,7 @@ export async function uploadToShogun(
       shopDomain,
       filename: file.name,
       contentType: file.type || "application/octet-stream",
+      size: file.size,
     }),
   });
   const presign = await readJson<{

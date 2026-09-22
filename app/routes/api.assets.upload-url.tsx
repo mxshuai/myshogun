@@ -13,6 +13,7 @@ export async function action({ request }: Route.ActionArgs) {
     shopDomain?: string;
     filename?: string;
     contentType?: string;
+    size?: number;
   };
   const shopDomain = body.shopDomain?.trim() ?? "";
   if (!shopDomain) {
@@ -30,12 +31,12 @@ export async function action({ request }: Route.ActionArgs) {
       shopId: shop.id,
       filename,
       contentType,
+      size: typeof body.size === "number" ? body.size : null,
     });
     return data({ ok: true, ...target });
   } catch (e) {
-    return data(
-      { error: e instanceof Error ? e.message : String(e) },
-      { status: 500 }
-    );
+    const message = e instanceof Error ? e.message : String(e);
+    const status = /Only JPEG|10 MB|ASSETS_BUCKET_NAME/.test(message) ? 400 : 500;
+    return data({ error: message }, { status });
   }
 }

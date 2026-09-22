@@ -17,6 +17,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const query = url.searchParams.get("query")?.trim() || undefined;
   const after = url.searchParams.get("after")?.trim() || undefined;
   const result = await listShopifyFilesForShop(ctx, shop.id, { query, after });
+  if (!result.ok) {
+    return data({ error: result.error }, { status: 502 });
+  }
 
   return data({
     ok: true,

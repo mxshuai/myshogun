@@ -49,22 +49,29 @@ export function MediaPickerModal({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<number | null>(null);
+  const searchRef = useRef(search);
+  const requestIdRef = useRef(0);
+  searchRef.current = search;
 
   const loadShogun = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const assets = await fetchShogunMedia(shopDomain);
+      if (requestId !== requestIdRef.current) return;
       setShogunItems(assets);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [shopDomain]);
 
   const loadShopify = useCallback(
     async (opts?: { query?: string; after?: string; append?: boolean }) => {
+      const requestId = ++requestIdRef.current;
       setLoading(true);
       setError(null);
       try {
@@ -72,15 +79,17 @@ export function MediaPickerModal({
           query: opts?.query,
           after: opts?.after,
         });
+        if (requestId !== requestIdRef.current) return;
         setShopifyItems((prev) =>
           opts?.append ? [...prev, ...result.files] : result.files,
         );
         setShopifyCursor(result.endCursor);
         setShopifyHasMore(result.hasNextPage);
       } catch (e) {
+        if (requestId !== requestIdRef.current) return;
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     },
     [shopDomain],
@@ -89,10 +98,10 @@ export function MediaPickerModal({
   useEffect(() => {
     if (tab === "shogun") {
       void loadShogun();
-    } else {
-      void loadShopify({ query: search || undefined });
+      return;
     }
-  }, [tab, loadShogun, loadShopify, search]);
+    void loadShopify({ query: searchRef.current.trim() || undefined });
+  }, [tab, loadShogun, loadShopify]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -108,7 +117,6 @@ export function MediaPickerModal({
     setError(null);
     try {
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue;
         await uploadToShogun(shopDomain, file);
       }
       await loadShogun();

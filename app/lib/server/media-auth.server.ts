@@ -7,10 +7,13 @@ export async function requireMediaShopAccess(
   shopDomain: string,
   ctx: ServerContext,
 ): Promise<Shop> {
-  requireShopSession(request);
+  const session = requireShopSession(request);
   const shop = await findShopByDomain(ctx, shopDomain);
   if (!shop) {
     throw new Response("Shop not found", { status: 404 });
+  }
+  if (session.shopId !== shop.id) {
+    throw new Response("Forbidden", { status: 403 });
   }
   return shop;
 }
