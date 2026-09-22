@@ -53,9 +53,10 @@ export async function listShopifyFilesForShop(
       hasNextPage: result.pageInfo.hasNextPage,
     };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
+    const message = e instanceof Error ? e.message : String(e);
+    const error = /read_files|read_images|read_themes/i.test(message)
+      ? `${message} Add read_files to the app SCOPES, then reinstall the app so the shop token is re-issued.`
+      : message;
+    return { ok: false, error };
   }
 }

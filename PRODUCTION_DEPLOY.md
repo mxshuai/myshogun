@@ -256,7 +256,7 @@ npm run deploy:schedule-lambda
 | `SHOPIFY_TOKEN_SECRET_PREFIX` | `visbuild-shopify/token` | Token 存入 Secrets Manager 时的名称前缀 |
 | `SHOPIFY_API_KEY` | Partners Client ID | Shopify OAuth 登录 |
 | `SHOPIFY_API_SECRET` | Partners Client secret | 校验 callback / 换取 access token |
-| `SCOPES` | `read_content,write_content` | OAuth 授权 scope |
+| `SCOPES` | `read_content,write_content,read_files` | OAuth 授权 scope；改完后店铺需重新走 OAuth，旧 token 不会自动获得新权限 |
 | `SHOPIFY_APP_URL` | `https://<domain>` | OAuth 回调基准域名（仅 origin） |
 | `ADMIN_AUTH_MODE` | *(可选)* `legacy` | 回滚开关：启用旧 `ADMIN_API_KEY` 登录 |
 

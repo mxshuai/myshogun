@@ -8,7 +8,9 @@
   "assetsCorsAllowedOrigins": [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://feature-shopify-embedded-app.d3w458ytk16hpm.amplifyapp.com"
+    "https://master.d3w458ytk16hpm.amplifyapp.com",
+    "https://feature-shopify-embedded-app.d3w458ytk16hpm.amplifyapp.com",
+    "https://*.d3w458ytk16hpm.amplifyapp.com"
   ],
   "amplifyAppUrl": "https://feature-shopify-embedded-app.d3w458ytk16hpm.amplifyapp.com"
 }
