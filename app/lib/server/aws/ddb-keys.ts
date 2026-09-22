@@ -1,4 +1,5 @@
 import type {
+  MediaAsset,
   PageBody,
   PageIndex,
   PageVersion,
@@ -167,6 +168,33 @@ export function jobToItem(job: PublishJob) {
     GSI1PK: "JOB_STATUS#pending",
     GSI1SK: job.runAt,
     ...job,
+  };
+}
+
+export function mediaSk(createdAt: string, assetId: string) {
+  return `MEDIA#${createdAt}#${assetId}`;
+}
+
+export function mediaAssetToItem(asset: MediaAsset) {
+  return {
+    PK: shopPk(asset.shopId),
+    SK: mediaSk(asset.createdAt, asset.assetId),
+    entity: "media_asset",
+    ...asset,
+  };
+}
+
+export function mediaAssetFromItem(item: Record<string, unknown>): MediaAsset {
+  return {
+    assetId: String(item.assetId),
+    shopId: String(item.shopId),
+    url: String(item.url),
+    filename: String(item.filename),
+    contentType: String(item.contentType),
+    size: item.size != null ? Number(item.size) : null,
+    width: item.width != null ? Number(item.width) : null,
+    height: item.height != null ? Number(item.height) : null,
+    createdAt: String(item.createdAt),
   };
 }
 

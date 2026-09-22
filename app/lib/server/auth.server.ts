@@ -36,6 +36,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/auth/shopify/",
   "/auth/dev-login",
   "/api/shopify/webhook",
+  "/dev-uploads/",
 ];
 
 function isPublicPath(pathname: string): boolean {

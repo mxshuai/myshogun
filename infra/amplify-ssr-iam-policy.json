@@ -1,41 +1,50 @@
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "DynamoDBAppTable",
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan",
-        "dynamodb:BatchGetItem",
-        "dynamodb:BatchWriteItem"
-      ],
-      "Resource": [
-        "arn:aws:dynamodb:ap-southeast-2:124074140777:table/visbuild-shopify-app",
-        "arn:aws:dynamodb:ap-southeast-2:124074140777:table/visbuild-shopify-app/index/*"
-      ]
-    },
-    {
-      "Sid": "SecretsManagerShopifyTokens",
-      "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:PutSecretValue",
-        "secretsmanager:CreateSecret",
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:TagResource"
-      ],
-      "Resource": "arn:aws:secretsmanager:ap-southeast-2:124074140777:secret:visbuild-shopify/token/*"
-    },
-    {
-      "Sid": "InvokeScheduleLambda",
-      "Effect": "Allow",
-      "Action": "lambda:InvokeFunction",
-      "Resource": "arn:aws:lambda:ap-southeast-2:124074140777:function:visbuild-shopify-data-schedule"
-    }
-  ]
+    "Version":  "2012-10-17",
+    "Statement":  [
+                      {
+                          "Effect":  "Allow",
+                          "Sid":  "DynamoDBAppTable",
+                          "Resource":  [
+                                           "arn:aws:dynamodb:ap-southeast-2:124074140777:table/visbuild-shopify-app",
+                                           "arn:aws:dynamodb:ap-southeast-2:124074140777:table/visbuild-shopify-app/index/*"
+                                       ],
+                          "Action":  [
+                                         "dynamodb:GetItem",
+                                         "dynamodb:PutItem",
+                                         "dynamodb:UpdateItem",
+                                         "dynamodb:DeleteItem",
+                                         "dynamodb:Query",
+                                         "dynamodb:Scan",
+                                         "dynamodb:BatchGetItem",
+                                         "dynamodb:BatchWriteItem"
+                                     ]
+                      },
+                      {
+                          "Effect":  "Allow",
+                          "Sid":  "SecretsManagerShopifyTokens",
+                          "Resource":  "arn:aws:secretsmanager:ap-southeast-2:124074140777:secret:visbuild-shopify/token/*",
+                          "Action":  [
+                                         "secretsmanager:GetSecretValue",
+                                         "secretsmanager:PutSecretValue",
+                                         "secretsmanager:CreateSecret",
+                                         "secretsmanager:DescribeSecret",
+                                         "secretsmanager:TagResource"
+                                     ]
+                      },
+                      {
+                          "Effect":  "Allow",
+                          "Sid":  "InvokeScheduleLambda",
+                          "Resource":  "arn:aws:lambda:ap-southeast-2:124074140777:function:visbuild-shopify-data-schedule",
+                          "Action":  "lambda:InvokeFunction"
+                      },
+                      {
+                          "Effect":  "Allow",
+                          "Sid":  "S3MediaUpload",
+                          "Resource":  "arn:aws:s3:::visbuild-media-124074140777/uploads/*",
+                          "Action":  [
+                                         "s3:PutObject",
+                                         "s3:GetObject"
+                                     ]
+                      }
+                  ]
 }

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 
+import { normalizeImageValue } from "./editor/media/types";
 import {
   resolveBorderCSSValue,
   resolveBorderRadiusPx,
@@ -35,6 +36,7 @@ export type ImageStyleGroup = {
 
 export type ImageRenderProps = {
   src: string;
+  hoverSrc: string;
   alt: string;
   imageClickable: boolean;
   linkHref?: string;
@@ -136,8 +138,12 @@ export function flattenImageProps(props: Record<string, unknown>): ImageRenderPr
     DEFAULT_STYLE
   );
 
+  const mainImage = normalizeImageValue(props.src);
+  const hoverImage = normalizeImageValue(props.hoverSrc);
+
   return {
-    src: String(props.src ?? ""),
+    src: mainImage?.url ?? "",
+    hoverSrc: hoverImage?.url ?? "",
     alt: String(props.alt ?? ""),
     imageClickable: props.imageClickable === true,
     linkHref: typeof props.linkHref === "string" ? props.linkHref : "",
@@ -296,7 +302,18 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
   box-shadow: var(--img-shadow, none);
   transition: opacity 0.2s ease, border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
-.visbuild-image:hover .visbuild-image__img {
+.visbuild-image__img--hover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--default {
+  opacity: 0;
+}
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--hover {
+  opacity: 1;
+}
+.visbuild-image:not(.visbuild-image--editing):not(.visbuild-image--has-hover):hover .visbuild-image__img {
   opacity: var(--img-hover-opacity, var(--img-opacity, 1));
   border: var(--img-hover-border, var(--img-border, none));
   border-radius: var(--img-hover-radius, var(--img-radius, 0));

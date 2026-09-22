@@ -1,4 +1,5 @@
 import type {
+  MediaAsset,
   PageBody,
   PageIndex,
   PageVersion,
@@ -14,6 +15,7 @@ type Store = {
   pageBodies: Record<string, PageBody>;
   versions: Record<string, PageVersion>;
   jobs: Record<string, PublishJob>;
+  media: Record<string, MediaAsset>;
 };
 
 const FILE = "repo.json";
@@ -28,6 +30,7 @@ async function load(): Promise<Store> {
     pageBodies: {},
     versions: {},
     jobs: {},
+    media: {},
   });
 }
 
@@ -151,6 +154,19 @@ export function createDevRepo(): Repo {
         (j) =>
           j.status === "pending" && new Date(j.runAt).getTime() <= t
       );
+    },
+    async putMediaAsset(asset) {
+      const s = await load();
+      s.media[asset.assetId] = asset;
+      await save(s);
+    },
+    async listMediaAssets(shopId, params) {
+      const s = await load();
+      const limit = params?.limit ?? 100;
+      return Object.values(s.media)
+        .filter((a) => a.shopId === shopId)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .slice(0, limit);
     },
   };
 }

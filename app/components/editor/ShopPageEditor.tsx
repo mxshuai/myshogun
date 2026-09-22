@@ -13,6 +13,8 @@ import {
 } from "~/components/editor/EditorPublishActions";
 import { shopEditPath } from "~/lib/shop-url";
 import editorStyles from "@puckeditor/core/puck.css?url";
+import { MediaPickerProvider } from "~/components/editor/media/MediaPickerContext";
+import "~/components/editor/media/media.css";
 import { visbuildPuckFieldTypes } from "~/components/editor/puck-overrides";
 import "~/components/editor/puck-overrides.css";
 import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
@@ -166,6 +168,7 @@ export function ShopPageEditor({
           {actionError}
         </div>
       ) : null}
+      <MediaPickerProvider shopDomain={shopDomain}>
       <Puck
         config={config}
         data={editorData}
@@ -241,6 +244,7 @@ export function ShopPageEditor({
           ),
         }}
       />
+      </MediaPickerProvider>
       <PreviewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}

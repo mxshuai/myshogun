@@ -10,6 +10,7 @@
 | 数据面 CloudFormation 栈 | `visbuild-shopify-data` |
 | DynamoDB 表 | `visbuild-shopify-app` |
 | Publish Lambda | `visbuild-shopify-data-publish` |
+| S3 媒体桶 | `visbuild-media-124074140777`（Shogun 图片；由数据面栈创建） |
 
 ---
 
@@ -92,20 +93,17 @@ npm run seed:publish-test
 ### 你要执行的命令
 
 ```powershell
-# 仓库根目录
+# 仓库根目录 — 推荐：数据面 + 两个 Lambda 代码包 + S3 媒体桶 + IAM 策略生成
+npm run deploy:aws
+```
+
+仅更新 CloudFormation（含 S3 媒体桶）：
+
+```powershell
 npm run deploy:data-plane
 ```
 
-等价于：
-
-```powershell
-aws cloudformation deploy `
-  --template-file infra/template.yaml `
-  --stack-name visbuild-shopify-data `
-  --capabilities CAPABILITY_IAM `
-  --parameter-overrides AppTableName=visbuild-shopify-app `
-  --region ap-southeast-2
-```
+配置见 [`infra/deploy.config.json`](infra/deploy.config.json)（桶名、CORS 来源、Amplify 域名）。脚本会自动传入 `AssetsBucketName` 与 `AssetsCorsAllowedOrigins`。
 
 **若首次失败且栈状态为 `ROLLBACK_COMPLETE`：** 先删除再部署（脚本已自动处理），常见原因是模板里给 Lambda 设置了保留变量 `AWS_REGION`（已修复；Lambda 会自动注入该区域）。
 

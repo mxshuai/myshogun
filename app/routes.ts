@@ -12,6 +12,10 @@ export default [
   route("admin/shops/:shopId/pages", "routes/admin.shops.$shopId.pages.tsx"),
   route("admin/pages/:pageId", "routes/admin.pages.$pageId.tsx"),
   route("api/assets/upload-url", "routes/api.assets.upload-url.tsx"),
+  route("api/assets/dev-upload/*", "routes/api.assets.dev-upload.tsx"),
+  route("dev-uploads/*", "routes/dev-uploads.splat.tsx"),
+  route("api/assets/media", "routes/api.assets.media.tsx"),
+  route("api/shopify/files", "routes/api.shopify.files.tsx"),
   route("api/shopify/webhook", "routes/api.shopify.webhook.tsx"),
   route("shop/:shopDomain", "routes/shop.$shopDomain.tsx", [
     index("routes/shop.$shopDomain._index.tsx"),

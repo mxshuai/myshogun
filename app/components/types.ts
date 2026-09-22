@@ -85,7 +85,22 @@ export type Components = {
     items: Slot;
   }>;
   Image: WithLayout<{
-    src: string;
+    src:
+      | string
+      | {
+          url: string;
+          filename?: string;
+          size?: number | null;
+          width?: number | null;
+          height?: number | null;
+        };
+    hoverSrc?: {
+      url: string;
+      filename?: string;
+      size?: number | null;
+      width?: number | null;
+      height?: number | null;
+    } | null;
     alt: string;
     imageClickable: boolean;
     linkHref?: string;

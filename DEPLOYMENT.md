@@ -224,7 +224,7 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 | `APP_TABLE_NAME` | DynamoDB 表名 |
 | `PUBLISH_LAMBDA_ARN` / `SCHEDULER_ROLE_ARN` | Publish Lambda 与 Scheduler 调用角色（后者在 Schedule Lambda 环境内） |
 | `SCHEDULE_LAMBDA_ARN` | SSR Invoke，创建 EventBridge 定时任务（生产 `/pages` Schedule 必配） |
-| `ASSETS_BUCKET_NAME` | S3 预签上传 |
+| `ASSETS_BUCKET_NAME` | Shogun 图片 S3 桶（`USE_AWS_DATA_LAYER=true` 时必填；本地 dev repo 可省略，改走 `.dev-data/uploads` + `/dev-uploads/*`） |
 | `SHOPIFY_WEBHOOK_SECRET` | Webhook HMAC（可选） |
 
 非内嵌 OAuth 入口：

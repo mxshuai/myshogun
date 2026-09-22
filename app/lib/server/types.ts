@@ -71,6 +71,18 @@ export interface PublishJob {
   updatedAt: string;
 }
 
+export interface MediaAsset {
+  assetId: string;
+  shopId: string;
+  url: string;
+  filename: string;
+  contentType: string;
+  size: number | null;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+}
+
 export interface Repo {
   getShop(id: string): Promise<Shop | null>;
   getShopByDomain(domain: string): Promise<Shop | null>;
@@ -94,6 +106,12 @@ export interface Repo {
   getJob(jobId: string): Promise<PublishJob | null>;
   cancelJob(jobId: string): Promise<void>;
   listPendingJobsBefore(isoTime: string): Promise<PublishJob[]>;
+
+  putMediaAsset(asset: MediaAsset): Promise<void>;
+  listMediaAssets(
+    shopId: string,
+    params?: { limit?: number },
+  ): Promise<MediaAsset[]>;
 }
 
 export interface SecretsStore {

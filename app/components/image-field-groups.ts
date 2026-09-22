@@ -1,9 +1,18 @@
 import type { ObjectField } from "@puckeditor/core";
 import { onOffOptions } from "./button-field-groups";
+import { createImagePickerField } from "./editor/media/ImagePickerField";
 import { createPuckColorField } from "./ui/puck-color-field";
 
 export { onOffOptions };
 import type { ImageDimensionsGroup, ImageStyleGroup } from "./image-styles";
+
+export const imageSrcField = createImagePickerField("Image source", {
+  variant: "main",
+});
+
+export const imageHoverSrcField = createImagePickerField("Hover image", {
+  variant: "hover",
+});
 
 const shadowNumberField = (label: string) => ({
   type: "number" as const,

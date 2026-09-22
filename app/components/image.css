@@ -4,6 +4,21 @@
   position: relative;
 }
 
+.visbuild-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+}
+
+.visbuild-image__empty-label {
+  color: #6b7280;
+  font-size: 14px;
+}
+
 .visbuild-image__link {
   display: block;
   text-decoration: none;
@@ -26,7 +41,25 @@
     transform 0.2s ease;
 }
 
-.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img {
+.visbuild-image__img--stacked {
+  transition: opacity 0.2s ease;
+}
+
+.visbuild-image__img--hover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--default.visbuild-image__img--stacked {
+  opacity: 0;
+}
+
+.visbuild-image:not(.visbuild-image--editing):hover .visbuild-image__img--hover {
+  opacity: 1;
+}
+
+.visbuild-image:not(.visbuild-image--editing):not(.visbuild-image--has-hover):hover .visbuild-image__img {
   opacity: var(--img-hover-opacity, var(--img-opacity, 1));
   border: var(--img-hover-border, var(--img-border, none));
   border-radius: var(--img-hover-radius, var(--img-radius, 0));

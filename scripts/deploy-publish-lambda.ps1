@@ -1,9 +1,11 @@
-# Build and upload Publish Lambda bundle (ap-southeast-2)
-# REQUIRED: esbuild --format=cjs (see scripts/verify-lambda-bundle.mjs)
+# Build and upload Publish Lambda bundle.
 $ErrorActionPreference = "Stop"
-$Region = "ap-southeast-2"
-$FunctionName = "visbuild-shopify-data-publish"
-$Root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "aws-deploy-lib.ps1")
+
+$config = Get-DeployConfig
+$Region = $config.Region
+$FunctionName = Get-PublishLambdaName -StackName $config.StackName
+$Root = Get-RepoRoot
 $DistDir = Join-Path $Root "infra\dist\publish"
 $ZipPath = Join-Path $Root "infra\dist\publish.zip"
 

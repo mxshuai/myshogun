@@ -1,0 +1,14 @@
+{
+  "awsAccountId": "124074140777",
+  "region": "ap-southeast-2",
+  "stackName": "visbuild-shopify-data",
+  "appTableName": "visbuild-shopify-app",
+  "shopifyTokenSecretPrefix": "visbuild-shopify/token",
+  "assetsBucketName": "visbuild-media-124074140777",
+  "assetsCorsAllowedOrigins": [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://feature-shopify-embedded-app.d3w458ytk16hpm.amplifyapp.com"
+  ],
+  "amplifyAppUrl": "https://feature-shopify-embedded-app.d3w458ytk16hpm.amplifyapp.com"
+}

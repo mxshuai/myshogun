@@ -1,0 +1,13 @@
+{
+  "awsAccountId": "",
+  "region": "ap-southeast-2",
+  "stackName": "visbuild-shopify-data",
+  "appTableName": "visbuild-shopify-app",
+  "shopifyTokenSecretPrefix": "visbuild-shopify/token",
+  "assetsBucketName": "",
+  "assetsCorsAllowedOrigins": [
+    "http://localhost:5173",
+    "http://localhost:3000"
+  ],
+  "amplifyAppUrl": ""
+}

@@ -11,13 +11,23 @@ import type { TransactWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
 import { getAwsRegion, getDynamoTableName } from "../env";
-import type { PageBody, PageIndex, PageVersion, PublishJob, Repo, Shop } from "../types";
+import type {
+  MediaAsset,
+  PageBody,
+  PageIndex,
+  PageVersion,
+  PublishJob,
+  Repo,
+  Shop,
+} from "../types";
 import {
   GSI1_NAME,
   SHOP_DIR_PK,
   gidLookupPk,
   jobFromItem,
   jobToItem,
+  mediaAssetFromItem,
+  mediaAssetToItem,
   pageBodyFromItem,
   pageBodyToItem,
   pageIndexFromItem,
@@ -421,6 +431,34 @@ export function createDdbRepo(): Repo {
       return (res.Items ?? [])
         .filter((i) => i.status === "pending")
         .map((i) => jobFromItem(i));
+    },
+
+    async putMediaAsset(asset: MediaAsset) {
+      await doc.send(
+        new PutCommand({
+          TableName: TableName(),
+          Item: mediaAssetToItem(asset),
+        })
+      );
+    },
+
+    async listMediaAssets(shopId, params) {
+      const limit = params?.limit ?? 100;
+      const res = await doc.send(
+        new QueryCommand({
+          TableName: TableName(),
+          KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+          ExpressionAttributeValues: {
+            ":pk": shopPk(shopId),
+            ":prefix": "MEDIA#",
+          },
+          ScanIndexForward: false,
+          Limit: limit,
+        })
+      );
+      return (res.Items ?? [])
+        .filter((i) => i.entity === "media_asset")
+        .map((i) => mediaAssetFromItem(i));
     },
   };
 }

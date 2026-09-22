@@ -14,6 +14,8 @@ import {
   schedulePageUpdate,
 } from "~/lib/server/publish";
 import editorStyles from "@puckeditor/core/puck.css?url";
+import { MediaPickerProvider } from "~/components/editor/media/MediaPickerContext";
+import "~/components/editor/media/media.css";
 import { visbuildPuckFieldTypes } from "~/components/editor/puck-overrides";
 import "~/components/editor/puck-overrides.css";
 
@@ -198,15 +200,29 @@ export default function AdminPageEditor() {
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        <Puck
-          config={config}
-          data={editorData}
-          onChange={setEditorData}
-          overrides={{
-            fieldTypes: visbuildPuckFieldTypes,
-            headerActions: () => <></>,
-          }}
-        />
+        {shop?.domain ? (
+          <MediaPickerProvider shopDomain={shop.domain}>
+            <Puck
+              config={config}
+              data={editorData}
+              onChange={setEditorData}
+              overrides={{
+                fieldTypes: visbuildPuckFieldTypes,
+                headerActions: () => <></>,
+              }}
+            />
+          </MediaPickerProvider>
+        ) : (
+          <Puck
+            config={config}
+            data={editorData}
+            onChange={setEditorData}
+            overrides={{
+              fieldTypes: visbuildPuckFieldTypes,
+              headerActions: () => <></>,
+            }}
+          />
+        )}
       </div>
     </div>
   );

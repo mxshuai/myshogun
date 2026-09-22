@@ -8,10 +8,13 @@ import {
   defaultImageHoverStyle,
   defaultImagePerformance,
   imageDimensionsFieldGroup,
+  imageHoverSrcField,
   imagePerformanceFieldGroup,
+  imageSrcField,
   imageStyleFieldGroup,
   onOffOptions,
 } from "./image-field-groups";
+import { normalizeImageValue } from "./editor/media/types";
 import {
   buildImageCssVariables,
   buildImageDimensionalStyle,
@@ -22,10 +25,7 @@ import {
 import "./image.css";
 
 const imageFields = {
-  src: {
-    type: "text",
-    label: "SRC",
-  },
+  src: imageSrcField,
   alt: {
     type: "text",
     label: "Alt",
@@ -50,6 +50,10 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
       alt: imageFields!.alt,
       imageClickable: imageFields!.imageClickable,
     };
+
+    if (normalizeImageValue(props.src)) {
+      fields.hoverSrc = imageHoverSrcField;
+    }
 
     if (props.imageClickable === true) {
       fields.linkHref = {
@@ -78,8 +82,9 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
     return fields as NonNullable<ComponentConfig<Components["Image"]>["fields"]>;
   },
   defaultProps: {
-    src: "https://via.placeholder.com/800x400",
-    alt: "Example image",
+    src: { url: "" },
+    hoverSrc: null,
+    alt: "",
     imageClickable: false,
     linkHref: "",
     openInNewWindow: false,
@@ -94,6 +99,19 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
   render: (props) => {
     const flat = flattenImageProps(props as Record<string, unknown>);
     const { puck } = props;
+
+    if (!flat.src) {
+      return (
+        <Section>
+          <div
+            className={`visbuild-image visbuild-image--empty${puck.isEditing ? " visbuild-image--editing" : ""}`}
+            style={buildImageFrameStyle(flat.dimensions)}
+          >
+            <span className="visbuild-image__empty-label">Select an image</span>
+          </div>
+        </Section>
+      );
+    }
     const loadingAttr =
       flat.performance.loading === "auto"
         ? undefined
@@ -104,16 +122,28 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
     const resolvedHref = flat.linkHref?.trim() || "#";
     const dimensionalStyle = buildImageDimensionalStyle(flat.dimensions);
 
-    const img = (
-      <img
-        className="visbuild-image__img"
-        src={flat.src}
-        alt={flat.alt}
-        loading={loadingAttr}
-        srcSet={srcSet}
-        sizes={srcSet ? "100vw" : undefined}
-        style={dimensionalStyle}
-      />
+    const hasHoverImage = Boolean(flat.hoverSrc);
+    const imgStack = (
+      <>
+        <img
+          className={`visbuild-image__img visbuild-image__img--default${hasHoverImage ? " visbuild-image__img--stacked" : ""}`}
+          src={flat.src}
+          alt={flat.alt}
+          loading={loadingAttr}
+          srcSet={srcSet}
+          sizes={srcSet ? "100vw" : undefined}
+          style={dimensionalStyle}
+        />
+        {hasHoverImage ? (
+          <img
+            className="visbuild-image__img visbuild-image__img--hover visbuild-image__img--stacked"
+            src={flat.hoverSrc}
+            alt=""
+            aria-hidden="true"
+            style={dimensionalStyle}
+          />
+        ) : null}
+      </>
     );
 
     const content =
@@ -126,16 +156,16 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
           onClick={puck.isEditing ? (e) => e.preventDefault() : undefined}
           tabIndex={puck.isEditing ? -1 : undefined}
         >
-          {img}
+          {imgStack}
         </a>
       ) : (
-        img
+        imgStack
       );
 
     return (
       <Section>
         <div
-          className={`visbuild-image${puck.isEditing ? " visbuild-image--editing" : ""}`}
+          className={`visbuild-image${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`}
           style={{
             ...buildImageCssVariables(flat),
             ...buildImageFrameStyle(flat.dimensions),

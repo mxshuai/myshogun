@@ -7,6 +7,17 @@ export type ShopifyPage = {
   updatedAt: string;
 };
 
+export type ShopifyMediaFile = {
+  id: string;
+  url: string;
+  alt: string | null;
+  filename: string;
+  width: number | null;
+  height: number | null;
+  size: number | null;
+  createdAt: string;
+};
+
 export type ShopifyClientConfig = {
   shopDomain: string;
   accessToken: string;
@@ -220,6 +231,74 @@ export function createAdminClient(config: ShopifyClientConfig) {
         throw new ShopifyApiError("pageUpdate returned no page");
       }
       return data.pageUpdate.page;
+    },
+
+    async listFiles(params?: {
+      first?: number;
+      after?: string;
+      query?: string;
+    }) {
+      const first = params?.first ?? 50;
+      const data = await graphql<{
+        files: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: Array<{
+            id?: string;
+            alt?: string | null;
+            createdAt?: string;
+            image?: { url?: string; width?: number; height?: number } | null;
+            originalSource?: { fileSize?: number | null } | null;
+          }>;
+        };
+      }>(
+        `query ListFiles($first: Int!, $after: String, $query: String) {
+          files(
+            first: $first
+            after: $after
+            query: $query
+            sortKey: CREATED_AT
+            reverse: true
+          ) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              ... on MediaImage {
+                id
+                alt
+                createdAt
+                image { url width height }
+                originalSource { fileSize }
+              }
+            }
+          }
+        }`,
+        {
+          first,
+          after: params?.after ?? null,
+          query: params?.query?.trim() || null,
+        }
+      );
+
+      const files: ShopifyMediaFile[] = [];
+      for (const node of data.files.nodes) {
+        const url = node.image?.url;
+        if (!node.id || !url) continue;
+        const filename = url.split("/").pop()?.split("?")[0] ?? node.id;
+        files.push({
+          id: node.id,
+          url,
+          alt: node.alt ?? null,
+          filename,
+          width: node.image?.width ?? null,
+          height: node.image?.height ?? null,
+          size: node.originalSource?.fileSize ?? null,
+          createdAt: node.createdAt ?? new Date(0).toISOString(),
+        });
+      }
+
+      return {
+        files,
+        pageInfo: data.files.pageInfo,
+      };
     },
 
     async pageDelete(id: string) {

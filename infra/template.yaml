@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Visbuild Shopify SaaS - data plane (DynamoDB, Publish Lambda, Scheduler role)
+Description: Visbuild Shopify SaaS - data plane (DynamoDB, Publish/Schedule Lambdas, S3 media bucket, Scheduler role)
 
 Parameters:
   AppTableName:
@@ -8,10 +8,6 @@ Parameters:
   ShopifyTokenSecretPrefix:
     Type: String
     Default: visbuild-shopify/token
-  AssetsBucketName:
-    Type: String
-    Default: ""
-
 Resources:
   AppTable:
     Type: AWS::DynamoDB::Table
@@ -107,7 +103,7 @@ Resources:
           USE_AWS_DATA_LAYER: "true"
           APP_TABLE_NAME: !Ref AppTableName
           SHOPIFY_TOKEN_SECRET_PREFIX: !Ref ShopifyTokenSecretPrefix
-          # AWS_REGION 由 Lambda 运行时自动注入，不可在 Environment 中重复设置
+          # AWS_REGION is injected by Lambda runtime; do not set it in Environment.
       Code:
         ZipFile: |
           exports.handler = async (event) => {
@@ -240,20 +236,6 @@ Resources:
         - Name: TableName
           Value: !Ref AppTable
 
-  AssetsBucket:
-    Type: AWS::S3::Bucket
-    Condition: CreateAssetsBucket
-    Properties:
-      BucketName: !Ref AssetsBucketName
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
-Conditions:
-  CreateAssetsBucket: !Not [!Equals [!Ref AssetsBucketName, ""]]
-
 Outputs:
   AppTableName:
     Value: !Ref AppTable
@@ -265,6 +247,3 @@ Outputs:
     Value: !GetAtt ScheduleLambda.Arn
   PublishDlqUrl:
     Value: !Ref PublishDLQ
-  AssetsBucketNameOut:
-    Condition: CreateAssetsBucket
-    Value: !Ref AssetsBucket

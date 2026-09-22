@@ -1,9 +1,11 @@
-# Build and upload Schedule Lambda bundle (ap-southeast-2)
-# REQUIRED: esbuild --format=cjs (see scripts/verify-lambda-bundle.mjs)
+# Build and upload Schedule Lambda bundle.
 $ErrorActionPreference = "Stop"
-$Region = "ap-southeast-2"
-$FunctionName = "visbuild-shopify-data-schedule"
-$Root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "aws-deploy-lib.ps1")
+
+$config = Get-DeployConfig
+$Region = $config.Region
+$FunctionName = Get-ScheduleLambdaName -StackName $config.StackName
+$Root = Get-RepoRoot
 $DistDir = Join-Path $Root "infra\dist\schedule"
 $ZipPath = Join-Path $Root "infra\dist\schedule.zip"
 

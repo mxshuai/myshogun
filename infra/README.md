@@ -1,32 +1,47 @@
-# AWS 数据面（阶段二）
+# AWS 数据面（统一构建与维护）
 
-部署 [`template.yaml`](template.yaml) 可创建：
+## 架构
 
-- DynamoDB 单表 `AppTable`（PK/SK + GSI1 用于 pending jobs）
-- Publish Lambda（`npm run build:lambda` → **`--format=cjs`** → `deploy:publish-lambda`）
-- Schedule Lambda（`npm run build:lambda:schedule` → CJS → `deploy:schedule-lambda`；SSR Invoke，执行 PassRole + CreateSchedule）
-- 打包约束：`.cursor/rules/lambda-cjs.mdc`、`npm run verify:lambda-bundle`（部署脚本已自动调用）
-- EventBridge Scheduler 调用角色
-- CloudWatch 告警（Lambda Errors）
+| 组件 | 创建方式 | 说明 |
+|------|----------|------|
+| DynamoDB、Publish/Schedule Lambda 骨架、IAM、告警 | [`template.yaml`](template.yaml) CloudFormation | `npm run deploy:data-plane` |
+| S3 媒体桶（CORS + `uploads/*` 公开读） | [`scripts/setup-assets-bucket.ps1`](../scripts/setup-assets-bucket.ps1) | 数据面部署后自动执行；避开 CFN Guard 对公开读桶的拦截 |
+| Lambda 业务代码 | `build:lambda` + `deploy:*-lambda` | esbuild CJS 打包 |
+| Amplify SSR IAM | [`amplify-ssr-iam-policy.json`](amplify-ssr-iam-policy.json) | `npm run generate:amplify-policy` 从配置生成 |
 
-## 部署示例
+## 统一配置 [`deploy.config.json`](deploy.config.json)
 
-```bash
-aws cloudformation deploy \
-  --template-file infra/template.yaml \
-  --stack-name visbuild-shopify-data \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides AppTableName=visbuild-shopify-app
+```json
+{
+  "awsAccountId": "124074140777",
+  "region": "ap-southeast-2",
+  "stackName": "visbuild-shopify-data",
+  "assetsBucketName": "visbuild-media-124074140777",
+  "assetsCorsAllowedOrigins": ["http://localhost:5173", "https://your-app.amplifyapp.com"],
+  "amplifyAppUrl": "https://your-app.amplifyapp.com"
+}
 ```
 
-将 Outputs 写入 Amplify 环境变量：
+## 一条命令
 
-- `USE_AWS_DATA_LAYER=true`
-- `APP_TABLE_NAME`
-- `PUBLISH_LAMBDA_ARN`
-- `SCHEDULER_ROLE_ARN`
-- `SCHEDULE_LAMBDA_ARN`（Amplify SSR）
-- `APP_AWS_REGION`（勿用 `AWS_REGION`，Amplify 保留前缀）
-- `ASSETS_BUCKET_NAME`（若创建 S3）
+```powershell
+npm run deploy:aws
+```
 
-并为 **Amplify SSR 计算角色**附加 [`amplify-ssr-iam-policy.json`](amplify-ssr-iam-policy.json)（DDB、Secrets、`lambda:Invoke` Schedule Lambda）。**不要**给 compute 角色挂 PassRole。
+顺序：CloudFormation → S3 媒体桶 → Publish Lambda → Schedule Lambda → 生成 IAM 策略 → 打印 Amplify 环境变量。
+
+## 分步命令
+
+```powershell
+npm run deploy:data-plane      # CFN + S3 桶
+npm run deploy:publish-lambda
+npm run deploy:schedule-lambda
+npm run generate:amplify-policy
+npm run print:amplify-env
+```
+
+## Amplify 侧
+
+1. `npm run print:amplify-env` → 粘贴到 Amplify Environment variables（含 `ASSETS_BUCKET_NAME`）
+2. 将 `amplify-ssr-iam-policy.json` 附加到 SSR compute 角色
+3. `SCOPES` 含 `read_files`（Shopify 图片标签）

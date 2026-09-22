@@ -317,18 +317,24 @@ function generateImage(props: any, layout: any, spaces: string): string {
     ? ' target="_blank" rel="noopener noreferrer"'
     : "";
 
-  const imgTag = `<img class="visbuild-image__img" src="${escapeHtml(flat.src)}" alt="${escapeHtml(flat.alt)}"${loadingAttr}${srcSetAttr} style="${imgStyle}" />`;
+  const hasHoverImage = Boolean(flat.hoverSrc);
+  const hoverClass = hasHoverImage ? " visbuild-image--has-hover" : "";
+  const defaultImgTag = `<img class="visbuild-image__img visbuild-image__img--default${hasHoverImage ? " visbuild-image__img--stacked" : ""}" src="${escapeHtml(flat.src)}" alt="${escapeHtml(flat.alt)}"${loadingAttr}${srcSetAttr} style="${imgStyle}" />`;
+  const hoverImgTag = hasHoverImage
+    ? `\n${spaces}    <img class="visbuild-image__img visbuild-image__img--hover visbuild-image__img--stacked" src="${escapeHtml(flat.hoverSrc)}" alt="" aria-hidden="true" style="${imgStyle}" />`
+    : "";
+  const imgBlock = `${defaultImgTag}${hoverImgTag}`;
 
   let core = "";
   if (flat.imageClickable && flat.linkHref?.trim()) {
     core += `${spaces}    <a class="visbuild-image__link" href="${escapeHtml(href)}"${targetAttr}>\n`;
-    core += `${spaces}      ${imgTag}\n`;
+    core += `${spaces}      ${imgBlock}\n`;
     core += `${spaces}    </a>\n`;
   } else {
-    core += `${spaces}    ${imgTag}\n`;
+    core += `${spaces}    ${imgBlock}\n`;
   }
 
-  const inner = `${spaces}  <div class="visbuild-image" style="${wrapperStyle}">\n${core}${spaces}  </div>\n`;
+  const inner = `${spaces}  <div class="visbuild-image${hoverClass}" style="${wrapperStyle}">\n${core}${spaces}  </div>\n`;
 
   return wrapLayoutLayers(layout, inner, spaces);
 }
