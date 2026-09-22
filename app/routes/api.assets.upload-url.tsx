@@ -1,5 +1,6 @@
 import { data } from "react-router";
 
+import { resolveImageContentType } from "~/lib/image-mime";
 import type { Route } from "./+types/api.assets.upload-url";
 import { createAssetUploadTarget } from "~/lib/server/assets.server";
 import { requireMediaShopAccess } from "~/lib/server/media-auth.server";
@@ -24,7 +25,7 @@ export async function action({ request }: Route.ActionArgs) {
   const shop = await requireMediaShopAccess(request, shopDomain, ctx);
 
   const filename = body.filename?.trim() || `upload-${Date.now()}`;
-  const contentType = body.contentType?.trim() || "application/octet-stream";
+  const contentType = resolveImageContentType(filename, body.contentType);
 
   try {
     const target = await createAssetUploadTarget({

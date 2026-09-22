@@ -1,10 +1,28 @@
 import { data } from "react-router";
 
 import type { Route } from "./+types/api.assets.media";
-import { isAllowedMediaUrl } from "~/lib/server/assets.server";
+import {
+  isAllowedMediaUrl,
+  verifyMediaUpload,
+} from "~/lib/server/assets.server";
 import { requireMediaShopAccess } from "~/lib/server/media-auth.server";
 import { ensureServerContext } from "~/lib/server/factory";
 import type { MediaAsset } from "~/lib/server/types";
+
+const DEFAULT_PAGE_SIZE = 28;
+
+function mapAsset(a: MediaAsset) {
+  return {
+    id: a.assetId,
+    url: a.url,
+    filename: a.filename,
+    contentType: a.contentType,
+    size: a.size,
+    width: a.width,
+    height: a.height,
+    createdAt: a.createdAt,
+  };
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const ctx = await ensureServerContext();
@@ -15,19 +33,31 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const shop = await requireMediaShopAccess(request, shopDomain, ctx);
-  const assets = await ctx.repo.listMediaAssets(shop.id);
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const limit = Math.max(
+    1,
+    Number(url.searchParams.get("limit")) || DEFAULT_PAGE_SIZE,
+  );
+  const query = url.searchParams.get("query")?.trim() || undefined;
+  const firstPageLimitRaw = url.searchParams.get("firstPageLimit");
+  const firstPageLimit =
+    firstPageLimitRaw != null && firstPageLimitRaw !== ""
+      ? Math.max(1, Number(firstPageLimitRaw) || limit)
+      : undefined;
+
+  const result = await ctx.repo.listMediaAssets(shop.id, {
+    page,
+    limit,
+    query,
+    firstPageLimit,
+  });
   return data({
     ok: true,
-    assets: assets.map((a) => ({
-      id: a.assetId,
-      url: a.url,
-      filename: a.filename,
-      contentType: a.contentType,
-      size: a.size,
-      width: a.width,
-      height: a.height,
-      createdAt: a.createdAt,
-    })),
+    assets: result.assets.map(mapAsset),
+    page: result.page,
+    pageSize: result.pageSize,
+    total: result.total,
+    totalPages: result.totalPages,
   });
 }
 
@@ -60,6 +90,15 @@ export async function action({ request }: Route.ActionArgs) {
       { status: 400 },
     );
   }
+
+  const verified = await verifyMediaUpload(url, shop.id);
+  if (!verified) {
+    return data(
+      { error: "Upload was not found or is not a valid image" },
+      { status: 400 },
+    );
+  }
+
   const filename =
     body.filename?.trim() || url.split("/").pop()?.split("?")[0] || "image";
   const asset: MediaAsset = {
@@ -67,8 +106,8 @@ export async function action({ request }: Route.ActionArgs) {
     shopId: shop.id,
     url,
     filename,
-    contentType: body.contentType?.trim() || "image/jpeg",
-    size: body.size ?? null,
+    contentType: body.contentType?.trim() || verified.contentType,
+    size: body.size ?? verified.size,
     width: body.width ?? null,
     height: body.height ?? null,
     createdAt: new Date().toISOString(),
@@ -77,15 +116,6 @@ export async function action({ request }: Route.ActionArgs) {
   await ctx.repo.putMediaAsset(asset);
   return data({
     ok: true,
-    asset: {
-      id: asset.assetId,
-      url: asset.url,
-      filename: asset.filename,
-      contentType: asset.contentType,
-      size: asset.size,
-      width: asset.width,
-      height: asset.height,
-      createdAt: asset.createdAt,
-    },
+    asset: mapAsset(asset),
   });
 }

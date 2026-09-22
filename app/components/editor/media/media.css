@@ -120,8 +120,11 @@
 }
 
 .visbuild-media-modal {
-  width: min(960px, 100%);
-  max-height: min(720px, calc(100vh - 48px));
+  --media-card-meta-height: 44px;
+  --media-card-width: 132px;
+  --media-card-height: calc(var(--media-card-width) + var(--media-card-meta-height));
+  width: min(1020px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 48px));
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -200,8 +203,8 @@
 .visbuild-media-modal__body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 16px 20px;
+  overflow: hidden;
+  padding: 16px 20px 8px;
 }
 
 .visbuild-media-modal__empty {
@@ -212,35 +215,50 @@
 
 .visbuild-media-modal__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(4, var(--media-card-height));
+  gap: 10px;
+  height: calc(var(--media-card-height) * 4 + 10px * 3);
+  overflow: hidden;
 }
 
 .visbuild-media-modal__dropzone {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
-  padding: 16px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 8px;
   border: 2px dashed #93c5fd;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #eff6ff;
   color: #2563eb;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
+  line-height: 1.4;
   text-align: center;
   cursor: pointer;
+  box-sizing: border-box;
+}
+
+.visbuild-media-modal__dropzone:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
 }
 
 .visbuild-media-modal__card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
   cursor: pointer;
   text-align: left;
+  padding: 0;
 }
 
 .visbuild-media-modal__card:hover {
@@ -249,8 +267,10 @@
 }
 
 .visbuild-media-modal__thumb-wrap {
-  aspect-ratio: 1;
+  flex: 1;
+  min-height: 0;
   background: #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .visbuild-media-modal__thumb {
@@ -261,43 +281,82 @@
 }
 
 .visbuild-media-modal__meta {
-  padding: 10px 12px 12px;
+  flex-shrink: 0;
+  height: var(--media-card-meta-height);
+  padding: 6px 8px 8px;
+  box-sizing: border-box;
 }
 
 .visbuild-media-modal__filename {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .visbuild-media-modal__details {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 10px;
   color: #6b7280;
-}
-
-.visbuild-media-modal__footer-actions {
-  display: flex;
-  justify-content: center;
-  padding-top: 16px;
-}
-
-.visbuild-media-modal__load-more {
-  padding: 8px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
+  line-height: 1.3;
 }
 
 .visbuild-media-modal__footer {
   display: flex;
-  justify-content: flex-end;
-  padding: 12px 20px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px 16px;
   border-top: 1px solid #f3f4f6;
+}
+
+.visbuild-media-modal__pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.visbuild-media-modal__page-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.visbuild-media-modal__page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.visbuild-media-modal__page-btn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.visbuild-media-modal__page-btn.is-active {
+  border-color: #6d28d9;
+  background: #6d28d9;
+  color: #fff;
+}
+
+.visbuild-media-modal__page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.visbuild-media-modal__page-ellipsis {
+  padding: 0 4px;
+  color: #9ca3af;
+  font-size: 13px;
 }
 
 .visbuild-media-modal__cancel {
@@ -307,4 +366,5 @@
   background: #fff;
   color: #374151;
   cursor: pointer;
+  flex-shrink: 0;
 }

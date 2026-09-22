@@ -16,7 +16,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const shop = await requireMediaShopAccess(request, shopDomain, ctx);
   const query = url.searchParams.get("query")?.trim() || undefined;
   const after = url.searchParams.get("after")?.trim() || undefined;
-  const result = await listShopifyFilesForShop(ctx, shop.id, { query, after });
+  const first = Math.max(1, Number(url.searchParams.get("first")) || 28);
+  const result = await listShopifyFilesForShop(ctx, shop.id, {
+    query,
+    after,
+    first,
+  });
   if (!result.ok) {
     return data({ error: result.error }, { status: 502 });
   }

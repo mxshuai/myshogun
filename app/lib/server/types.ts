@@ -83,6 +83,14 @@ export interface MediaAsset {
   createdAt: string;
 }
 
+export type MediaAssetsPage = {
+  assets: MediaAsset[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export interface Repo {
   getShop(id: string): Promise<Shop | null>;
   getShopByDomain(domain: string): Promise<Shop | null>;
@@ -110,8 +118,13 @@ export interface Repo {
   putMediaAsset(asset: MediaAsset): Promise<void>;
   listMediaAssets(
     shopId: string,
-    params?: { limit?: number },
-  ): Promise<MediaAsset[]>;
+    params?: {
+      limit?: number;
+      page?: number;
+      query?: string;
+      firstPageLimit?: number;
+    },
+  ): Promise<MediaAssetsPage>;
 }
 
 export interface SecretsStore {

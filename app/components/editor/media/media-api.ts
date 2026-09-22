@@ -1,4 +1,15 @@
+import { resolveImageContentType } from "~/lib/image-mime";
+
+import { MEDIA_PAGE_SIZE } from "./media-constants";
 import type { ImageValue, MediaListItem } from "./types";
+
+export type MediaPageResult = {
+  items: MediaListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 async function readJson<T>(res: Response): Promise<T> {
   const json = (await res.json()) as T & { error?: string };
@@ -8,11 +19,42 @@ async function readJson<T>(res: Response): Promise<T> {
   return json;
 }
 
-export async function fetchShogunMedia(shopDomain: string): Promise<MediaListItem[]> {
-  const params = new URLSearchParams({ shopDomain });
-  const res = await fetch(`/api/assets/media?${params}`);
-  const json = await readJson<{ ok: true; assets: MediaListItem[] }>(res);
-  return json.assets;
+export async function fetchShogunMedia(
+  shopDomain: string,
+  params?: {
+    page?: number;
+    query?: string;
+    limit?: number;
+    /** Page 1 reserves one grid slot for the upload dropzone. */
+    withDropzone?: boolean;
+  },
+): Promise<MediaPageResult> {
+  const search = new URLSearchParams({ shopDomain });
+  const limit = params?.limit ?? MEDIA_PAGE_SIZE;
+  search.set("page", String(params?.page ?? 1));
+  search.set("limit", String(limit));
+  if (params?.withDropzone) {
+    search.set("firstPageLimit", String(Math.max(1, limit - 1)));
+  }
+  if (params?.query) search.set("query", params.query);
+
+  const res = await fetch(`/api/assets/media?${search}`);
+  const json = await readJson<{
+    ok: true;
+    assets: MediaListItem[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  }>(res);
+
+  return {
+    items: json.assets,
+    page: json.page,
+    pageSize: json.pageSize,
+    total: json.total,
+    totalPages: json.totalPages,
+  };
 }
 
 export async function registerShogunMedia(
@@ -38,13 +80,14 @@ export async function registerShogunMedia(
 
 export async function fetchShopifyFiles(
   shopDomain: string,
-  params?: { query?: string; after?: string },
+  params?: { query?: string; after?: string; first?: number },
 ): Promise<{
   files: MediaListItem[];
   endCursor: string | null;
   hasNextPage: boolean;
 }> {
   const search = new URLSearchParams({ shopDomain });
+  search.set("first", String(params?.first ?? MEDIA_PAGE_SIZE));
   if (params?.query) search.set("query", params.query);
   if (params?.after) search.set("after", params.after);
   const res = await fetch(`/api/shopify/files?${search}`);
@@ -61,13 +104,15 @@ export async function uploadToShogun(
   shopDomain: string,
   file: File,
 ): Promise<ImageValue> {
+  const contentType = resolveImageContentType(file.name, file.type);
+
   const presignRes = await fetch("/api/assets/upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       shopDomain,
       filename: file.name,
-      contentType: file.type || "application/octet-stream",
+      contentType,
       size: file.size,
     }),
   });
@@ -79,7 +124,7 @@ export async function uploadToShogun(
 
   const putRes = await fetch(presign.uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
+    headers: { "Content-Type": contentType },
     body: file,
   });
   if (!putRes.ok) {
@@ -107,7 +152,7 @@ export async function uploadToShogun(
 
   await registerShogunMedia(shopDomain, {
     ...value,
-    contentType: file.type || "application/octet-stream",
+    contentType,
   });
 
   return value;

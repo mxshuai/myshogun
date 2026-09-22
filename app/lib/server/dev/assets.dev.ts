@@ -1,6 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 
+import { guessImageContentType } from "~/lib/image-mime";
+
 import { ensureDevDir, getDevDataPath } from "./persist";
 
 export function getDevUploadFilePath(key: string): string {
@@ -44,22 +46,5 @@ export async function readDevUploadFile(key: string): Promise<Buffer | null> {
 }
 
 export function guessContentType(filename: string): string {
-  const ext = path.extname(filename).toLowerCase();
-  switch (ext) {
-    case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".png":
-      return "image/png";
-    case ".gif":
-      return "image/gif";
-    case ".webp":
-      return "image/webp";
-    case ".svg":
-      return "image/svg+xml";
-    case ".avif":
-      return "image/avif";
-    default:
-      return "application/octet-stream";
-  }
+  return guessImageContentType(filename);
 }

@@ -1,7 +1,10 @@
-import { createAssetUploadUrl } from "./aws/assets.s3";
+import { guessImageContentType } from "~/lib/image-mime";
+
+import { createAssetUploadUrl, headUploadedObject } from "./aws/assets.s3";
 import {
   buildDevPublicUrl,
   buildDevUploadUrl,
+  readDevUploadFile,
 } from "./dev/assets.dev";
 import { getAssetsBucket, getAwsRegion, useAwsDataLayer } from "./env";
 
@@ -63,6 +66,53 @@ export function isAllowedMediaUrl(url: string, shopId: string): boolean {
 
 export function isOwnedUploadKey(key: string, shopId: string): boolean {
   return key.startsWith(`uploads/${shopId}/`) && !key.includes("..");
+}
+
+export function mediaUrlToUploadKey(url: string, shopId: string): string | null {
+  if (!isAllowedMediaUrl(url, shopId)) return null;
+
+  if (url.startsWith("/dev-uploads/")) {
+    return url.replace(/^\/dev-uploads\//, "");
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyMediaUpload(
+  url: string,
+  shopId: string,
+): Promise<{ contentType: string; size: number } | null> {
+  const key = mediaUrlToUploadKey(url, shopId);
+  if (!key) return null;
+
+  if (url.startsWith("/dev-uploads/")) {
+    const body = await readDevUploadFile(key);
+    if (!body?.length) return null;
+    const contentType = guessImageContentType(key);
+    try {
+      assertAllowedImageUpload({ contentType, size: body.length });
+    } catch {
+      return null;
+    }
+    return { contentType, size: body.length };
+  }
+
+  const head = await headUploadedObject(key);
+  if (!head) return null;
+  try {
+    assertAllowedImageUpload({
+      contentType: head.contentType,
+      size: head.contentLength,
+    });
+  } catch {
+    return null;
+  }
+  return { contentType: head.contentType, size: head.contentLength };
 }
 
 export function resolveAssetStorage(): "s3" | "dev" {

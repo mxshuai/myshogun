@@ -1,0 +1,3 @@
+export const MEDIA_GRID_COLUMNS = 7;
+export const MEDIA_GRID_ROWS = 4;
+export const MEDIA_PAGE_SIZE = MEDIA_GRID_COLUMNS * MEDIA_GRID_ROWS;

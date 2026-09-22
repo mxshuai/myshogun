@@ -1,7 +1,21 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { getAssetsBucket, getAwsRegion } from "../env";
+
+function s3Client() {
+  return new S3Client({
+    region: getAwsRegion(),
+    // Default CRC32 checksums land in the presigned URL. Browsers cannot send
+    // that header, so the PUT fails after CORS. Sign only when we ask for one.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  });
+}
 
 export async function createAssetUploadUrl(params: {
   key: string;
@@ -14,13 +28,7 @@ export async function createAssetUploadUrl(params: {
     throw new Error("ASSETS_BUCKET_NAME is not configured");
   }
 
-  const client = new S3Client({
-    region: getAwsRegion(),
-    // Default CRC32 checksums land in the presigned URL. Browsers cannot send
-    // that header, so the PUT fails after CORS. Sign only when we ask for one.
-    requestChecksumCalculation: "WHEN_REQUIRED",
-    responseChecksumValidation: "WHEN_REQUIRED",
-  });
+  const client = s3Client();
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: params.key,
@@ -40,4 +48,24 @@ export async function createAssetUploadUrl(params: {
   const publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${params.key}`;
 
   return { uploadUrl, publicUrl };
+}
+
+export async function headUploadedObject(
+  key: string,
+): Promise<{ contentType: string; contentLength: number } | null> {
+  const bucket = getAssetsBucket();
+  if (!bucket) return null;
+
+  try {
+    const res = await s3Client().send(
+      new HeadObjectCommand({ Bucket: bucket, Key: key }),
+    );
+    if (res.ContentLength == null || res.ContentLength <= 0) return null;
+    return {
+      contentType: (res.ContentType ?? "application/octet-stream").trim().toLowerCase(),
+      contentLength: res.ContentLength,
+    };
+  } catch {
+    return null;
+  }
 }

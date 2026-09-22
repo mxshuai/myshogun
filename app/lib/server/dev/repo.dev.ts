@@ -1,3 +1,4 @@
+import { paginateMediaList } from "../media-pagination.server";
 import type {
   MediaAsset,
   PageBody,
@@ -162,11 +163,26 @@ export function createDevRepo(): Repo {
     },
     async listMediaAssets(shopId, params) {
       const s = await load();
-      const limit = params?.limit ?? 100;
-      return Object.values(s.media)
+      const query = params?.query?.trim().toLowerCase();
+
+      let items = Object.values(s.media)
         .filter((a) => a.shopId === shopId)
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .slice(0, limit);
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+
+      if (query) {
+        items = items.filter((a) =>
+          a.filename.toLowerCase().includes(query),
+        );
+      }
+
+      const page = paginateMediaList(items, params);
+      return {
+        assets: page.items,
+        total: page.total,
+        page: page.page,
+        pageSize: page.pageSize,
+        totalPages: page.totalPages,
+      };
     },
   };
 }

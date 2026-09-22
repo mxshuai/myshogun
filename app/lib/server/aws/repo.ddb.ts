@@ -11,6 +11,7 @@ import type { TransactWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
 import { getAwsRegion, getDynamoTableName } from "../env";
+import { paginateMediaList } from "../media-pagination.server";
 import type {
   MediaAsset,
   PageBody,
@@ -443,22 +444,43 @@ export function createDdbRepo(): Repo {
     },
 
     async listMediaAssets(shopId, params) {
-      const limit = params?.limit ?? 100;
-      const res = await doc.send(
-        new QueryCommand({
-          TableName: TableName(),
-          KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
-          ExpressionAttributeValues: {
-            ":pk": shopPk(shopId),
-            ":prefix": "MEDIA#",
-          },
-          ScanIndexForward: false,
-          Limit: limit,
-        })
-      );
-      return (res.Items ?? [])
-        .filter((i) => i.entity === "media_asset")
-        .map((i) => mediaAssetFromItem(i));
+      const query = params?.query?.trim().toLowerCase();
+
+      const all: MediaAsset[] = [];
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const res = await doc.send(
+          new QueryCommand({
+            TableName: TableName(),
+            KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues: {
+              ":pk": shopPk(shopId),
+              ":prefix": "MEDIA#",
+            },
+            ScanIndexForward: false,
+            ExclusiveStartKey: lastKey,
+          }),
+        );
+        for (const item of res.Items ?? []) {
+          if (item.entity === "media_asset") {
+            all.push(mediaAssetFromItem(item));
+          }
+        }
+        lastKey = res.LastEvaluatedKey;
+      } while (lastKey);
+
+      const filtered = query
+        ? all.filter((a) => a.filename.toLowerCase().includes(query))
+        : all;
+
+      const page = paginateMediaList(filtered, params);
+      return {
+        assets: page.items,
+        total: page.total,
+        page: page.page,
+        pageSize: page.pageSize,
+        totalPages: page.totalPages,
+      };
     },
   };
 }

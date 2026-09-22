@@ -119,6 +119,10 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
     const srcSet = flat.performance.responsiveImage
       ? buildResponsiveSrcSet(flat.src, flat.performance.imageQuality)
       : undefined;
+    const hoverSrcSet =
+      flat.performance.responsiveImage && flat.hoverSrc
+        ? buildResponsiveSrcSet(flat.hoverSrc, flat.performance.imageQuality)
+        : undefined;
     const resolvedHref = flat.linkHref?.trim() || "#";
     const dimensionalStyle = buildImageDimensionalStyle(flat.dimensions);
 
@@ -140,6 +144,9 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
             src={flat.hoverSrc}
             alt=""
             aria-hidden="true"
+            loading={loadingAttr}
+            srcSet={hoverSrcSet}
+            sizes={hoverSrcSet ? "100vw" : undefined}
             style={dimensionalStyle}
           />
         ) : null}
