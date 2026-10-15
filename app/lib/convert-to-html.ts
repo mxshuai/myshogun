@@ -2,6 +2,10 @@ import type { Data } from "@puckeditor/core";
 
 import { effectiveSectionSides } from "~/components/Layout";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
+import {
+  containerBackgroundImageUrl,
+  nestContainerProps,
+} from "~/components/container-settings";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
 import {
   BUTTON_EXPORT_CSS,
@@ -426,11 +430,12 @@ Youtube or Vimeo link
  * 生成 Columns HTML（兼容旧 type Grid）
  */
 function generateColumns(props: any, spaces: string, indent: number): string {
-  const numColumns = props.numColumns ?? 2;
-  const gap = props.gap ?? 30;
-  const equalColumnHeights = props.equalColumnHeights === true;
-  const stackOnSmallScreens = props.stackOnSmallScreens !== false;
-  const stackingBehavior = props.stackingBehavior === "rightFirst"
+  const main = props.main ?? {};
+  const numColumns = main.numColumns ?? 2;
+  const gap = main.gap ?? 30;
+  const equalColumnHeights = main.equalColumnHeights === true;
+  const stackOnSmallScreens = main.stackOnSmallScreens !== false;
+  const stackingBehavior = main.stackingBehavior === "rightFirst"
     ? "rightFirst"
     : "leftFirst";
   const columns = Array.isArray(props.columns) ? props.columns : null;
@@ -441,7 +446,7 @@ function generateColumns(props: any, spaces: string, indent: number): string {
     stackOnSmallScreens,
     stackingBehavior,
   });
-  const style = columnsGridStyle(count, gap);
+  const style = columnsGridStyle(count, gap, main.columnWidths);
   const styleAttr = Object.entries(style)
     .map(([key, value]) => {
       const cssKey = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
@@ -652,24 +657,27 @@ function generateTable(props: any, spaces: string, indent: number): string {
  * 生成 Container HTML
  */
 function generateContainer(props: any, spaces: string, indent: number): string {
-  const entireContainerClickable = props.entireContainerClickable || false;
-  const containerUrl = props.containerUrl || '';
-  const openInNewWindow = props.openInNewWindow || false;
-  const verticalAlign = props.verticalAlign || 'middle';
-  const backgroundType = props.backgroundType || 'image';
-  const backgroundImage = props.backgroundImage || '';
-  const backgroundColor = props.backgroundColor || '#ffffff';
-  const backgroundVideo = props.backgroundVideo || '';
-  const videoMuted = props.videoMuted !== false;
-  const backgroundSize = props.backgroundSize || 'cover';
-  const backgroundWidth = props.backgroundWidth;
-  const backgroundHeight = props.backgroundHeight;
-  const backgroundRepeat = props.backgroundRepeat || 'no-repeat';
-  const horizontalPosition = props.horizontalPosition || 'center';
-  const horizontalPositionValue = props.horizontalPositionValue || 0;
-  const verticalPosition = props.verticalPosition || 'center';
-  const verticalPositionValue = props.verticalPositionValue || 0;
-  const parallaxEffect = props.parallaxEffect || false;
+  const nested = nestContainerProps(props ?? {});
+  const main = nested.main ?? {};
+  const background = nested.background ?? {};
+  const entireContainerClickable = main.entireContainerClickable === true;
+  const containerUrl = main.containerUrl || '';
+  const openInNewWindow = main.openInNewWindow === true;
+  const verticalAlign = main.verticalAlign || 'middle';
+  const backgroundType = background.backgroundType || 'image';
+  const backgroundImage = containerBackgroundImageUrl(background.backgroundImage);
+  const backgroundColor = background.backgroundColor || '#ffffff';
+  const backgroundVideo = background.backgroundVideo || '';
+  const videoMuted = background.sound !== true;
+  const backgroundSize = background.backgroundSize || 'cover';
+  const backgroundWidth = background.backgroundWidth;
+  const backgroundHeight = background.backgroundHeight;
+  const backgroundRepeat = background.backgroundRepeat || 'no-repeat';
+  const horizontalPosition = background.horizontalPosition || 'center';
+  const horizontalPositionValue = background.horizontalPositionValue || 0;
+  const verticalPosition = background.verticalPosition || 'center';
+  const verticalPositionValue = background.verticalPositionValue || 0;
+  const parallaxEffect = background.parallaxEffect === true;
   const content = props.content || [];
   const layout = props.layout || {};
   const sectionPadding = effectiveSectionSides(layout).padding;
@@ -741,7 +749,7 @@ function generateContainer(props: any, spaces: string, indent: number): string {
   
   // 视频背景
   if (backgroundType === 'video' && backgroundVideo) {
-    html += `${spaces}${isClickable ? '    ' : '  '}<video autoplay loop muted="${videoMuted}" playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">\n`;
+    html += `${spaces}${isClickable ? '    ' : '  '}<video autoplay loop${videoMuted ? " muted" : ""} playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">\n`;
     html += `${spaces}${isClickable ? '      ' : '    '}<source src="${backgroundVideo}" type="video/mp4" />\n`;
     html += `${spaces}${isClickable ? '    ' : '  '}</video>\n`;
   }

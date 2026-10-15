@@ -48,23 +48,30 @@ export type Components = {
     href?: string;
   }>;
   Columns: {
-    numColumns: number;
-    gap: number;
-    equalColumnHeights: boolean;
-    stackOnSmallScreens: boolean;
-    stackingBehavior: "leftFirst" | "rightFirst";
-    /** 每列一个独立 slot，列数由 numColumns 驱动（resolveData 同步） */
+    main: {
+      numColumns: number;
+      gap: number;
+      equalColumnHeights: boolean;
+      stackOnSmallScreens: boolean;
+      stackingBehavior: "leftFirst" | "rightFirst";
+      /** 各列宽度百分比，和为 100。缺省或均分时按等宽渲染。 */
+      columnWidths?: number[];
+    };
+    /** 每列一个独立 slot，列数由 main.numColumns 驱动（resolveData 同步） */
     columns: Array<{ content: Slot }>;
     /** @deprecated 旧的单 slot 模型，仅用于迁移读取 */
     items?: Slot;
   };
   /** @deprecated 已更名为 Columns，保留以兼容旧页面 JSON */
   Grid: {
-    numColumns: number;
-    gap: number;
-    equalColumnHeights?: boolean;
-    stackOnSmallScreens?: boolean;
-    stackingBehavior?: "leftFirst" | "rightFirst";
+    main?: {
+      numColumns: number;
+      gap: number;
+      equalColumnHeights?: boolean;
+      stackOnSmallScreens?: boolean;
+      stackingBehavior?: "leftFirst" | "rightFirst";
+      columnWidths?: number[];
+    };
     columns?: Array<{ content: Slot }>;
     /** @deprecated 旧的单 slot 模型，仅用于迁移读取 */
     items?: Slot;
@@ -201,31 +208,39 @@ export type Components = {
     rowSpacing: number;
   }>;
   Container: WithLayout<{
-    // Main
-    entireContainerClickable: boolean;
-    containerUrl: string;
-    openInNewWindow: boolean;
-    verticalAlign: "top" | "middle" | "bottom";
-    
-    // Background
-    backgroundType: "color" | "image" | "video";
-    backgroundImage: string;
-    backgroundColor: string;
-    backgroundVideo: string;
-    videoMuted: boolean;
-    backgroundSize: "cover" | "contain" | "custom";
-    backgroundWidth?: number;
-    backgroundHeight?: number;
-    backgroundRepeat: "no-repeat" | "repeat";
-    horizontalPosition: "left" | "center" | "right" | "custom";
-    horizontalPositionValue: number;
-    verticalPosition: "top" | "center" | "bottom" | "custom";
-    verticalPositionValue: number;
-    responsiveImage: boolean;
-    loading: "eager" | "lazy" | "auto";
-    parallaxEffect: boolean;
-    
-    // Content
+    main: {
+      entireContainerClickable: boolean;
+      containerUrl: string;
+      openInNewWindow: boolean;
+      verticalAlign: "top" | "middle" | "bottom";
+    };
+    background: {
+      backgroundType: "color" | "image" | "video";
+      backgroundImage:
+        | string
+        | {
+            url: string;
+            filename?: string;
+            size?: number | null;
+            width?: number | null;
+            height?: number | null;
+          }
+        | null;
+      backgroundColor: string;
+      backgroundVideo: string;
+      sound: boolean;
+      backgroundSize: "cover" | "contain" | "custom";
+      backgroundWidth?: number;
+      backgroundHeight?: number;
+      backgroundRepeat: "no-repeat" | "repeat";
+      horizontalPosition: "left" | "center" | "right" | "custom";
+      horizontalPositionValue: number;
+      verticalPosition: "top" | "center" | "bottom" | "custom";
+      verticalPositionValue: number;
+      responsiveImage: boolean;
+      loading: "eager" | "lazy" | "auto";
+      parallaxEffect: boolean;
+    };
     content: Slot;
   }>;
   Tabs: WithLayout<{

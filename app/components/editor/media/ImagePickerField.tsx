@@ -12,7 +12,21 @@ import {
 } from "./types";
 import "./media.css";
 
-type ImagePickerVariant = "main" | "hover";
+type ImagePickerVariant = "main" | "hover" | "background";
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function ImageIcon() {
   return (
@@ -104,6 +118,7 @@ function ImagePickerFieldInner({
 
   if (!normalized) {
     const isMain = variant === "main";
+    const isBackground = variant === "background";
     return (
       <FieldLabel label={label} readOnly={readOnly}>
         <button
@@ -111,7 +126,9 @@ function ImagePickerFieldInner({
           className={
             isMain
               ? "visbuild-image-picker__select-btn"
-              : "visbuild-image-picker__hover-btn"
+              : isBackground
+                ? "visbuild-image-picker__background-btn"
+                : "visbuild-image-picker__hover-btn"
           }
           disabled={readOnly}
           onClick={open}
@@ -121,11 +138,41 @@ function ImagePickerFieldInner({
               <ImageIcon />
               Select image
             </>
+          ) : isBackground ? (
+            "Add image (optional)"
           ) : (
             "Add hover image (optional)"
           )}
         </button>
       </FieldLabel>
+    );
+  }
+
+  if (variant === "background") {
+    return (
+      <div className="visbuild-image-picker__background">
+        <div className="visbuild-image-picker__background-label">
+          <span>{label}</span>
+          {!readOnly ? (
+            <button
+              type="button"
+              className="visbuild-image-picker__background-remove"
+              aria-label="Remove image"
+              onClick={() => onChange(null)}
+            >
+              <TrashIcon />
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className="visbuild-image-picker__background-preview"
+          disabled={readOnly}
+          onClick={open}
+        >
+          <img src={normalized.url} alt="" />
+        </button>
+      </div>
     );
   }
 

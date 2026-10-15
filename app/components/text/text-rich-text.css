@@ -114,12 +114,12 @@
   flex: 1 1 0;
   min-width: 0;
   margin: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: none;
   border-right: 1px solid var(--puck-color-grey-09, #e5e7eb);
   background: var(--puck-color-white, #fff);
   color: var(--puck-color-grey-03, #334155);
-  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.2;
   text-align: center;

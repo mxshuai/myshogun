@@ -7,7 +7,9 @@ import { onOffOptions } from "./button-field-groups";
 import {
   columnsGridClassName,
   columnsGridStyle,
+  equalColumnWidths,
 } from "./columns-styles";
+import { createColumnWidthsField } from "./ui/column-widths-field";
 import "./columns.css";
 
 /** Puck DropZone 必须接收 ref；每列用 div 承载一个独立 slot */
@@ -25,32 +27,48 @@ function clampColumnCount(n: unknown): number {
   return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, num));
 }
 
+type ColumnsMain = Components["Columns"]["main"];
+
+const defaultMain: ColumnsMain = {
+  numColumns: 2,
+  gap: 30,
+  equalColumnHeights: false,
+  stackOnSmallScreens: true,
+  stackingBehavior: "leftFirst",
+  columnWidths: equalColumnWidths(2),
+};
+
 /**
- * 每列一个独立 slot（列数由 numColumns 驱动，resolveData 自动同步）。
+ * 每列一个独立 slot（列数由 main.numColumns 驱动，resolveData 自动同步）。
  * columns 字段声明为带 slot 的数组以启用 DropZone，但在 resolveFields 中
- * 对侧栏隐藏——用户仍通过 "Number of columns" 控制列数。
+ * 对侧栏隐藏——用户仍通过 Main 里的 "Number of columns" 控制列数。
  */
-const columnsFields = {
+const mainObjectFields = {
   numColumns: {
     type: "number" as const,
     label: "Number of columns",
     min: MIN_COLUMNS,
     max: MAX_COLUMNS,
+    inline: true,
   },
+  columnWidths: createColumnWidthsField(),
   gap: {
     label: "Space between columns",
     type: "number" as const,
     min: 0,
+    inline: true,
   },
   equalColumnHeights: {
     type: "radio" as const,
     label: "Equal column heights",
     options: [...onOffOptions],
+    switch: true,
   },
   stackOnSmallScreens: {
     type: "radio" as const,
     label: "Stacking on smaller screens",
     options: [...onOffOptions],
+    switch: true,
   },
   stackingBehavior: {
     type: "radio" as const,
@@ -60,6 +78,23 @@ const columnsFields = {
       { label: "Right first", value: "rightFirst" },
     ],
   },
+};
+
+const mainField = {
+  type: "object" as const,
+  label: "Main",
+  defaultOpen: true,
+  objectFields: mainObjectFields,
+};
+
+function resolveMainField(showStacking: boolean) {
+  if (showStacking) return mainField;
+  const { stackingBehavior: _stacking, ...objectFields } = mainObjectFields;
+  return { ...mainField, objectFields };
+}
+
+const columnsFields = {
+  main: mainField,
   columns: {
     type: "array" as const,
     label: "Columns",
@@ -79,18 +114,20 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
   fields: columnsFields,
   resolveFields: (data) => {
     const props = data.props || {};
-    // 侧栏只展示配置项，隐藏由 numColumns 驱动的 columns 数组
-    const { columns: _columns, stackingBehavior, ...base } = columnsFields;
-    const shown = props.stackOnSmallScreens
-      ? { ...base, stackingBehavior }
-      : base;
-    return shown as NonNullable<
-      ComponentConfig<Components["Columns"]>["fields"]
-    >;
+    // 侧栏只展示 Main，隐藏由 main.numColumns 驱动的 columns 数组
+    const showStacking = props.main?.stackOnSmallScreens !== false;
+    return {
+      main: resolveMainField(showStacking),
+    } as NonNullable<ComponentConfig<Components["Columns"]>["fields"]>;
   },
   resolveData: (data) => {
     const props = data.props || {};
-    const n = clampColumnCount(props.numColumns);
+    const n = clampColumnCount(props.main?.numColumns);
+    const currentWidths = props.main?.columnWidths;
+    const widthsNeedReset =
+      !Array.isArray(currentWidths) ||
+      currentWidths.length !== n ||
+      currentWidths.some((w) => !Number.isFinite(w) || w <= 0);
 
     let columns: ColumnItem[] = Array.isArray(props.columns)
       ? props.columns.map((c) => ({
@@ -108,7 +145,7 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
       changed = true;
     }
 
-    // 按 numColumns 同步列数（多删少补，删除时把内容并入最后一列避免丢失）
+    // 按 main.numColumns 同步列数（多删少补，删除时把内容并入最后一列避免丢失）
     if (columns.length < n) {
       while (columns.length < n) columns.push({ content: [] });
       changed = true;
@@ -124,38 +161,35 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
     }
 
     const hadLegacyItems = (props as { items?: Slot }).items !== undefined;
-    if (changed || hadLegacyItems) {
+    if (changed || hadLegacyItems || widthsNeedReset) {
       const { items: _drop, ...rest } = props as typeof props & {
         items?: Slot;
       };
-      return { props: { ...rest, columns } };
+      const main = {
+        ...defaultMain,
+        ...rest.main,
+        columnWidths: widthsNeedReset
+          ? equalColumnWidths(n)
+          : rest.main?.columnWidths,
+      };
+      return { props: { ...rest, main, columns } };
     }
     return {};
   },
   defaultProps: {
-    numColumns: 2,
-    gap: 30,
-    equalColumnHeights: false,
-    stackOnSmallScreens: true,
-    stackingBehavior: "leftFirst",
+    main: { ...defaultMain },
     columns: [{ content: [] }, { content: [] }],
   },
-  render: ({
-    gap,
-    numColumns,
-    equalColumnHeights = false,
-    stackOnSmallScreens = true,
-    stackingBehavior = "leftFirst",
-    columns,
-    puck,
-  }) => {
+  render: ({ main, columns, puck }) => {
+    const settings = main ?? defaultMain;
     const isEditing = puck?.isEditing === true;
     const cols = Array.isArray(columns) ? columns : [];
-    const count = cols.length > 0 ? cols.length : clampColumnCount(numColumns);
+    const count =
+      cols.length > 0 ? cols.length : clampColumnCount(settings.numColumns);
     const gridClass = columnsGridClassName({
-      equalColumnHeights,
-      stackOnSmallScreens,
-      stackingBehavior,
+      equalColumnHeights: settings.equalColumnHeights,
+      stackOnSmallScreens: settings.stackOnSmallScreens,
+      stackingBehavior: settings.stackingBehavior,
     });
 
     return (
@@ -164,7 +198,7 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
           className={
             isEditing ? `${gridClass} visbuild-columns--editing` : gridClass
           }
-          style={columnsGridStyle(count, gap)}
+          style={columnsGridStyle(count, settings.gap, settings.columnWidths)}
         >
           {cols.map((col, index) => {
             const ColumnContent = col.content;

@@ -47,7 +47,7 @@
   padding: 6px 8px;
   border: 1px solid var(--puck-color-grey-09, #e5e7eb);
   border-radius: 6px;
-  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-size: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   color: var(--puck-color-grey-02, #1e293b);
   background: var(--puck-color-white, #fff);
