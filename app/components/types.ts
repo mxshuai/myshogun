@@ -22,16 +22,12 @@ export type Components = {
       openInNewWindow: boolean;
       align: "left" | "center" | "right";
     };
-    /** @deprecated 旧字段，resolveData / render 回退 */
-    size?: "xxxl" | "xxl" | "xl" | "l" | "m" | "s" | "xs";
   }>;
   Text: WithLayout<{
     main: {
       /** Puck richtext：存 TipTap 导出的 HTML 字符串 */
       html: string;
     };
-    /** @deprecated 旧字段，仅 render 回退读取 */
-    text?: string;
   }>;
   Button: WithLayout<{
     main: {
@@ -47,10 +43,12 @@ export type Components = {
     activeStyle: ButtonStyleGroup;
   }>;
   Card: WithLayout<{
-    title: string;
-    description: string;
-    imageUrl?: string;
-    href?: string;
+    main: {
+      title: string;
+      description: string;
+      imageUrl?: string;
+      href?: string;
+    };
   }>;
   Columns: {
     main: {
@@ -85,26 +83,28 @@ export type Components = {
     };
   }>;
   Image: WithLayout<{
-    src:
-      | string
-      | {
-          url: string;
-          filename?: string;
-          size?: number | null;
-          width?: number | null;
-          height?: number | null;
-        };
-    hoverSrc?: {
-      url: string;
-      filename?: string;
-      size?: number | null;
-      width?: number | null;
-      height?: number | null;
-    } | null;
-    alt: string;
-    imageClickable: boolean;
-    linkHref?: string;
-    openInNewWindow?: boolean;
+    main: {
+      src:
+        | string
+        | {
+            url: string;
+            filename?: string;
+            size?: number | null;
+            width?: number | null;
+            height?: number | null;
+          };
+      hoverSrc?: {
+        url: string;
+        filename?: string;
+        size?: number | null;
+        width?: number | null;
+        height?: number | null;
+      } | null;
+      alt: string;
+      imageClickable: boolean;
+      linkHref?: string;
+      openInNewWindow?: boolean;
+    };
     performance: {
       imageQuality: number;
       responsiveImage: boolean;
@@ -166,11 +166,15 @@ export type Components = {
     };
   }>;
   CustomHtml: WithLayout<{
-    html: string;
-    css: string;
+    main: {
+      html: string;
+      css: string;
+    };
   }>;
   RawHTML: WithLayout<{
-    html: string;
+    main: {
+      html: string;
+    };
   }>;
   Divider: WithLayout<{
     main: {

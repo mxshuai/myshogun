@@ -8,16 +8,6 @@ export const HEADING_SIZE_BY_LEVEL: Record<1 | 2 | 3 | 4 | 5 | 6, number> = {
   6: 12,
 };
 
-const LEGACY_SIZE_TO_PX: Record<string, number> = {
-  xxxl: 56,
-  xxl: 48,
-  xl: 40,
-  l: 32,
-  m: 24,
-  s: 20,
-  xs: 16,
-};
-
 export function normalizeHeadingLevel(
   level: unknown
 ): 1 | 2 | 3 | 4 | 5 | 6 {
@@ -29,13 +19,9 @@ export function normalizeHeadingLevel(
 export function resolveHeadingFontSize(props: {
   fontSize?: number;
   level?: unknown;
-  size?: string;
 }): number {
   if (typeof props.fontSize === "number" && Number.isFinite(props.fontSize)) {
     return props.fontSize;
-  }
-  if (props.size && LEGACY_SIZE_TO_PX[props.size] != null) {
-    return LEGACY_SIZE_TO_PX[props.size];
   }
   return HEADING_SIZE_BY_LEVEL[normalizeHeadingLevel(props.level)];
 }

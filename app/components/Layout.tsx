@@ -28,8 +28,6 @@ export type LayoutDimensionsFields = {
 
 /** Puck layout 字段（嵌套分组：Dimensions、Section margin/padding） */
 export type LayoutFieldProps = {
-  /** @deprecated 仅用于读取旧页面数据，已并入 sectionPadding */
-  padding?: string;
   spanCol?: number;
   spanRow?: number;
   grow?: boolean;
@@ -42,19 +40,13 @@ export type WithLayout<Props extends DefaultComponentProps> = Props & {
   layout?: LayoutFieldProps;
 };
 
-/** 将已废弃的 layout.padding（仅上下）并入 sectionPadding，画布与导出共用 */
+/** 读取 section margin / padding。空值规范为 "0"。 */
 export function effectiveSectionSides(layout?: LayoutFieldProps): {
   margin: SectionSidesFields;
   padding: SectionSidesFields;
 } {
   const m = layout?.sectionMargin;
   const p = layout?.sectionPadding;
-  const legacy = (layout?.padding ?? "").trim();
-  const legacyY =
-    legacy && legacy !== "0" && legacy !== "0px" ? legacy : "";
-
-  const top = normalizeSectionSide(p?.top);
-  const bottom = normalizeSectionSide(p?.bottom);
 
   return {
     margin: {
@@ -64,9 +56,9 @@ export function effectiveSectionSides(layout?: LayoutFieldProps): {
       left: normalizeSectionSide(m?.left),
     },
     padding: {
-      top: top !== "0" ? top : legacyY || "0",
+      top: normalizeSectionSide(p?.top),
       right: normalizeSectionSide(p?.right),
-      bottom: bottom !== "0" ? bottom : legacyY || "0",
+      bottom: normalizeSectionSide(p?.bottom),
       left: normalizeSectionSide(p?.left),
     },
   };

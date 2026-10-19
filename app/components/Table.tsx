@@ -5,7 +5,7 @@ import { Section } from "./Section";
 import { withLayout } from "./Layout";
 import { createPuckColorField } from "./ui/puck-color-field";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
-import { nestTableProps, readTableSettings, tableNeedsNesting } from "./table-settings";
+import { readTableSettings } from "./table-settings";
 
 type TableProps = Components["Table"];
 
@@ -121,11 +121,6 @@ const TableInternal: ComponentConfig<TableProps> = {
       rowBackgroundColor: "#ffffff",
       rowSpacing: 10,
     },
-  },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (!tableNeedsNesting(props)) return {};
-    return { props: nestTableProps(props) };
   },
   render: (props) => {
     const {

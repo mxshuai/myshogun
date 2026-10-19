@@ -74,36 +74,6 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
       ),
     } as NonNullable<ComponentConfig<Components["Button"]>["fields"]>;
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main?.label != null || props.main?.href != null || props.main?.align != null) {
-      return {};
-    }
-    const legacy = props as unknown as {
-      label?: string;
-      href?: string;
-      openInSameTab?: boolean;
-      align?: Components["Button"]["main"]["align"];
-    };
-    if (legacy.label == null && legacy.href == null && legacy.align == null && legacy.openInSameTab == null) {
-      return {};
-    }
-    return {
-      props: {
-        ...props,
-        main: {
-          label: legacy.label ?? "Text",
-          href: legacy.href ?? "",
-          openInSameTab: legacy.openInSameTab ?? true,
-          align: legacy.align ?? "center",
-        },
-        label: undefined,
-        href: undefined,
-        openInSameTab: undefined,
-        align: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       label: "Text",

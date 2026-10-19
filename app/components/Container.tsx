@@ -16,10 +16,8 @@ import { createPxSizeField } from "./ui/px-size-field";
 import { normalizeImageValue } from "./editor/media/types";
 import {
   containerBackgroundImageUrl,
-  containerNeedsNesting,
   defaultContainerBackground,
   defaultContainerMain,
-  nestContainerProps,
   readContainerSettings,
   type ContainerBackground,
   type ContainerMain,
@@ -201,11 +199,6 @@ const ContainerInternal: ComponentConfig<Components["Container"]> = {
         disallow: ["Hero"],
       },
     };
-  },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (!containerNeedsNesting(props)) return {};
-    return { props: nestContainerProps(props) };
   },
   render: ({ content: Content, layout, puck, ...props }) => {
     const { main: settings, background: backdrop } = readContainerSettings(props);

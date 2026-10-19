@@ -130,7 +130,9 @@ async function main() {
       {
         type: "RawHTML",
         props: {
-          html: `<p>Visbuild scheme-C test at ${new Date().toISOString()}</p>`,
+          main: {
+            html: `<p>Visbuild scheme-C test at ${new Date().toISOString()}</p>`,
+          },
           layout: { padding: "0" },
         },
       },

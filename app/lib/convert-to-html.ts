@@ -4,7 +4,7 @@ import { effectiveSectionSides } from "~/components/Layout";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import {
   containerBackgroundImageUrl,
-  nestContainerProps,
+  readContainerSettings,
 } from "~/components/container-settings";
 import { readSliderProps } from "~/components/slider-settings";
 import { readTableSettings } from "~/components/table-settings";
@@ -140,17 +140,8 @@ function generateComponentHTML(component: any, indent: number = 2): string {
  * 生成 Heading HTML
  */
 function generateHeading(props: any, layout: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const level = Math.min(6, Math.max(1, Number(source.level) || 1));
-  const sizeMap: Record<string, number> = {
-    xxxl: 56,
-    xxl: 48,
-    xl: 40,
-    l: 32,
-    m: 24,
-    s: 20,
-    xs: 16,
-  };
   const levelSizeMap: Record<number, number> = {
     1: 32,
     2: 24,
@@ -162,9 +153,7 @@ function generateHeading(props: any, layout: any, spaces: string): string {
   const fontSizePx =
     typeof source.fontSize === 'number' && Number.isFinite(source.fontSize)
       ? source.fontSize
-      : source.size && sizeMap[source.size] != null
-        ? sizeMap[source.size]
-        : levelSizeMap[level] ?? 32;
+      : levelSizeMap[level] ?? 32;
 
   const textAlign = source.align || 'center';
   const fontFamily = source.font?.trim() ? source.font.trim() : '';
@@ -206,7 +195,7 @@ ${body}
  * 生成 Text HTML（富文本 html 字段，原样嵌入已消毒片段）
  */
 function generateText(props: any, layout: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const raw =
     typeof source.html === "string"
       ? source.html
@@ -227,11 +216,11 @@ function sanitizeRichTextHtml(html: string): string {
  */
 function generateButton(props: any, layout: any, spaces: string): string {
   const main = props.main ?? {};
-  const href = (main.href ?? props.href)?.trim() || "#";
-  const openInSameTab = main.openInSameTab ?? props.openInSameTab;
+  const href = main.href?.trim() || "#";
+  const openInSameTab = main.openInSameTab;
   const target = openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
   const inlineStyle = serializeButtonInlineStyle(flattenButtonProps(props));
-  const align = main.align || props.align || "center";
+  const align = main.align || "center";
   const justify =
     align === "left"
       ? "flex-start"
@@ -241,7 +230,7 @@ function generateButton(props: any, layout: any, spaces: string): string {
 
   const inner = `${spaces}  <div style="display: flex; justify-content: ${justify}; width: 100%;">
 ${spaces}    <a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
-${spaces}      ${escapeHtml(main.label || props.label || "Text")}
+${spaces}      ${escapeHtml(main.label || "Text")}
 ${spaces}    </a>
 ${spaces}  </div>
 `;
@@ -253,21 +242,22 @@ ${spaces}  </div>
  * 生成 Card HTML
  */
 function generateCard(props: any, layout: any, spaces: string): string {
+  const main = props.main ?? {};
   let inner = `<div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
 `;
 
-  if (props.imageUrl) {
-    inner += `<img src="${props.imageUrl}" alt="${escapeHtml(props.title)}" style="width: 100%; height: 200px; object-fit: cover;" />
+  if (main.imageUrl) {
+    inner += `<img src="${main.imageUrl}" alt="${escapeHtml(main.title)}" style="width: 100%; height: 200px; object-fit: cover;" />
 `;
   }
 
   inner += `<div style="padding: 20px;">
-<h3 style="margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 600; color: #333;">${escapeHtml(props.title)}</h3>
-<p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: #666;">${escapeHtml(props.description)}</p>
+<h3 style="margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 600; color: #333;">${escapeHtml(main.title)}</h3>
+<p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: #666;">${escapeHtml(main.description)}</p>
 `;
 
-  if (props.href) {
-    inner += `<a href="${props.href}" style="display: inline-block; margin-top: 12px; color: #0070f3; text-decoration: none; font-weight: 500;">Learn more →</a>
+  if (main.href) {
+    inner += `<a href="${main.href}" style="display: inline-block; margin-top: 12px; color: #0070f3; text-decoration: none; font-weight: 500;">Learn more →</a>
 `;
   }
 
@@ -282,8 +272,9 @@ function generateCard(props: any, layout: any, spaces: string): string {
  * 生成 Custom HTML（按编辑内容原样输出，不做转义）
  */
 function generateCustomHtml(props: any, layout: any, spaces: string): string {
-  const rawHtml = props.html ?? "";
-  const rawCss = (props.css ?? "").trim();
+  const main = props.main ?? {};
+  const rawHtml = main.html ?? "";
+  const rawCss = (main.css ?? "").trim();
 
   let inner = `<div class="visbuild-custom-html-root">
 `;
@@ -303,7 +294,7 @@ function generateCustomHtml(props: any, layout: any, spaces: string): string {
 
 /** 从 Shopify 导入的 HTML 原样输出 */
 function generateRawHTML(props: any, layout: any, spaces: string): string {
-  const rawHtml = props.html ?? "";
+  const rawHtml = props.main?.html ?? "";
   const inner = `${rawHtml}${rawHtml.endsWith("\n") ? "" : "\n"}`;
   return wrapLayoutLayers(layout, inner, spaces);
 }
@@ -362,7 +353,7 @@ function parseVimeoId(url: string): string | null {
 }
 
 function buildVideoEmbedUrl(props: any): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const videoUrl = source.videoUrl || '';
   const loop = !!source.loop;
   const autoplay = !!source.autoplay;
@@ -396,7 +387,7 @@ function buildVideoEmbedUrl(props: any): string {
 }
 
 function generateVideo(props: any, layout: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const aspectRatio = source.aspectRatio || '16:9';
   const ratioPadding = aspectRatio === '4:3' ? '75%' : '56.25%';
   const embedUrl = buildVideoEmbedUrl(props);
@@ -482,7 +473,7 @@ function generateColumns(props: any, spaces: string, indent: number): string {
  * 生成 Flex HTML
  */
 function generateFlex(props: any, spaces: string, indent: number): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const justifyContentMap: Record<string, string> = {
     start: 'flex-start',
     center: 'center',
@@ -510,7 +501,7 @@ function generateFlex(props: any, spaces: string, indent: number): string {
  * 生成 Hero HTML
  */
 function generateHero(props: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const align = source.align || 'center';
   const backgroundImage = source.backgroundImage 
     ? `url(${source.backgroundImage})`
@@ -529,7 +520,7 @@ ${spaces}</div>\n`;
  * 生成 Divider HTML
  */
 function generateIcon(props: any, layout: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const fontSize = iconFontSizeFromHeight(source.height);
   const align = source.align || "center";
   const color = source.color || "#333333";
@@ -568,7 +559,7 @@ ${core}
 }
 
 function generateDivider(props: any, layout: any, spaces: string): string {
-  const source = props.main ?? props;
+  const source = props.main ?? {};
   const thickness = source.thickness ?? 2;
   const color = source.color || '#e0e0e0';
   const style = source.style || 'solid';
@@ -663,9 +654,7 @@ function generateTable(props: any, spaces: string, indent: number): string {
  * 生成 Container HTML
  */
 function generateContainer(props: any, spaces: string, indent: number): string {
-  const nested = nestContainerProps(props ?? {});
-  const main = nested.main ?? {};
-  const background = nested.background ?? {};
+  const { main, background } = readContainerSettings(props ?? {});
   const entireContainerClickable = main.entireContainerClickable === true;
   const containerUrl = main.containerUrl || '';
   const openInNewWindow = main.openInNewWindow === true;
@@ -784,12 +773,12 @@ function generateContainer(props: any, spaces: string, indent: number): string {
  */
 function generateTabs(props: any, spaces: string, indent: number): string {
   const main = props.main ?? {};
-  const tabs = main.tabs || props.tabs || [];
-  const theme = main.theme || props.theme || "stretch";
-  const borderColor = main.borderColor || props.borderColor || "#dddddd";
-  const borderThickness = main.borderThickness ?? props.borderThickness ?? 1;
-  const font = main.font || props.font || "";
-  const fontSize = main.fontSize ?? props.fontSize ?? 16;
+  const tabs = main.tabs || [];
+  const theme = main.theme || "stretch";
+  const borderColor = main.borderColor || "#dddddd";
+  const borderThickness = main.borderThickness ?? 1;
+  const font = main.font || "";
+  const fontSize = main.fontSize ?? 16;
   const defaultColor = {
     backgroundColor:
       props.defaultColor?.backgroundColor ??
@@ -1060,9 +1049,9 @@ function generateTabs(props: any, spaces: string, indent: number): string {
  */
 function generateAccordion(props: any, spaces: string, indent: number): string {
   const main = props.main ?? {};
-  const items = main.items || props.items || [];
-  const onlyOneOpen = (main.onlyOneOpen ?? props.onlyOneOpen) !== false; // 默认 true
-  const openIcon = main.openIcon || props.openIcon || "none";
+  const items = main.items || [];
+  const onlyOneOpen = main.onlyOneOpen !== false; // 默认 true
+  const openIcon = main.openIcon || "none";
 
   const paneHeaderText = props.paneHeaderText || {};
   const accordionColors = props.colors || {};

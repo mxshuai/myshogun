@@ -121,6 +121,7 @@ export function mapImageFit(fit: ImageDimensionsGroup["imageFit"]): CSSPropertie
 }
 
 export function flattenImageProps(props: Record<string, unknown>): ImageRenderProps {
+  const main = (props.main ?? {}) as Record<string, unknown>;
   const dimensions = {
     ...DEFAULT_DIMENSIONS,
     ...(props.dimensions as Partial<ImageDimensionsGroup>),
@@ -138,16 +139,16 @@ export function flattenImageProps(props: Record<string, unknown>): ImageRenderPr
     DEFAULT_STYLE
   );
 
-  const mainImage = normalizeImageValue(props.src);
-  const hoverImage = normalizeImageValue(props.hoverSrc);
+  const mainImage = normalizeImageValue(main.src);
+  const hoverImage = normalizeImageValue(main.hoverSrc);
 
   return {
     src: mainImage?.url ?? "",
     hoverSrc: hoverImage?.url ?? "",
-    alt: String(props.alt ?? ""),
-    imageClickable: props.imageClickable === true,
-    linkHref: typeof props.linkHref === "string" ? props.linkHref : "",
-    openInNewWindow: props.openInNewWindow === true,
+    alt: String(main.alt ?? ""),
+    imageClickable: main.imageClickable === true,
+    linkHref: typeof main.linkHref === "string" ? main.linkHref : "",
+    openInNewWindow: main.openInNewWindow === true,
     performance,
     dimensions,
     opacity: defaultStyle.opacity,

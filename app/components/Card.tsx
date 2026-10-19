@@ -3,30 +3,46 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
 
+const defaultMain: Components["Card"]["main"] = {
+  title: "Title",
+  description: "Description",
+  imageUrl: "",
+  href: "",
+};
+
 const CardInternal: ComponentConfig<Components["Card"]> = {
   fields: {
-    title: {
-      type: "text",
-      contentEditable: true,
-    },
-    description: {
-      type: "textarea",
-      contentEditable: true,
-    },
-    imageUrl: {
-      type: "text",
-    },
-    href: {
-      type: "text",
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        title: {
+          type: "text",
+          label: "Title",
+          contentEditable: true,
+        },
+        description: {
+          type: "textarea",
+          label: "Description",
+          contentEditable: true,
+        },
+        imageUrl: {
+          type: "text",
+          label: "Image URL",
+        },
+        href: {
+          type: "text",
+          label: "Link",
+        },
+      },
     },
   },
   defaultProps: {
-    title: "Title",
-    description: "Description",
-    imageUrl: "",
-    href: "",
+    main: { ...defaultMain },
   },
-  render: ({ title, description, imageUrl, href }) => {
+  render: (props) => {
+    const { title, description, imageUrl, href } = props.main ?? defaultMain;
     const CardContent = (
       <div
         style={{

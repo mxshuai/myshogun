@@ -31,24 +31,6 @@ const DividerInternal: ComponentConfig<Components["Divider"]> = {
       },
     },
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main) return {};
-    const legacy = props as unknown as Components["Divider"]["main"];
-    return {
-      props: {
-        ...props,
-        main: {
-          thickness: legacy.thickness ?? 2,
-          color: legacy.color ?? "#e0e0e0",
-          style: legacy.style ?? "solid",
-        },
-        thickness: undefined,
-        color: undefined,
-        style: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       thickness: 2,

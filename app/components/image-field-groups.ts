@@ -17,6 +17,7 @@ export const imageHoverSrcField = createImagePickerField("Hover image", {
 const shadowNumberField = (label: string) => ({
   type: "number" as const,
   label,
+  inline: true,
   min: -200,
   max: 200,
   step: 1,
@@ -38,6 +39,7 @@ const baseImageStyleObjectFields = {
   opacity: {
     type: "number" as const,
     label: "Opacity",
+    inline: true,
     min: 0,
     max: 1,
     step: 0.01,
@@ -46,6 +48,7 @@ const baseImageStyleObjectFields = {
   borderThickness: {
     type: "number" as const,
     label: "Border thickness",
+    inline: true,
     min: 0,
     max: 50,
     step: 1,
@@ -53,6 +56,7 @@ const baseImageStyleObjectFields = {
   borderRadius: {
     type: "number" as const,
     label: "Border radius",
+    inline: true,
     min: 0,
     max: 200,
     step: 1,
@@ -61,6 +65,7 @@ const baseImageStyleObjectFields = {
     type: "radio" as const,
     label: "Box shadow",
     options: [...onOffOptions],
+    switch: true,
   },
 };
 
@@ -104,6 +109,7 @@ export const imageDimensionsFieldGroup: ObjectField<ImageDimensionsGroup> = {
     height: {
       type: "number",
       label: "Height",
+      inline: true,
       min: 0,
       max: 4000,
       step: 1,
@@ -125,6 +131,7 @@ export const imageDimensionsFieldGroup: ObjectField<ImageDimensionsGroup> = {
     zoom: {
       type: "number",
       label: "Zoom",
+      inline: true,
       min: 0,
       max: 200,
       step: 1,
@@ -160,6 +167,7 @@ export const imagePerformanceFieldGroup = {
       type: "radio" as const,
       label: "Responsive image",
       options: [...onOffOptions],
+      switch: true,
     },
     loading: {
       type: "radio" as const,

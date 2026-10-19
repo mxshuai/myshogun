@@ -24,17 +24,52 @@ import {
 } from "./image-styles";
 import "./image.css";
 
-const imageFields = {
+const imageMainFields = {
   src: imageSrcField,
   alt: {
-    type: "text",
+    type: "text" as const,
     label: "Alt",
   },
   imageClickable: {
-    type: "radio",
+    type: "radio" as const,
     label: "Image is clickable",
     options: [...onOffOptions],
+    switch: true,
   },
+};
+
+function resolveImageMainField(props: Components["Image"] | undefined) {
+  const main = props?.main;
+  const objectFields: Record<string, unknown> = { ...imageMainFields };
+
+  if (normalizeImageValue(main?.src)) {
+    objectFields.hoverSrc = imageHoverSrcField;
+  }
+
+  if (main?.imageClickable === true) {
+    objectFields.linkHref = {
+      type: "text",
+      label: "Image url",
+      placeholder: "",
+    };
+    objectFields.openInNewWindow = {
+      type: "radio",
+      label: "Open in new window",
+      options: [...onOffOptions],
+      switch: true,
+    };
+  }
+
+  return {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields,
+  };
+}
+
+const imageFields = {
+  main: resolveImageMainField(undefined),
   performance: imagePerformanceFieldGroup,
   dimensions: imageDimensionsFieldGroup,
   defaultStyle: imageStyleFieldGroup("Default style", false),
@@ -45,49 +80,29 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
   fields: imageFields,
   resolveFields: (data) => {
     const props = data.props || {};
-    const fields: Record<string, unknown> = {
-      src: imageFields!.src,
-      alt: imageFields!.alt,
-      imageClickable: imageFields!.imageClickable,
-    };
-
-    if (normalizeImageValue(props.src)) {
-      fields.hoverSrc = imageHoverSrcField;
-    }
-
-    if (props.imageClickable === true) {
-      fields.linkHref = {
-        type: "text",
-        label: "Image url",
-        placeholder: "",
-      };
-      fields.openInNewWindow = {
-        type: "radio",
-        label: "Open in new window",
-        options: [...onOffOptions],
-      };
-    }
-
-    fields.performance = imageFields!.performance;
-    fields.dimensions = imageFields!.dimensions;
-    fields.defaultStyle = imageStyleFieldGroup(
-      "Default style",
-      props.defaultStyle?.boxShadow === true
-    );
-    fields.hoverStyle = imageStyleFieldGroup(
-      "Hover style",
-      props.hoverStyle?.boxShadow === true
-    );
-
-    return fields as NonNullable<ComponentConfig<Components["Image"]>["fields"]>;
+    return {
+      main: resolveImageMainField(props),
+      performance: imageFields!.performance,
+      dimensions: imageFields!.dimensions,
+      defaultStyle: imageStyleFieldGroup(
+        "Default style",
+        props.defaultStyle?.boxShadow === true
+      ),
+      hoverStyle: imageStyleFieldGroup(
+        "Hover style",
+        props.hoverStyle?.boxShadow === true
+      ),
+    } as NonNullable<ComponentConfig<Components["Image"]>["fields"]>;
   },
   defaultProps: {
-    src: { url: "" },
-    hoverSrc: null,
-    alt: "",
-    imageClickable: false,
-    linkHref: "",
-    openInNewWindow: false,
+    main: {
+      src: { url: "" },
+      hoverSrc: null,
+      alt: "",
+      imageClickable: false,
+      linkHref: "",
+      openInNewWindow: false,
+    },
     performance: { ...defaultImagePerformance },
     dimensions: { ...defaultImageDimensions },
     defaultStyle: { ...defaultImageDefaultStyle },

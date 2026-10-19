@@ -445,15 +445,8 @@ function TabsPreview(props: Omit<TabsViewProps, "effectiveActiveTab" | "onSelect
 const TabsInternal: ComponentConfig<TabsProps> = {
   fields: tabsFields,
   resolveData: (data) => {
-    const props = (data.props || {}) as TabsProps & {
-      tabs?: TabsProps["main"]["tabs"];
-      theme?: TabsProps["main"]["theme"];
-      borderColor?: string;
-      borderThickness?: number;
-      font?: string;
-      fontSize?: number;
-    };
-    const sourceTabs = props.main?.tabs ?? props.tabs ?? [];
+    const props = (data.props || {}) as TabsProps;
+    const sourceTabs = props.main?.tabs ?? [];
     let tabsChanged = false;
     const normalizedTabs = sourceTabs.map((tab, index) => {
       if (typeof tab?.title !== "string") return tab;
@@ -464,8 +457,7 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     });
     const tabCount = Math.max(1, normalizedTabs.length);
     const clamped = clampActiveTabIndex(props.activeTabIndex, tabCount);
-    const needsNest = !props.main;
-    if (!needsNest && !tabsChanged && clamped === props.activeTabIndex) {
+    if (!tabsChanged && clamped === props.activeTabIndex) {
       return {};
     }
     return {
@@ -474,18 +466,12 @@ const TabsInternal: ComponentConfig<TabsProps> = {
         activeTabIndex: clamped,
         main: {
           tabs: normalizedTabs,
-          theme: props.main?.theme ?? props.theme ?? "stretch",
-          borderColor: props.main?.borderColor ?? props.borderColor ?? "#dddddd",
-          borderThickness: props.main?.borderThickness ?? props.borderThickness ?? 1,
-          font: props.main?.font ?? props.font ?? "",
-          fontSize: props.main?.fontSize ?? props.fontSize ?? 16,
+          theme: props.main?.theme ?? "stretch",
+          borderColor: props.main?.borderColor ?? "#dddddd",
+          borderThickness: props.main?.borderThickness ?? 1,
+          font: props.main?.font ?? "",
+          fontSize: props.main?.fontSize ?? 16,
         },
-        tabs: undefined,
-        theme: undefined,
-        borderColor: undefined,
-        borderThickness: undefined,
-        font: undefined,
-        fontSize: undefined,
       },
     };
   },

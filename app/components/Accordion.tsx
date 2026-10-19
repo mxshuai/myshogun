@@ -531,12 +531,8 @@ function AccordionPreview(
 const AccordionInternal: ComponentConfig<AccordionProps> = {
   fields: accordionFields,
   resolveData: (data) => {
-    const props = (data.props || {}) as AccordionProps & {
-      items?: AccordionProps["main"]["items"];
-      onlyOneOpen?: boolean;
-      openIcon?: AccordionProps["main"]["openIcon"];
-    };
-    const sourceItems = props.main?.items ?? props.items ?? [];
+    const props = (data.props || {}) as AccordionProps;
+    const sourceItems = props.main?.items ?? [];
     let itemsChanged = false;
     const normalizedItems = sourceItems.map((item, index) => {
       if (typeof item?.title !== "string") return item;
@@ -550,8 +546,7 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
       props.currentAccordionIndex,
       itemCount,
     );
-    const needsNest = !props.main;
-    if (!needsNest && !itemsChanged && clamped === props.currentAccordionIndex) {
+    if (!itemsChanged && clamped === props.currentAccordionIndex) {
       return {};
     }
     return {
@@ -560,12 +555,9 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
         currentAccordionIndex: clamped,
         main: {
           items: normalizedItems,
-          onlyOneOpen: props.main?.onlyOneOpen ?? props.onlyOneOpen ?? true,
-          openIcon: props.main?.openIcon ?? props.openIcon ?? "none",
+          onlyOneOpen: props.main?.onlyOneOpen ?? true,
+          openIcon: props.main?.openIcon ?? "none",
         },
-        items: undefined,
-        onlyOneOpen: undefined,
-        openIcon: undefined,
       },
     };
   },

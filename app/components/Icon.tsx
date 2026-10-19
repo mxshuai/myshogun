@@ -169,37 +169,6 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
       },
     } as Fields<Components["Icon"]>;
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main?.iconId) return {};
-    const legacy = props as unknown as Components["Icon"]["main"] & {
-      height?: number | string;
-    };
-    const heightNumber = Number(String(legacy.height ?? "64").replace(/px$/i, ""));
-    return {
-      props: {
-        ...props,
-        main: {
-          iconId: legacy.iconId ?? "shg-fa-address-book-o",
-          height: Number.isFinite(heightNumber) ? heightNumber : 64,
-          align: legacy.align ?? "center",
-          color: legacy.color ?? "#333333",
-          ariaLabel: legacy.ariaLabel ?? "",
-          addLink: legacy.addLink ?? false,
-          linkHref: legacy.linkHref ?? "",
-          openInNewWindow: legacy.openInNewWindow ?? false,
-        },
-        iconId: undefined,
-        height: undefined,
-        align: undefined,
-        color: undefined,
-        ariaLabel: undefined,
-        addLink: undefined,
-        linkHref: undefined,
-        openInNewWindow: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       iconId: "shg-fa-address-book-o",

@@ -62,7 +62,7 @@ export const config: Config = {
     },
     other: {
       title: "Other",
-      components: ["CustomHtml", "RawHTML"],
+      components: ["CustomHtml", "RawHTML", "Flex"],
     },
   },
   components: {

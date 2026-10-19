@@ -89,25 +89,23 @@ const headingFields = {
   },
 } as ComponentConfig<Components["Heading"]>["fields"];
 
+const defaultHeadingMain: Components["Heading"]["main"] = {
+  text: "Heading",
+  level: 1,
+  font: "",
+  fontSize: 32,
+  textColor: "#555",
+  addLink: false,
+  linkHref: "",
+  openInNewWindow: false,
+  align: "center",
+};
+
 const HeadingInternal: ComponentConfig<Components["Heading"]> = {
   fields: headingFields,
   resolveData: (data, { lastData }) => {
     const props = data.props || {};
-    const legacy = props as unknown as {
-      text?: string;
-      level?: unknown;
-      font?: string;
-      fontSize?: number;
-      textColor?: string;
-      lineHeight?: number;
-      letterSpacing?: number;
-      addLink?: boolean;
-      linkHref?: string;
-      openInNewWindow?: boolean;
-      align?: "left" | "center" | "right";
-      size?: string;
-    };
-    const source = props.main ?? legacy;
+    const source = props.main ?? defaultHeadingMain;
     const nextMain = { ...source };
     let updated = !props.main;
 
@@ -122,8 +120,7 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
       updated = true;
     }
 
-    const previousLevel = (lastData?.props as { main?: { level?: unknown }; level?: unknown } | undefined)?.main
-      ?.level ?? (lastData?.props as { level?: unknown } | undefined)?.level;
+    const previousLevel = lastData?.props?.main?.level;
     if (previousLevel != null && normalizeHeadingLevel(previousLevel) !== level) {
       const mapped = HEADING_SIZE_BY_LEVEL[level];
       if (nextMain.fontSize !== mapped) {
@@ -138,23 +135,11 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
       props: {
         ...props,
         main: nextMain,
-        text: undefined,
-        level: undefined,
-        font: undefined,
-        fontSize: undefined,
-        textColor: undefined,
-        lineHeight: undefined,
-        letterSpacing: undefined,
-        addLink: undefined,
-        linkHref: undefined,
-        openInNewWindow: undefined,
-        align: undefined,
-        size: undefined,
       },
     };
   },
   resolveFields: (data) => {
-    const main = data.props?.main ?? data.props;
+    const main = data.props?.main;
     const objectFields = { ...headingMainFields } as Record<string, unknown>;
     if (!main?.addLink) {
       delete objectFields.linkHref;
@@ -170,17 +155,7 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
     } as NonNullable<ComponentConfig<Components["Heading"]>["fields"]>;
   },
   defaultProps: {
-    main: {
-      text: "Heading",
-      level: 1,
-      font: "",
-      fontSize: 32,
-      textColor: "#555",
-      addLink: false,
-      linkHref: "",
-      openInNewWindow: false,
-      align: "center",
-    },
+    main: { ...defaultHeadingMain },
     layout: {
       ...defaultLayoutSpacing,
       sectionPadding: {
@@ -192,7 +167,7 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
     },
   },
   render: (props) => {
-    const main = props.main ?? props;
+    const main = props.main ?? defaultHeadingMain;
     const {
       align,
       text,

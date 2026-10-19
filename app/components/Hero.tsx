@@ -43,30 +43,6 @@ export const Hero: ComponentConfig<Components["Hero"]> = {
       },
     },
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main) return {};
-    const legacy = props as unknown as Components["Hero"]["main"];
-    return {
-      props: {
-        ...props,
-        main: {
-          title: legacy.title ?? "Welcome to Our Website",
-          subtitle: legacy.subtitle ?? "",
-          buttonText: legacy.buttonText ?? "Learn More",
-          buttonHref: legacy.buttonHref ?? "#",
-          backgroundImage: legacy.backgroundImage ?? "",
-          align: legacy.align ?? "center",
-        },
-        title: undefined,
-        subtitle: undefined,
-        buttonText: undefined,
-        buttonHref: undefined,
-        backgroundImage: undefined,
-        align: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       title: "Welcome to Our Website",

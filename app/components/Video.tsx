@@ -124,33 +124,6 @@ const VideoInternal: ComponentConfig<Components["Video"]> = {
       },
     },
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main) return {};
-    const legacy = props as unknown as Components["Video"]["main"];
-    return {
-      props: {
-        ...props,
-        main: {
-          videoUrl: legacy.videoUrl ?? "",
-          aspectRatio: legacy.aspectRatio ?? "16:9",
-          loading: legacy.loading ?? "auto",
-          loop: legacy.loop ?? false,
-          autoplay: legacy.autoplay ?? false,
-          muteAudio: legacy.muteAudio ?? false,
-          relatedVideosFromOtherChannels:
-            legacy.relatedVideosFromOtherChannels ?? true,
-        },
-        videoUrl: undefined,
-        aspectRatio: undefined,
-        loading: undefined,
-        loop: undefined,
-        autoplay: undefined,
-        muteAudio: undefined,
-        relatedVideosFromOtherChannels: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       videoUrl: "",

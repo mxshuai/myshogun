@@ -77,7 +77,6 @@ export type ButtonStyleGroup = {
   boxShadowSpread?: number;
 };
 
-/** @deprecated 扁平字段别名，供 flattenButtonProps 内部使用 */
 export type ButtonStyleProps = ButtonStyleGroup;
 
 export type ButtonRenderProps = ButtonStyleProps & {
@@ -277,35 +276,27 @@ function styleFromGroup(
   return { ...fallback, ...group };
 }
 
-/** 将嵌套（或历史扁平）Button props 转为 render / 导出用的扁平结构 */
+/** 将分组 Button props 转为 render / 导出用的扁平结构 */
 export function flattenButtonProps(props: Record<string, unknown>): ButtonRenderProps {
-  const nested =
-    props.defaultStyle != null ||
-    props.hoverStyle != null ||
-    props.activeStyle != null ||
-    props.text != null ||
-    props.dimensions != null;
+  const text = { ...DEFAULT_TEXT, ...(props.text as Partial<ButtonTextGroup>) };
+  const dimensions = {
+    ...DEFAULT_DIMENSIONS,
+    ...(props.dimensions as Partial<ButtonDimensionsGroup>),
+  };
+  const defaultStyle = styleFromGroup(
+    props.defaultStyle as Partial<ButtonStyleGroup>,
+    DEFAULT_STYLE
+  );
+  const hoverStyle = styleFromGroup(
+    props.hoverStyle as Partial<ButtonStyleGroup>,
+    DEFAULT_HOVER_STYLE
+  );
+  const activeStyle = styleFromGroup(
+    props.activeStyle as Partial<ButtonStyleGroup>,
+    DEFAULT_ACTIVE_STYLE
+  );
 
-  if (nested) {
-    const text = { ...DEFAULT_TEXT, ...(props.text as Partial<ButtonTextGroup>) };
-    const dimensions = {
-      ...DEFAULT_DIMENSIONS,
-      ...(props.dimensions as Partial<ButtonDimensionsGroup>),
-    };
-    const defaultStyle = styleFromGroup(
-      props.defaultStyle as Partial<ButtonStyleGroup>,
-      DEFAULT_STYLE
-    );
-    const hoverStyle = styleFromGroup(
-      props.hoverStyle as Partial<ButtonStyleGroup>,
-      DEFAULT_HOVER_STYLE
-    );
-    const activeStyle = styleFromGroup(
-      props.activeStyle as Partial<ButtonStyleGroup>,
-      DEFAULT_ACTIVE_STYLE
-    );
-
-    return {
+  return {
       font: text.font,
       fontSize: text.fontSize,
       lineHeight: text.lineHeight,
@@ -347,9 +338,6 @@ export function flattenButtonProps(props: Record<string, unknown>): ButtonRender
       activeBoxShadowBlur: activeStyle.boxShadowBlur,
       activeBoxShadowSpread: activeStyle.boxShadowSpread,
     };
-  }
-
-  return props as ButtonRenderProps;
 }
 
 export const BUTTON_EXPORT_CSS = `.visbuild-button {

@@ -18,31 +18,11 @@ import { textTiptapExtensions } from "./text/text-tiptap-extensions";
 
 import "./text/text-rich-text.css";
 
-function escapeHtmlText(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function staticHtmlFromProps(props: {
-  html?: unknown;
-  text?: string;
-}): string {
-  if (typeof props.html === "string" && props.html.trim()) {
-    return props.html;
-  }
-  if (typeof props.text === "string" && props.text.trim()) {
-    return `<p>${escapeHtmlText(props.text)}</p>`;
-  }
-  return DEFAULT_TEXT_HTML;
-}
-
 function mergeClassNames(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
+function renderTextBody(htmlProp: unknown): ReactNode {
   /** 编辑态：Puck 将 html 替换为 inline TipTap（含 overlay portal），避免再包一层 div 阻断选中 */
   if (isValidElement(htmlProp)) {
     const existing = (htmlProp.props as { className?: string }).className;
@@ -54,9 +34,7 @@ function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
   const raw =
     typeof htmlProp === "string" && htmlProp.trim()
       ? htmlProp
-      : typeof legacyText === "string" && legacyText.trim()
-        ? `<p>${escapeHtmlText(legacyText)}</p>`
-        : DEFAULT_TEXT_HTML;
+      : DEFAULT_TEXT_HTML;
 
   return (
     <div
@@ -97,23 +75,6 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
       },
     },
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main) return {};
-    const legacy = props as unknown as {
-      html?: string;
-    };
-    return {
-      props: {
-        ...props,
-        main: {
-          html: legacy.html ?? DEFAULT_TEXT_HTML,
-        },
-        html: undefined,
-        maxWidth: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       html: DEFAULT_TEXT_HTML,
@@ -132,7 +93,7 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
     const main = props.main ?? { html: DEFAULT_TEXT_HTML };
     return (
       <Section>
-        {renderTextBody(main.html, props.text)}
+        {renderTextBody(main.html)}
       </Section>
     );
   },

@@ -382,8 +382,7 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       changed = true;
     }
 
-    const needsNest = !props.main || !props.controls;
-    if (!changed && !needsNest) {
+    if (!changed) {
       return {};
     }
 
@@ -416,26 +415,6 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
           dotsLocation: flat.dotsLocation,
           spaceBetweenDots: flat.spaceBetweenDots,
         },
-        mode: undefined,
-        rewind: undefined,
-        numberOfSlides: undefined,
-        slidesPerPage: undefined,
-        animation: undefined,
-        autoSlide: undefined,
-        showEachSlideSeconds: undefined,
-        pauseAutoplayOnHover: undefined,
-        controlsOverContent: undefined,
-        showArrows: undefined,
-        arrowColor: undefined,
-        arrowHeight: undefined,
-        arrowBackground: undefined,
-        showDots: undefined,
-        selectedDotColor: undefined,
-        unselectedDotColor: undefined,
-        dotsSize: undefined,
-        selectedDotWidth: undefined,
-        dotsLocation: undefined,
-        spaceBetweenDots: undefined,
       },
     };
   },

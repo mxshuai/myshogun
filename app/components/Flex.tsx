@@ -47,36 +47,6 @@ const FlexInternal: ComponentConfig<Components["Flex"]> = {
       },
     },
   },
-  resolveData: (data) => {
-    const props = data.props || {};
-    if (props.main) return {};
-    const legacy = props as unknown as {
-      direction?: "row" | "column";
-      justifyContent?: "start" | "center" | "end";
-      gap?: number;
-      wrap?: boolean | "wrap" | "nowrap";
-      items?: Slot;
-    };
-    const wrap =
-      legacy.wrap === false || legacy.wrap === "nowrap" ? false : true;
-    return {
-      props: {
-        ...props,
-        main: {
-          direction: legacy.direction ?? "row",
-          justifyContent: legacy.justifyContent ?? "start",
-          gap: legacy.gap ?? 24,
-          wrap,
-          items: legacy.items ?? [],
-        },
-        direction: undefined,
-        justifyContent: undefined,
-        gap: undefined,
-        wrap: undefined,
-        items: undefined,
-      },
-    };
-  },
   defaultProps: {
     main: {
       justifyContent: "start",

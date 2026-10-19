@@ -30,7 +30,10 @@ async function main() {
     content: [
       {
         type: "RawHTML",
-        props: { html: "<p>scheduled</p>", layout: { padding: "0" } },
+        props: {
+          main: { html: "<p>scheduled</p>" },
+          layout: { padding: "0" },
+        },
       },
     ],
     root: { props: { title: "Verify Page" } },

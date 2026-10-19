@@ -15,7 +15,9 @@ export function visbuildDataFromShopifyBody(
       {
         type: "RawHTML",
         props: {
-          html: body || "",
+          main: {
+            html: body || "",
+          },
         },
       },
     ],
