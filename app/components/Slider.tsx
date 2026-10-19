@@ -6,6 +6,8 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
 import { createPuckColorField } from "./ui/puck-color-field";
+import { onOffOptions } from "./button-field-groups";
+import { readSliderProps } from "./slider-settings";
 import {
   SLIDER_ARROW_LEFT_PATH,
   SLIDER_ARROW_RIGHT_PATH,
@@ -217,7 +219,8 @@ function SliderOverlayButton({
   );
 }
 
-type SliderViewProps = Components["Slider"] & {
+type SliderViewProps = ReturnType<typeof readSliderProps> & {
+  id?: string;
   isEditing: boolean;
   activePage: number;
   visualTrackIndex: number;
@@ -229,7 +232,24 @@ type SliderViewProps = Components["Slider"] & {
   onHoverChange: (hovering: boolean) => void;
 };
 
-const sliderFields = {
+const inlineNumber = (
+  label: string,
+  options: { min?: number; max?: number; step?: number },
+) => ({
+  type: "number" as const,
+  label,
+  inline: true,
+  ...options,
+});
+
+const switchField = (label: string) => ({
+  type: "radio" as const,
+  label,
+  options: [...onOffOptions],
+  switch: true,
+});
+
+const mainObjectFields = {
   mode: {
     type: "radio" as const,
     label: "Mode",
@@ -238,106 +258,30 @@ const sliderFields = {
       { label: "Loop", value: "loop" },
     ],
   },
-  rewind: {
-    type: "radio" as const,
-    label: "Rewind",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  numberOfSlides: {
-    type: "number" as const,
-    label: "Number of slides",
-    min: 1,
-    max: 20,
-  },
-  slidesPerPage: {
-    type: "number" as const,
-    label: "Slides per page",
-    min: 1,
-    max: 12,
-  },
+  rewind: switchField("Rewind"),
+  numberOfSlides: inlineNumber("Number of slides", { min: 1, max: 20 }),
+  slidesPerPage: inlineNumber("Slides per page", { min: 1, max: 12 }),
   animation: {
     type: "select" as const,
     label: "Animation",
     options: animationOptions,
   },
-  autoSlide: {
-    type: "radio" as const,
-    label: "Auto Slide",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  showEachSlideSeconds: {
-    type: "number" as const,
-    label: "Show each slide for (seconds)",
-    min: 1,
-    max: 60,
-  },
-  pauseAutoplayOnHover: {
-    type: "radio" as const,
-    label: "Pause autoplay on hover",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  controlsOverContent: {
-    type: "radio" as const,
-    label: "Controls over content",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  showArrows: {
-    type: "radio" as const,
-    label: "Show arrows",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
+  autoSlide: switchField("Auto Slide"),
+  showEachSlideSeconds: inlineNumber("Show each slide for (seconds)", { min: 1, max: 60 }),
+  pauseAutoplayOnHover: switchField("Pause autoplay on hover"),
+};
+
+const controlsObjectFields = {
+  controlsOverContent: switchField("Controls over content"),
+  showArrows: switchField("Show arrows"),
   arrowColor: createPuckColorField("Arrow color", "#777777"),
-  arrowHeight: {
-    type: "number" as const,
-    label: "Arrow height",
-    min: 12,
-    max: 80,
-  },
-  arrowBackground: {
-    type: "radio" as const,
-    label: "Arrow background",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  showDots: {
-    type: "radio" as const,
-    label: "Show dots",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
+  arrowHeight: inlineNumber("Arrow height", { min: 12, max: 80 }),
+  arrowBackground: switchField("Arrow background"),
+  showDots: switchField("Show dots"),
   selectedDotColor: createPuckColorField("Selected dot color", "#777777"),
   unselectedDotColor: createPuckColorField("Unselected dot color", "#999999"),
-  dotsSize: {
-    type: "number" as const,
-    label: "Dots size",
-    min: 4,
-    max: 28,
-  },
-  selectedDotWidth: {
-    type: "number" as const,
-    label: "Selected dot width (%)",
-    min: 100,
-    step: 50,
-  },
+  dotsSize: inlineNumber("Dots size", { min: 4, max: 28 }),
+  selectedDotWidth: inlineNumber("Selected dot width", { min: 100, step: 50 }),
   dotsLocation: {
     type: "radio" as const,
     label: "Dots location",
@@ -347,11 +291,20 @@ const sliderFields = {
       { label: "Right", value: "right" },
     ],
   },
-  spaceBetweenDots: {
-    type: "number" as const,
-    label: "Space between dots",
-    min: 0,
-    max: 40,
+  spaceBetweenDots: inlineNumber("Space between dots", { min: 0, max: 40 }),
+};
+
+const sliderFields = {
+  main: {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields: mainObjectFields,
+  },
+  controls: {
+    type: "object" as const,
+    label: "Controls",
+    objectFields: controlsObjectFields,
   },
   items: {
     type: "array" as const,
@@ -370,15 +323,16 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
   fields: sliderFields,
   resolveData: (data) => {
     const props = data.props || {};
-    const screenCount = Math.max(1, Math.min(20, Number(props.numberOfSlides) || 1));
+    const flat = readSliderProps(props);
+    const screenCount = Math.max(1, Math.min(20, flat.numberOfSlides));
     const existing = Array.isArray(props.items) ? props.items : [];
     let changed = false;
 
-    if (screenCount !== Number(props.numberOfSlides)) {
+    if (screenCount !== flat.numberOfSlides) {
       changed = true;
     }
 
-    let slidesPerPage = Number(props.slidesPerPage);
+    let slidesPerPage = flat.slidesPerPage;
     if (!Number.isFinite(slidesPerPage)) slidesPerPage = 1;
     const clampedSpp = Math.max(1, Math.min(12, slidesPerPage));
     if (clampedSpp !== slidesPerPage) {
@@ -423,67 +377,123 @@ const SliderInternal: ComponentConfig<Components["Slider"]> = {
       changed = true;
     }
 
-    const clampedDotWidth = clampSelectedDotWidthPercent(props.selectedDotWidth);
-    if (clampedDotWidth !== props.selectedDotWidth) {
+    const clampedDotWidth = clampSelectedDotWidthPercent(flat.selectedDotWidth);
+    if (clampedDotWidth !== flat.selectedDotWidth) {
       changed = true;
     }
 
-    if (!changed) {
+    const needsNest = !props.main || !props.controls;
+    if (!changed && !needsNest) {
       return {};
     }
 
     return {
       props: {
         ...props,
-        numberOfSlides: screenCount,
-        slidesPerPage: clampedSpp,
         items,
         currentSlideIndex,
-        selectedDotWidth: clampedDotWidth,
+        main: {
+          mode: flat.mode,
+          rewind: flat.rewind,
+          numberOfSlides: screenCount,
+          slidesPerPage: clampedSpp,
+          animation: flat.animation,
+          autoSlide: flat.autoSlide,
+          showEachSlideSeconds: flat.showEachSlideSeconds,
+          pauseAutoplayOnHover: flat.pauseAutoplayOnHover,
+        },
+        controls: {
+          controlsOverContent: flat.controlsOverContent,
+          showArrows: flat.showArrows,
+          arrowColor: flat.arrowColor,
+          arrowHeight: flat.arrowHeight,
+          arrowBackground: flat.arrowBackground,
+          showDots: flat.showDots,
+          selectedDotColor: flat.selectedDotColor,
+          unselectedDotColor: flat.unselectedDotColor,
+          dotsSize: flat.dotsSize,
+          selectedDotWidth: clampedDotWidth,
+          dotsLocation: flat.dotsLocation,
+          spaceBetweenDots: flat.spaceBetweenDots,
+        },
+        mode: undefined,
+        rewind: undefined,
+        numberOfSlides: undefined,
+        slidesPerPage: undefined,
+        animation: undefined,
+        autoSlide: undefined,
+        showEachSlideSeconds: undefined,
+        pauseAutoplayOnHover: undefined,
+        controlsOverContent: undefined,
+        showArrows: undefined,
+        arrowColor: undefined,
+        arrowHeight: undefined,
+        arrowBackground: undefined,
+        showDots: undefined,
+        selectedDotColor: undefined,
+        unselectedDotColor: undefined,
+        dotsSize: undefined,
+        selectedDotWidth: undefined,
+        dotsLocation: undefined,
+        spaceBetweenDots: undefined,
       },
     };
   },
   resolveFields: (data) => {
-    const fields = { ...sliderFields } as any;
-    // 侧栏不展示：长度由 numberOfSlides × slidesPerPage 自动维护，内容在画布 slot 内编辑
-    delete fields.items;
-    if (data.props?.mode === "loop") {
-      delete fields.rewind;
+    const flat = readSliderProps(data.props);
+    const mainFields: Record<string, unknown> = { ...mainObjectFields };
+    if (flat.mode === "loop") {
+      delete mainFields.rewind;
     }
-    if (!data.props?.autoSlide) {
-      delete fields.showEachSlideSeconds;
-      delete fields.pauseAutoplayOnHover;
+    if (!flat.autoSlide) {
+      delete mainFields.showEachSlideSeconds;
+      delete mainFields.pauseAutoplayOnHover;
     }
-    return fields;
+    return {
+      main: {
+        type: "object" as const,
+        label: "Main",
+        defaultOpen: true,
+        objectFields: mainFields,
+      },
+      controls: {
+        type: "object" as const,
+        label: "Controls",
+        objectFields: controlsObjectFields,
+      },
+    } as any;
   },
   defaultProps: {
-    mode: "slide",
-    rewind: true,
-    numberOfSlides: 1,
-    slidesPerPage: 1,
     currentSlideIndex: 1,
-    animation: "slide-medium",
-    autoSlide: false,
-    showEachSlideSeconds: 5,
-    pauseAutoplayOnHover: false,
-    controlsOverContent: false,
-    showArrows: true,
-    arrowColor: "#777777",
-    arrowHeight: 35,
-    arrowBackground: false,
-    showDots: true,
-    selectedDotColor: "#777777",
-    unselectedDotColor: "#999999",
-    dotsSize: 14,
-    selectedDotWidth: 100,
-    dotsLocation: "center",
-    spaceBetweenDots: 8,
     items: [{ slot: [] }],
+    main: {
+      mode: "slide",
+      rewind: true,
+      numberOfSlides: 1,
+      slidesPerPage: 1,
+      animation: "slide-medium",
+      autoSlide: false,
+      showEachSlideSeconds: 5,
+      pauseAutoplayOnHover: false,
+    },
+    controls: {
+      controlsOverContent: false,
+      showArrows: true,
+      arrowColor: "#777777",
+      arrowHeight: 35,
+      arrowBackground: false,
+      showDots: true,
+      selectedDotColor: "#777777",
+      unselectedDotColor: "#999999",
+      dotsSize: 14,
+      selectedDotWidth: 100,
+      dotsLocation: "center",
+      spaceBetweenDots: 8,
+    },
   },
   render: (allProps) => {
-    const { puck, ...props } = allProps;
-    const sliderProps = props as unknown as SliderRuntimeProps;
-    if (puck?.isEditing) {
+    const sliderProps = { ...readSliderProps(allProps), id: allProps.id };
+    if (allProps.puck?.isEditing) {
       return <SliderEditor {...sliderProps} />;
     }
     return <SliderPreview {...sliderProps} />;
@@ -793,9 +803,8 @@ function SliderView({
   );
 }
 
-type SliderRuntimeProps = Omit<Components["Slider"], "items"> & {
+type SliderRuntimeProps = ReturnType<typeof readSliderProps> & {
   id?: string;
-  items: SliderItem[];
 };
 
 /** Only mounted inside <Puck> editor — may call useGetPuck. */

@@ -69,30 +69,55 @@ function renderTextBody(htmlProp: unknown, legacyText?: string): ReactNode {
 const TextInternal: ComponentConfig<Components["Text"]> = {
   inline: true,
   fields: {
-    html: {
-      type: "richtext",
-      label: "Formatting",
-      contentEditable: true,
-      options: {
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
-        link: false,
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        html: {
+          type: "richtext",
+          label: "",
+          contentEditable: true,
+          options: {
+            heading: { levels: [1, 2, 3, 4, 5, 6] },
+            link: false,
+          },
+          tiptap: {
+            extensions: textTiptapExtensions,
+          },
+          renderMenu: ({ editor, editorState }) => (
+            <TextRichTextMenu editor={editor} editorState={editorState} />
+          ),
+          renderInlineMenu: ({ editor, children }: { editor: Editor | null; children?: ReactNode }) => (
+            <TextInlineEditorBridge editor={editor}>
+              <RichTextMenu>{children}</RichTextMenu>
+            </TextInlineEditorBridge>
+          ),
+        },
       },
-      tiptap: {
-        extensions: textTiptapExtensions,
-      },
-      renderMenu: ({ editor, editorState }) => (
-        <TextRichTextMenu editor={editor} editorState={editorState} />
-      ),
-      renderInlineMenu: ({ editor, children }: { editor: Editor | null; children?: ReactNode }) => (
-        <TextInlineEditorBridge editor={editor}>
-          <RichTextMenu>{children}</RichTextMenu>
-        </TextInlineEditorBridge>
-      ),
     },
-    maxWidth: { type: "text" },
+  },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main) return {};
+    const legacy = props as unknown as {
+      html?: string;
+    };
+    return {
+      props: {
+        ...props,
+        main: {
+          html: legacy.html ?? DEFAULT_TEXT_HTML,
+        },
+        html: undefined,
+        maxWidth: undefined,
+      },
+    };
   },
   defaultProps: {
-    html: DEFAULT_TEXT_HTML,
+    main: {
+      html: DEFAULT_TEXT_HTML,
+    },
     layout: {
       ...defaultLayoutSpacing,
       sectionPadding: {
@@ -103,11 +128,14 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
       },
     },
   },
-  render: (props) => (
-    <Section maxWidth={props.maxWidth}>
-      {renderTextBody(props.html, props.text)}
-    </Section>
-  ),
+  render: (props) => {
+    const main = props.main ?? { html: DEFAULT_TEXT_HTML };
+    return (
+      <Section>
+        {renderTextBody(main.html, props.text)}
+      </Section>
+    );
+  },
 };
 
 export const Text = withLayout(TextInternal);

@@ -10,6 +10,7 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
 import { createPuckColorField } from "./ui/puck-color-field";
+import { onOffOptions } from "./button-field-groups";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
 import {
   ACCORDION_CARET_FA_CLASS,
@@ -31,7 +32,7 @@ type AccordionViewProps = {
   items: Array<{ title: string; open: boolean; content: SlotComponent }>;
   currentAccordionIndex?: number;
   onlyOneOpen: boolean;
-  openIcon: AccordionProps["openIcon"];
+  openIcon: AccordionProps["main"]["openIcon"];
   paneHeaderText: AccordionProps["paneHeaderText"];
   colors: AccordionProps["colors"];
   isEditing: boolean;
@@ -82,7 +83,7 @@ function renderOpenIcon({
   openIcon,
 }: {
   open: boolean;
-  openIcon: AccordionProps["openIcon"];
+  openIcon: AccordionProps["main"]["openIcon"];
 }) {
   if (openIcon === "none") return null;
 
@@ -116,6 +117,16 @@ const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
   value: o.value,
 }));
 
+const inlineNumber = (
+  label: string,
+  options: { min?: number; max?: number },
+) => ({
+  type: "number" as const,
+  label,
+  inline: true,
+  ...options,
+});
+
 const paneHeaderTextFieldGroup: ObjectField<AccordionProps["paneHeaderText"]> = {
   type: "object",
   label: "Pane header text",
@@ -125,12 +136,7 @@ const paneHeaderTextFieldGroup: ObjectField<AccordionProps["paneHeaderText"]> = 
       label: "Font",
       options: fontOptions,
     },
-    headerSize: {
-      type: "number",
-      label: "Size",
-      min: 8,
-      max: 72,
-    },
+    headerSize: inlineNumber("Size", { min: 8, max: 72 }),
     headerTextAlignment: {
       type: "radio",
       label: "Text alignment",
@@ -140,12 +146,7 @@ const paneHeaderTextFieldGroup: ObjectField<AccordionProps["paneHeaderText"]> = 
         { label: "Right", value: "right" },
       ],
     },
-    headingPadding: {
-      type: "number",
-      label: "Heading padding",
-      min: 0,
-      max: 48,
-    },
+    headingPadding: inlineNumber("Heading padding", { min: 0, max: 48 }),
   },
 };
 
@@ -161,55 +162,58 @@ const colorsFieldGroup: ObjectField<AccordionProps["colors"]> = {
 };
 
 const accordionFields = {
-  items: {
-    type: "array" as const,
-    label: "Manage accordion sections",
-    arrayFields: {
-      title: {
-        type: "text" as const,
-        label: "Title",
-        contentEditable: true,
+  main: {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields: {
+      items: {
+        type: "array" as const,
+        label: "Manage accordion sections",
+        arrayFields: {
+          title: {
+            type: "text" as const,
+            label: "Title",
+            contentEditable: true,
+          },
+          open: {
+            type: "radio" as const,
+            label: "Open",
+            options: [...onOffOptions],
+            switch: true,
+          },
+          content: {
+            type: "slot" as const,
+            label: "Content",
+          },
+        },
+        defaultItemProps: (index: number) => ({
+          title: `Accordion ${index + 1}`,
+          open: false,
+          content: [],
+        }),
+        getItemSummary: (item: { title?: unknown }, index: number) =>
+          getItemTitle(
+            index,
+            typeof item?.title === "string" ? item.title : undefined,
+          ),
       },
-      open: {
+      onlyOneOpen: {
         type: "radio" as const,
-        label: "Open",
+        label: "Only one pane open",
+        options: [...onOffOptions],
+        switch: true,
+      },
+      openIcon: {
+        type: "radio" as const,
+        label: "Open icon",
         options: [
-          { label: "true", value: true },
-          { label: "false", value: false },
+          { label: "None", value: "none" },
+          { label: "Chevron", value: "chevron" },
+          { label: "Plus", value: "plus" },
         ],
       },
-      content: {
-        type: "slot" as const,
-        label: "Content",
-      },
     },
-    defaultItemProps: (index: number) => ({
-      title: `Accordion ${index + 1}`,
-      open: false,
-      content: [],
-    }),
-    getItemSummary: (item: { title?: unknown }, index: number) =>
-      getItemTitle(
-        index,
-        typeof item?.title === "string" ? item.title : undefined,
-      ),
-  },
-  onlyOneOpen: {
-    type: "radio" as const,
-    label: "Only one pane open",
-    options: [
-      { label: "true", value: true },
-      { label: "false", value: false },
-    ],
-  },
-  openIcon: {
-    type: "radio" as const,
-    label: "Open icon",
-    options: [
-      { label: "None", value: "none" },
-      { label: "Chevron", value: "chevron" },
-      { label: "Plus", value: "plus" },
-    ],
   },
   paneHeaderText: paneHeaderTextFieldGroup,
   colors: colorsFieldGroup,
@@ -231,7 +235,7 @@ function AccordionHeader({
   textAlign: React.CSSProperties["textAlign"];
   title: ReactNode;
   isOpen: boolean;
-  openIcon: AccordionProps["openIcon"];
+  openIcon: AccordionProps["main"]["openIcon"];
   onHeaderClick: (index: number, e: React.MouseEvent) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -527,10 +531,14 @@ function AccordionPreview(
 const AccordionInternal: ComponentConfig<AccordionProps> = {
   fields: accordionFields,
   resolveData: (data) => {
-    const props = data.props || {};
-    const items = props.items ?? [];
+    const props = (data.props || {}) as AccordionProps & {
+      items?: AccordionProps["main"]["items"];
+      onlyOneOpen?: boolean;
+      openIcon?: AccordionProps["main"]["openIcon"];
+    };
+    const sourceItems = props.main?.items ?? props.items ?? [];
     let itemsChanged = false;
-    const normalizedItems = items.map((item, index) => {
+    const normalizedItems = sourceItems.map((item, index) => {
       if (typeof item?.title !== "string") return item;
       const trimmed = item.title.trim();
       if (trimmed) return item;
@@ -542,28 +550,38 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
       props.currentAccordionIndex,
       itemCount,
     );
-    if (itemsChanged || clamped !== props.currentAccordionIndex) {
-      return {
-        props: {
-          ...props,
-          items: normalizedItems,
-          currentAccordionIndex: clamped,
-        },
-      };
+    const needsNest = !props.main;
+    if (!needsNest && !itemsChanged && clamped === props.currentAccordionIndex) {
+      return {};
     }
-    return {};
+    return {
+      props: {
+        ...props,
+        currentAccordionIndex: clamped,
+        main: {
+          items: normalizedItems,
+          onlyOneOpen: props.main?.onlyOneOpen ?? props.onlyOneOpen ?? true,
+          openIcon: props.main?.openIcon ?? props.openIcon ?? "none",
+        },
+        items: undefined,
+        onlyOneOpen: undefined,
+        openIcon: undefined,
+      },
+    };
   },
   defaultProps: {
     currentAccordionIndex: 1,
-    items: [
-      {
-        title: "Accordion 1",
-        open: true,
-        content: [],
-      },
-    ],
-    onlyOneOpen: true,
-    openIcon: "none",
+    main: {
+      items: [
+        {
+          title: "Accordion 1",
+          open: true,
+          content: [],
+        },
+      ],
+      onlyOneOpen: true,
+      openIcon: "none",
+    },
     paneHeaderText: {
       headerFont: "",
       headerSize: 16,
@@ -578,12 +596,17 @@ const AccordionInternal: ComponentConfig<AccordionProps> = {
     },
   },
   render: (props) => {
+    const main = props.main ?? {
+      items: [],
+      onlyOneOpen: true,
+      openIcon: "none" as const,
+    };
     const viewProps = {
       id: props.id,
-      items: props.items,
+      items: main.items,
       currentAccordionIndex: props.currentAccordionIndex,
-      onlyOneOpen: props.onlyOneOpen,
-      openIcon: props.openIcon,
+      onlyOneOpen: main.onlyOneOpen,
+      openIcon: main.openIcon,
       paneHeaderText: props.paneHeaderText,
       colors: props.colors,
     };

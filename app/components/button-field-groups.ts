@@ -16,6 +16,7 @@ export const onOffOptions = [
 const shadowNumberField = (label: string) => ({
   type: "number" as const,
   label,
+  inline: true,
   min: -200,
   max: 200,
   step: 1,
@@ -27,6 +28,7 @@ const baseStyleObjectFields = {
   borderThickness: {
     type: "number" as const,
     label: "Border thickness",
+    inline: true,
     min: 0,
     max: 50,
     step: 1,
@@ -34,6 +36,7 @@ const baseStyleObjectFields = {
   borderRadius: {
     type: "number" as const,
     label: "Border radius",
+    inline: true,
     min: 0,
     max: 200,
     step: 1,
@@ -43,6 +46,7 @@ const baseStyleObjectFields = {
     type: "radio" as const,
     label: "Box shadow",
     options: [...onOffOptions],
+    switch: true,
   },
 };
 
@@ -78,6 +82,7 @@ export const textFieldGroup: ObjectField<ButtonTextGroup> = {
     fontSize: {
       type: "number",
       label: "Size",
+      inline: true,
       min: 8,
       max: 200,
       step: 0.1,
@@ -85,6 +90,7 @@ export const textFieldGroup: ObjectField<ButtonTextGroup> = {
     lineHeight: {
       type: "number",
       label: "Line height",
+      inline: true,
       min: 0.5,
       max: 5,
       step: 0.1,
@@ -92,6 +98,7 @@ export const textFieldGroup: ObjectField<ButtonTextGroup> = {
     letterSpacing: {
       type: "number",
       label: "Letter spacing",
+      inline: true,
       min: -10,
       max: 50,
       step: 0.1,
@@ -107,10 +114,12 @@ export const dimensionsFieldGroup: ObjectField<ButtonDimensionsGroup> = {
       type: "radio",
       label: "Full width",
       options: [...onOffOptions],
+      switch: true,
     },
     maxWidth: {
       type: "number",
       label: "Max width",
+      inline: true,
       min: 0,
       max: 2000,
       step: 1,
@@ -118,6 +127,7 @@ export const dimensionsFieldGroup: ObjectField<ButtonDimensionsGroup> = {
     minHeight: {
       type: "number",
       label: "Min height",
+      inline: true,
       min: 0,
       max: 2000,
       step: 1,

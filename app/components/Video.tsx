@@ -3,6 +3,7 @@ import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
 import { withLayout } from "./Layout";
+import { onOffOptions } from "./button-field-groups";
 
 type ParsedVideo =
   | { kind: "youtube"; embedUrl: string; watchUrl: string }
@@ -79,80 +80,107 @@ function parseVideoUrl({
   return { kind: "invalid" };
 }
 
+const switchField = (label: string) => ({
+  type: "radio" as const,
+  label,
+  options: [...onOffOptions],
+  switch: true,
+});
+
 const VideoInternal: ComponentConfig<Components["Video"]> = {
   fields: {
-    videoUrl: {
-      type: "text",
-      label: "Video URL",
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        videoUrl: {
+          type: "text",
+          label: "Video URL",
+        },
+        aspectRatio: {
+          type: "radio",
+          label: "Aspect Ratio",
+          options: [
+            { label: "16 x 9", value: "16:9" },
+            { label: "4 x 3", value: "4:3" },
+          ],
+        },
+        loading: {
+          type: "radio",
+          label: "Loading",
+          options: [
+            { label: "Eager", value: "eager" },
+            { label: "Lazy", value: "lazy" },
+            { label: "Auto", value: "auto" },
+          ],
+        },
+        loop: switchField("Loop"),
+        autoplay: switchField("Autoplay"),
+        muteAudio: switchField("Mute audio"),
+        relatedVideosFromOtherChannels: switchField(
+          "Related videos from other channels",
+        ),
+      },
     },
-    aspectRatio: {
-      type: "radio",
-      label: "Aspect Ratio",
-      options: [
-        { label: "16 x 9", value: "16:9" },
-        { label: "4 x 3", value: "4:3" },
-      ],
-    },
-    loading: {
-      type: "radio",
-      label: "Loading",
-      options: [
-        { label: "Eager", value: "eager" },
-        { label: "Lazy", value: "lazy" },
-        { label: "Auto", value: "auto" },
-      ],
-    },
-    loop: {
-      type: "radio",
-      label: "Loop",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    autoplay: {
-      type: "radio",
-      label: "Autoplay",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    muteAudio: {
-      type: "radio",
-      label: "Mute audio",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    relatedVideosFromOtherChannels: {
-      type: "radio",
-      label: "Related videos from other channels",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
+  },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main) return {};
+    const legacy = props as unknown as Components["Video"]["main"];
+    return {
+      props: {
+        ...props,
+        main: {
+          videoUrl: legacy.videoUrl ?? "",
+          aspectRatio: legacy.aspectRatio ?? "16:9",
+          loading: legacy.loading ?? "auto",
+          loop: legacy.loop ?? false,
+          autoplay: legacy.autoplay ?? false,
+          muteAudio: legacy.muteAudio ?? false,
+          relatedVideosFromOtherChannels:
+            legacy.relatedVideosFromOtherChannels ?? true,
+        },
+        videoUrl: undefined,
+        aspectRatio: undefined,
+        loading: undefined,
+        loop: undefined,
+        autoplay: undefined,
+        muteAudio: undefined,
+        relatedVideosFromOtherChannels: undefined,
+      },
+    };
   },
   defaultProps: {
-    videoUrl: "",
-    aspectRatio: "16:9",
-    loading: "auto",
-    loop: false,
-    autoplay: false,
-    muteAudio: false,
-    relatedVideosFromOtherChannels: true,
+    main: {
+      videoUrl: "",
+      aspectRatio: "16:9",
+      loading: "auto",
+      loop: false,
+      autoplay: false,
+      muteAudio: false,
+      relatedVideosFromOtherChannels: true,
+    },
   },
-  render: ({
-    videoUrl,
-    aspectRatio,
-    loading,
-    loop,
-    autoplay,
-    muteAudio,
-    relatedVideosFromOtherChannels,
-  }) => {
+  render: (props) => {
+    const main = props.main ?? {
+      videoUrl: "",
+      aspectRatio: "16:9" as const,
+      loading: "auto" as const,
+      loop: false,
+      autoplay: false,
+      muteAudio: false,
+      relatedVideosFromOtherChannels: true,
+    };
+    const {
+      videoUrl,
+      aspectRatio,
+      loading,
+      loop,
+      autoplay,
+      muteAudio,
+      relatedVideosFromOtherChannels,
+    } = main;
     const [iframeLoadFailed, setIframeLoadFailed] = useState(false);
     const parsed = parseVideoUrl({
       videoUrl,

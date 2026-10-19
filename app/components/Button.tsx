@@ -15,29 +15,37 @@ import { buildButtonLinkStyle, flattenButtonProps } from "./button-styles";
 import "./button.css";
 
 const buttonFields = {
-  label: {
-    type: "text",
-    label: "Button label",
-    contentEditable: true,
-  },
-  href: {
-    type: "text",
-    label: "Button url",
-    placeholder: "",
-  },
-  openInSameTab: {
-    type: "radio",
-    label: "Open in same tab",
-    options: [...onOffOptions],
-  },
-  align: {
-    type: "radio",
-    label: "Alignment",
-    options: [
-      { label: "Left", value: "left" },
-      { label: "Center", value: "center" },
-      { label: "Right", value: "right" },
-    ],
+  main: {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields: {
+      label: {
+        type: "text" as const,
+        label: "Button label",
+        contentEditable: true,
+      },
+      href: {
+        type: "text" as const,
+        label: "Button url",
+        placeholder: "",
+      },
+      openInSameTab: {
+        type: "radio" as const,
+        label: "Open in same tab",
+        options: [...onOffOptions],
+        switch: true,
+      },
+      align: {
+        type: "radio" as const,
+        label: "Alignment",
+        options: [
+          { label: "Left", value: "left" },
+          { label: "Center", value: "center" },
+          { label: "Right", value: "right" },
+        ],
+      },
+    },
   },
   text: textFieldGroup,
   dimensions: dimensionsFieldGroup,
@@ -66,11 +74,43 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
       ),
     } as NonNullable<ComponentConfig<Components["Button"]>["fields"]>;
   },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main?.label != null || props.main?.href != null || props.main?.align != null) {
+      return {};
+    }
+    const legacy = props as unknown as {
+      label?: string;
+      href?: string;
+      openInSameTab?: boolean;
+      align?: Components["Button"]["main"]["align"];
+    };
+    if (legacy.label == null && legacy.href == null && legacy.align == null && legacy.openInSameTab == null) {
+      return {};
+    }
+    return {
+      props: {
+        ...props,
+        main: {
+          label: legacy.label ?? "Text",
+          href: legacy.href ?? "",
+          openInSameTab: legacy.openInSameTab ?? true,
+          align: legacy.align ?? "center",
+        },
+        label: undefined,
+        href: undefined,
+        openInSameTab: undefined,
+        align: undefined,
+      },
+    };
+  },
   defaultProps: {
-    label: "Text",
-    href: "",
-    openInSameTab: true,
-    align: "center",
+    main: {
+      label: "Text",
+      href: "",
+      openInSameTab: true,
+      align: "center",
+    },
     text: {
       font: "",
       fontSize: 14,
@@ -86,7 +126,14 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     },
   },
   render: (props) => {
-    const { label, href, openInSameTab, align, puck } = props;
+    const main = props.main ?? {
+      label: "Text",
+      href: "",
+      openInSameTab: true,
+      align: "center" as const,
+    };
+    const { label, href, openInSameTab, align } = main;
+    const puck = props.puck;
     const linkStyle = buildButtonLinkStyle(flattenButtonProps(props));
     const resolvedHref = href?.trim() || "#";
     const justifyContent =

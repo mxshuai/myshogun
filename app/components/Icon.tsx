@@ -9,10 +9,23 @@ import {
   toFaIconClasses,
 } from "./icon-options";
 import { createPuckColorField } from "./ui/puck-color-field";
+import { onOffOptions } from "./button-field-groups";
+
+const switchField = (label: string) => ({
+  type: "radio" as const,
+  label,
+  options: [...onOffOptions],
+  switch: true,
+});
 
 const IconInternal: ComponentConfig<Components["Icon"]> = {
   fields: {
-    iconId: {
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        iconId: {
       type: "custom",
       label: "Find an icon",
       render: ({ value, onChange }) => {
@@ -105,85 +118,125 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
           </div>
         );
       },
-    },
-    height: {
-      type: "text",
-      label: "Height",
-      placeholder: "64",
-    },
-    align: {
-      type: "radio",
-      label: "Alignment",
-      options: [
-        { label: "Left", value: "left" },
-        { label: "Center", value: "center" },
-        { label: "Right", value: "right" },
-      ],
-    },
-    color: createPuckColorField("Color", "#333333") as ComponentConfig<
-      Components["Icon"]
-    >["fields"] extends { color?: infer C }
-      ? C
-      : never,
-    ariaLabel: {
-      type: "text",
-      label: "Aria label",
-    },
-    addLink: {
-      type: "radio",
-      label: "Add link",
-      options: [
-        { label: "Off", value: false },
-        { label: "On", value: true },
-      ],
-    },
-    linkHref: {
-      type: "text",
-      label: "Add link",
-      placeholder: "Link",
-    },
-    openInNewWindow: {
-      type: "radio",
-      label: "Open in new window",
-      options: [
-        { label: "Off", value: false },
-        { label: "On", value: true },
-      ],
+        },
+        height: {
+          type: "number",
+          label: "Height",
+          inline: true,
+          min: 1,
+          max: 512,
+        },
+        align: {
+          type: "radio",
+          label: "Alignment",
+          options: [
+            { label: "Left", value: "left" },
+            { label: "Center", value: "center" },
+            { label: "Right", value: "right" },
+          ],
+        },
+        color: createPuckColorField("Color", "#333333"),
+        ariaLabel: {
+          type: "text",
+          label: "Aria label",
+        },
+        addLink: switchField("Add link"),
+        linkHref: {
+          type: "text",
+          label: "Add link",
+          placeholder: "Link",
+        },
+        openInNewWindow: switchField("Open in new window"),
+      },
     },
   },
   resolveFields: (data) => {
-    const props = data.props || {};
-    const fields = { ...IconInternal.fields } as Record<string, unknown>;
-    if (!props.addLink) {
-      delete fields.linkHref;
-      delete fields.openInNewWindow;
+    const addLink = data.props?.main?.addLink === true;
+    const objectFields = {
+      ...((IconInternal.fields as { main?: { objectFields?: Record<string, unknown> } })
+        .main?.objectFields ?? {}),
+    };
+    if (!addLink) {
+      delete objectFields.linkHref;
+      delete objectFields.openInNewWindow;
     }
-    return fields as Fields<Components["Icon"]>;
+    return {
+      main: {
+        type: "object",
+        label: "Main",
+        defaultOpen: true,
+        objectFields,
+      },
+    } as Fields<Components["Icon"]>;
+  },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main?.iconId) return {};
+    const legacy = props as unknown as Components["Icon"]["main"] & {
+      height?: number | string;
+    };
+    const heightNumber = Number(String(legacy.height ?? "64").replace(/px$/i, ""));
+    return {
+      props: {
+        ...props,
+        main: {
+          iconId: legacy.iconId ?? "shg-fa-address-book-o",
+          height: Number.isFinite(heightNumber) ? heightNumber : 64,
+          align: legacy.align ?? "center",
+          color: legacy.color ?? "#333333",
+          ariaLabel: legacy.ariaLabel ?? "",
+          addLink: legacy.addLink ?? false,
+          linkHref: legacy.linkHref ?? "",
+          openInNewWindow: legacy.openInNewWindow ?? false,
+        },
+        iconId: undefined,
+        height: undefined,
+        align: undefined,
+        color: undefined,
+        ariaLabel: undefined,
+        addLink: undefined,
+        linkHref: undefined,
+        openInNewWindow: undefined,
+      },
+    };
   },
   defaultProps: {
-    iconId: "shg-fa-address-book-o",
-    height: "64",
-    align: "center",
-    color: "#333333",
-    ariaLabel: "Address Book",
-    addLink: false,
-    linkHref: "",
-    openInNewWindow: false,
+    main: {
+      iconId: "shg-fa-address-book-o",
+      height: 64,
+      align: "center",
+      color: "#333333",
+      ariaLabel: "Address Book",
+      addLink: false,
+      linkHref: "",
+      openInNewWindow: false,
+    },
     layout: {
       ...defaultLayoutSpacing,
     },
   },
-  render: ({
-    iconId,
-    height,
-    align,
-    color,
-    ariaLabel,
-    addLink,
-    linkHref,
-    openInNewWindow,
-    puck,
-  }) => {
+  render: (props) => {
+    const main = props.main ?? {
+      iconId: "shg-fa-address-book-o",
+      height: 64,
+      align: "center" as const,
+      color: "#333333",
+      ariaLabel: "",
+      addLink: false,
+      linkHref: "",
+      openInNewWindow: false,
+    };
+    const {
+      iconId,
+      height,
+      align,
+      color,
+      ariaLabel,
+      addLink,
+      linkHref,
+      openInNewWindow,
+    } = main;
+    const puck = props.puck;
     const justifyContent =
       align === "left"
         ? "flex-start"

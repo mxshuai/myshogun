@@ -136,15 +136,6 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
       : [];
     let changed = false;
 
-    // 迁移旧的单 items slot：并入第一列
-    const legacyItems = Array.isArray((props as { items?: Slot }).items)
-      ? ((props as { items?: Slot }).items as Slot)
-      : [];
-    if (columns.length === 0 && legacyItems.length > 0) {
-      columns = [{ content: legacyItems }];
-      changed = true;
-    }
-
     // 按 main.numColumns 同步列数（多删少补，删除时把内容并入最后一列避免丢失）
     if (columns.length < n) {
       while (columns.length < n) columns.push({ content: [] });
@@ -160,19 +151,15 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
       changed = true;
     }
 
-    const hadLegacyItems = (props as { items?: Slot }).items !== undefined;
-    if (changed || hadLegacyItems || widthsNeedReset) {
-      const { items: _drop, ...rest } = props as typeof props & {
-        items?: Slot;
-      };
+    if (changed || widthsNeedReset) {
       const main = {
         ...defaultMain,
-        ...rest.main,
+        ...props.main,
         columnWidths: widthsNeedReset
           ? equalColumnWidths(n)
-          : rest.main?.columnWidths,
+          : props.main?.columnWidths,
       };
-      return { props: { ...rest, main, columns } };
+      return { props: { ...props, main, columns } };
     }
     return {};
   },
@@ -219,6 +206,3 @@ const ColumnsInternal: ComponentConfig<Components["Columns"]> = {
 };
 
 export const Columns = withLayout(ColumnsInternal);
-
-/** @deprecated 旧页面数据 type 为 Grid 时仍由 Puck 渲染 */
-export const Grid = Columns;

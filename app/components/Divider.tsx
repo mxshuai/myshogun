@@ -6,25 +6,55 @@ import { createPuckColorField } from "./ui/puck-color-field";
 
 const DividerInternal: ComponentConfig<Components["Divider"]> = {
   fields: {
-    thickness: {
-      type: "number",
-      min: 1,
-      max: 10,
-    },
-    color: createPuckColorField("Color", "#e0e0e0"),
-    style: {
-      type: "select",
-      options: [
-        { label: "Solid", value: "solid" },
-        { label: "Dashed", value: "dashed" },
-        { label: "Dotted", value: "dotted" },
-      ],
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        thickness: {
+          type: "number",
+          label: "Thickness",
+          inline: true,
+          min: 1,
+          max: 10,
+        },
+        color: createPuckColorField("Color", "#e0e0e0"),
+        style: {
+          type: "select",
+          label: "Style",
+          options: [
+            { label: "Solid", value: "solid" },
+            { label: "Dashed", value: "dashed" },
+            { label: "Dotted", value: "dotted" },
+          ],
+        },
+      },
     },
   },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main) return {};
+    const legacy = props as unknown as Components["Divider"]["main"];
+    return {
+      props: {
+        ...props,
+        main: {
+          thickness: legacy.thickness ?? 2,
+          color: legacy.color ?? "#e0e0e0",
+          style: legacy.style ?? "solid",
+        },
+        thickness: undefined,
+        color: undefined,
+        style: undefined,
+      },
+    };
+  },
   defaultProps: {
-    thickness: 2,
-    color: "#e0e0e0",
-    style: "solid",
+    main: {
+      thickness: 2,
+      color: "#e0e0e0",
+      style: "solid",
+    },
     layout: {
       ...defaultLayoutSpacing,
       sectionPadding: {
@@ -35,7 +65,13 @@ const DividerInternal: ComponentConfig<Components["Divider"]> = {
       },
     },
   },
-  render: ({ thickness, color, style }) => {
+  render: (props) => {
+    const main = props.main ?? {
+      thickness: 2,
+      color: "#e0e0e0",
+      style: "solid" as const,
+    };
+    const { thickness, color, style } = main;
     return (
       <Section>
         <hr

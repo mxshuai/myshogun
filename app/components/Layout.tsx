@@ -1,13 +1,17 @@
 import React, { forwardRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import type { ComponentConfig, DefaultComponentProps, ObjectField } from "@puckeditor/core";
+import type { ComponentConfig, DefaultComponentProps } from "@puckeditor/core";
 import {
   SectionSpacingProvider,
   type SectionSpacingValue,
 } from "./SectionSpacingContext";
+import { layoutSidebarField } from "./ui/layout-sidebar-fields";
 
 function normalizeSectionSide(v: string | undefined): string {
-  return (v ?? "").trim() || "0";
+  const raw = (v ?? "").trim() || "0";
+  if (raw === "0") return "0";
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return `${raw}px`;
+  return raw;
 }
 
 export type SectionSidesFields = {
@@ -37,35 +41,6 @@ export type LayoutFieldProps = {
 export type WithLayout<Props extends DefaultComponentProps> = Props & {
   layout?: LayoutFieldProps;
 };
-
-const dimensionsField = {
-  type: "object" as const,
-  label: "Dimensions",
-  objectFields: {
-    minHeight: {
-      type: "number" as const,
-      label: "Min Height (px)",
-      min: 0,
-    },
-    maxWidth: {
-      type: "number" as const,
-      label: "Max Width (px)",
-      min: 0,
-    },
-  },
-};
-
-const sectionSides = (label: string) =>
-  ({
-    type: "object" as const,
-    label,
-    objectFields: {
-      top: { type: "text" as const, label: "Top" },
-      right: { type: "text" as const, label: "Right" },
-      bottom: { type: "text" as const, label: "Bottom" },
-      left: { type: "text" as const, label: "Left" },
-    },
-  }) satisfies ObjectField<SectionSidesFields>;
 
 /** 将已废弃的 layout.padding（仅上下）并入 sectionPadding，画布与导出共用 */
 export function effectiveSectionSides(layout?: LayoutFieldProps): {
@@ -133,36 +108,6 @@ export const defaultLayoutSpacing = {
   sectionPadding: { ...defaultSectionSides },
 } satisfies Partial<LayoutFieldProps>;
 
-export const layoutField: ObjectField<LayoutFieldProps> = {
-  type: "object",
-  label: "Layout",
-  objectFields: {
-    spanCol: {
-      label: "Grid Columns",
-      type: "number",
-      min: 1,
-      max: 12,
-    },
-    spanRow: {
-      label: "Grid Rows",
-      type: "number",
-      min: 1,
-      max: 12,
-    },
-    grow: {
-      label: "Flex Grow",
-      type: "radio",
-      options: [
-        { label: "true", value: true },
-        { label: "false", value: false },
-      ],
-    },
-    dimensions: dimensionsField,
-    sectionMargin: sectionSides("Section margin"),
-    sectionPadding: sectionSides("Section padding"),
-  },
-};
-
 type LayoutProps = WithLayout<{
   children: ReactNode;
   className?: string;
@@ -196,33 +141,6 @@ export const Layout = forwardRef<HTMLDivElement, LayoutProps>(
 
 Layout.displayName = "Layout";
 
-const sectionSpacingFields = {
-  sectionMargin: sectionSides("Section margin"),
-  sectionPadding: sectionSides("Section padding"),
-};
-
-function layoutFieldsForParent(parentType: string | undefined) {
-  if (parentType === "Columns" || parentType === "Grid") {
-    return {
-      spanCol: layoutField.objectFields.spanCol,
-      spanRow: layoutField.objectFields.spanRow,
-      dimensions: dimensionsField,
-      ...sectionSpacingFields,
-    };
-  }
-  if (parentType === "Flex") {
-    return {
-      grow: layoutField.objectFields.grow,
-      dimensions: dimensionsField,
-      ...sectionSpacingFields,
-    };
-  }
-  return {
-    dimensions: dimensionsField,
-    ...sectionSpacingFields,
-  };
-}
-
 export function withLayout<
   ThisComponentConfig extends ComponentConfig<any> = ComponentConfig
 >(componentConfig: ThisComponentConfig): ThisComponentConfig {
@@ -232,7 +150,7 @@ export function withLayout<
     ...componentConfig,
     fields: {
       ...componentConfig.fields,
-      layout: layoutField,
+      layout: layoutSidebarField,
     },
     defaultProps: {
       ...componentConfig.defaultProps,
@@ -245,40 +163,14 @@ export function withLayout<
       },
     },
     resolveFields: (data, params) => {
-      let fields = originalResolveFields
+      const fields = originalResolveFields
         ? originalResolveFields(data, params)
         : { ...componentConfig.fields };
 
-      if (
-        params.parent?.type === "Columns" ||
-        params.parent?.type === "Grid"
-      ) {
-        fields = {
-          ...fields,
-          layout: {
-            ...layoutField,
-            objectFields: layoutFieldsForParent("Columns"),
-          },
-        } as any;
-      } else if (params.parent?.type === "Flex") {
-        fields = {
-          ...fields,
-          layout: {
-            ...layoutField,
-            objectFields: layoutFieldsForParent("Flex"),
-          },
-        } as any;
-      } else {
-        fields = {
-          ...fields,
-          layout: {
-            ...layoutField,
-            objectFields: layoutFieldsForParent(undefined),
-          },
-        } as any;
-      }
-
-      return fields;
+      return {
+        ...fields,
+        layout: layoutSidebarField,
+      };
     },
     inline: true,
     render: (props: any) => (

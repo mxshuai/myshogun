@@ -72,7 +72,7 @@ function StepIcon({ direction }: { direction: "up" | "down" }) {
   );
 }
 
-function InlineNumberField({
+export function InlineNumberField({
   label,
   value,
   min,

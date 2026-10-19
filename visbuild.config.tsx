@@ -3,7 +3,7 @@ import { Heading } from "./app/components/Heading";
 import { Text } from "./app/components/Text";
 import { Button } from "./app/components/Button";
 import { Card } from "./app/components/Card";
-import { Columns, Grid } from "./app/components/Columns";
+import { Columns } from "./app/components/Columns";
 import { Hero } from "./app/components/Hero";
 import { Flex } from "./app/components/Flex";
 import { Image } from "./app/components/Image";
@@ -51,8 +51,6 @@ export const config: Config = {
         "Text",
         "Image",
         "Video",
-        "CustomHtml",
-        "RawHTML",
         "Button",
         "Divider",
         "Icon",
@@ -62,6 +60,10 @@ export const config: Config = {
       title: "Sections",
       components: ["Hero"],
     },
+    other: {
+      title: "Other",
+      components: ["CustomHtml", "RawHTML"],
+    },
   },
   components: {
     Heading,
@@ -69,7 +71,6 @@ export const config: Config = {
     Button,
     Card,
     Columns,
-    Grid,
     Hero,
     Flex,
     Image,

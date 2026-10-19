@@ -4,41 +4,95 @@ import { Section } from "./Section";
 
 export const Hero: ComponentConfig<Components["Hero"]> = {
   fields: {
-    title: {
-      type: "text",
-      contentEditable: true,
+    main: {
+      type: "object",
+      label: "Main",
+      defaultOpen: true,
+      objectFields: {
+        title: {
+          type: "text",
+          label: "Title",
+          contentEditable: true,
+        },
+        subtitle: {
+          type: "textarea",
+          label: "Subtitle",
+          contentEditable: true,
+        },
+        buttonText: {
+          type: "text",
+          label: "Button text",
+          contentEditable: true,
+        },
+        buttonHref: {
+          type: "text",
+          label: "Button url",
+        },
+        backgroundImage: {
+          type: "text",
+          label: "Background image",
+        },
+        align: {
+          type: "radio",
+          label: "Alignment",
+          options: [
+            { label: "Left", value: "left" },
+            { label: "Center", value: "center" },
+          ],
+        },
+      },
     },
-    subtitle: {
-      type: "textarea",
-      contentEditable: true,
-    },
-    buttonText: {
-      type: "text",
-      contentEditable: true,
-    },
-    buttonHref: {
-      type: "text",
-    },
-    backgroundImage: {
-      type: "text",
-    },
-    align: {
-      type: "radio",
-      options: [
-        { label: "Left", value: "left" },
-        { label: "Center", value: "center" },
-      ],
-    },
+  },
+  resolveData: (data) => {
+    const props = data.props || {};
+    if (props.main) return {};
+    const legacy = props as unknown as Components["Hero"]["main"];
+    return {
+      props: {
+        ...props,
+        main: {
+          title: legacy.title ?? "Welcome to Our Website",
+          subtitle: legacy.subtitle ?? "",
+          buttonText: legacy.buttonText ?? "Learn More",
+          buttonHref: legacy.buttonHref ?? "#",
+          backgroundImage: legacy.backgroundImage ?? "",
+          align: legacy.align ?? "center",
+        },
+        title: undefined,
+        subtitle: undefined,
+        buttonText: undefined,
+        buttonHref: undefined,
+        backgroundImage: undefined,
+        align: undefined,
+      },
+    };
   },
   defaultProps: {
-    title: "Welcome to Our Website",
-    subtitle: "We provide the best products and services to help you achieve your goals. Start exploring now!",
-    buttonText: "Learn More",
-    buttonHref: "#",
-    backgroundImage: "",
-    align: "center",
+    main: {
+      title: "Welcome to Our Website",
+      subtitle: "We provide the best products and services to help you achieve your goals. Start exploring now!",
+      buttonText: "Learn More",
+      buttonHref: "#",
+      backgroundImage: "",
+      align: "center",
+    },
   },
-  render: ({ title, subtitle, buttonText, buttonHref, backgroundImage, align }) => {
+  render: (props) => {
+    const {
+      title,
+      subtitle,
+      buttonText,
+      buttonHref,
+      backgroundImage,
+      align,
+    } = props.main ?? {
+      title: "Welcome to Our Website",
+      subtitle: "",
+      buttonText: "Learn More",
+      buttonHref: "#",
+      backgroundImage: "",
+      align: "center" as const,
+    };
     return (
       <Section>
         <div

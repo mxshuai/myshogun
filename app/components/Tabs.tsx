@@ -21,7 +21,7 @@ import "./tabs.css";
 export type Tab = {
   id: string;
   title: string;
-  content: Components["Tabs"]["tabs"][number]["content"];
+  content: Components["Tabs"]["main"]["tabs"][number]["content"];
 };
 
 type TabsProps = Components["Tabs"];
@@ -30,7 +30,7 @@ type TabsViewProps = {
   id?: string;
   tabs: Array<{ id?: string; title: string; content: SlotComponent }>;
   activeTabIndex?: number;
-  theme: TabsProps["theme"];
+  theme: TabsProps["main"]["theme"];
   borderColor: string;
   borderThickness: number;
   font: string;
@@ -94,57 +94,64 @@ const activeColorsField: ObjectField<TabColorGroup> = {
   },
 };
 
+const inlineNumber = (
+  label: string,
+  options: { min?: number; max?: number },
+) => ({
+  type: "number" as const,
+  label,
+  inline: true,
+  ...options,
+});
+
 const tabsFields = {
-  tabs: {
-    type: "array" as const,
-    label: "Manage tabs",
-    arrayFields: {
-      title: {
-        type: "text" as const,
-        label: "Title",
-        contentEditable: true,
+  main: {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields: {
+      tabs: {
+        type: "array" as const,
+        label: "Manage tabs",
+        arrayFields: {
+          title: {
+            type: "text" as const,
+            label: "Title",
+            contentEditable: true,
+          },
+          content: {
+            type: "slot" as const,
+            label: "Content",
+          },
+        },
+        defaultItemProps: (index: number) => ({
+          title: `Tab ${index + 1}`,
+          content: [],
+        }),
+        getItemSummary: (item: { title?: unknown }, index: number) =>
+          getTabTitle(
+            index,
+            typeof item?.title === "string" ? item.title : undefined,
+          ),
       },
-      content: {
-        type: "slot" as const,
-        label: "Content",
+      theme: {
+        type: "radio" as const,
+        label: "Theme",
+        options: [
+          { label: "Rectangular", value: "rectangular" },
+          { label: "Sloped", value: "sloped" },
+          { label: "Stretch", value: "stretch" },
+        ],
       },
+      borderColor: createPuckColorField("Border color", "#dddddd"),
+      borderThickness: inlineNumber("Border thickness", { min: 0, max: 10 }),
+      font: {
+        type: "select" as const,
+        label: "Font",
+        options: fontOptions,
+      },
+      fontSize: inlineNumber("Size", { min: 8, max: 72 }),
     },
-    defaultItemProps: (index: number) => ({
-      title: `Tab ${index + 1}`,
-      content: [],
-    }),
-    getItemSummary: (item: { title?: unknown }, index: number) =>
-      getTabTitle(
-        index,
-        typeof item?.title === "string" ? item.title : undefined,
-      ),
-  },
-  theme: {
-    type: "radio" as const,
-    label: "Theme",
-    options: [
-      { label: "Rectangular", value: "rectangular" },
-      { label: "Sloped", value: "sloped" },
-      { label: "Stretch", value: "stretch" },
-    ],
-  },
-  borderColor: createPuckColorField("Border color", "#dddddd"),
-  borderThickness: {
-    type: "number" as const,
-    label: "Border thickness",
-    min: 0,
-    max: 10,
-  },
-  font: {
-    type: "select" as const,
-    label: "Font",
-    options: fontOptions,
-  },
-  fontSize: {
-    type: "number" as const,
-    label: "Size",
-    min: 8,
-    max: 72,
   },
   defaultColor: defaultColorField,
   activeColors: activeColorsField,
@@ -438,10 +445,17 @@ function TabsPreview(props: Omit<TabsViewProps, "effectiveActiveTab" | "onSelect
 const TabsInternal: ComponentConfig<TabsProps> = {
   fields: tabsFields,
   resolveData: (data) => {
-    const props = data.props || {};
-    const tabs = props.tabs ?? [];
+    const props = (data.props || {}) as TabsProps & {
+      tabs?: TabsProps["main"]["tabs"];
+      theme?: TabsProps["main"]["theme"];
+      borderColor?: string;
+      borderThickness?: number;
+      font?: string;
+      fontSize?: number;
+    };
+    const sourceTabs = props.main?.tabs ?? props.tabs ?? [];
     let tabsChanged = false;
-    const normalizedTabs = tabs.map((tab, index) => {
+    const normalizedTabs = sourceTabs.map((tab, index) => {
       if (typeof tab?.title !== "string") return tab;
       const trimmed = tab.title.trim();
       if (trimmed) return tab;
@@ -450,38 +464,55 @@ const TabsInternal: ComponentConfig<TabsProps> = {
     });
     const tabCount = Math.max(1, normalizedTabs.length);
     const clamped = clampActiveTabIndex(props.activeTabIndex, tabCount);
-    if (tabsChanged || clamped !== props.activeTabIndex) {
-      return {
-        props: {
-          ...props,
-          tabs: normalizedTabs,
-          activeTabIndex: clamped,
-        },
-      };
+    const needsNest = !props.main;
+    if (!needsNest && !tabsChanged && clamped === props.activeTabIndex) {
+      return {};
     }
-    return {};
+    return {
+      props: {
+        ...props,
+        activeTabIndex: clamped,
+        main: {
+          tabs: normalizedTabs,
+          theme: props.main?.theme ?? props.theme ?? "stretch",
+          borderColor: props.main?.borderColor ?? props.borderColor ?? "#dddddd",
+          borderThickness: props.main?.borderThickness ?? props.borderThickness ?? 1,
+          font: props.main?.font ?? props.font ?? "",
+          fontSize: props.main?.fontSize ?? props.fontSize ?? 16,
+        },
+        tabs: undefined,
+        theme: undefined,
+        borderColor: undefined,
+        borderThickness: undefined,
+        font: undefined,
+        fontSize: undefined,
+      },
+    };
   },
   defaultProps: {
     activeTabIndex: 1,
-    tabs: [{ title: "Tab 1", content: [] }],
-    theme: "stretch",
-    borderColor: "#dddddd",
-    borderThickness: 1,
-    font: "",
-    fontSize: 16,
+    main: {
+      tabs: [{ title: "Tab 1", content: [] }],
+      theme: "stretch",
+      borderColor: "#dddddd",
+      borderThickness: 1,
+      font: "",
+      fontSize: 16,
+    },
     defaultColor: { ...DEFAULT_TAB_COLOR_GROUP },
     activeColors: { ...DEFAULT_ACTIVE_TAB_COLOR_GROUP },
   },
   render: (props) => {
+    const main = props.main ?? {};
     const viewProps: Omit<TabsViewProps, "effectiveActiveTab" | "onSelectTab" | "isEditing"> = {
       id: props.id,
-      tabs: props.tabs,
+      tabs: main.tabs ?? [],
       activeTabIndex: props.activeTabIndex,
-      theme: props.theme,
-      borderColor: props.borderColor,
-      borderThickness: props.borderThickness,
-      font: props.font,
-      fontSize: props.fontSize,
+      theme: main.theme,
+      borderColor: main.borderColor,
+      borderThickness: main.borderThickness,
+      font: main.font,
+      fontSize: main.fontSize,
       defaultColor: props.defaultColor,
       activeColors: props.activeColors,
     };

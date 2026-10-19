@@ -146,9 +146,13 @@
 }
 
 /**
- * 仅侧栏 PuckFields 内 richtext：只显示 Formatting 面板，隐藏重复的 TipTap 编辑区。
+ * 仅侧栏 PuckFields 内 richtext：只显示格式面板，隐藏字段名和重复的 TipTap 编辑区。
  * 必须限定在侧栏，避免影响画布 inline 编辑器（选中/拖动）。
  */
+[class*="PuckFields"] :has(> [class*="RichTextEditor"]) > [class*="Input-label"] {
+  display: none;
+}
+
 [class*="PuckFields"] [class*="RichTextEditor--editor"]:not([class*="inline"]) {
   height: auto !important;
   min-height: 0 !important;

@@ -6,6 +6,8 @@ import {
   containerBackgroundImageUrl,
   nestContainerProps,
 } from "~/components/container-settings";
+import { readSliderProps } from "~/components/slider-settings";
+import { readTableSettings } from "~/components/table-settings";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
 import {
   BUTTON_EXPORT_CSS,
@@ -110,7 +112,6 @@ function generateComponentHTML(component: any, indent: number = 2): string {
     case 'Video':
       return generateVideo(props, layout, spaces);
     case 'Columns':
-    case 'Grid':
       return generateColumns(props, spaces, indent);
     case 'Flex':
       return generateFlex(props, spaces, indent);
@@ -139,7 +140,8 @@ function generateComponentHTML(component: any, indent: number = 2): string {
  * 生成 Heading HTML
  */
 function generateHeading(props: any, layout: any, spaces: string): string {
-  const level = Math.min(6, Math.max(1, Number(props.level) || 1));
+  const source = props.main ?? props;
+  const level = Math.min(6, Math.max(1, Number(source.level) || 1));
   const sizeMap: Record<string, number> = {
     xxxl: 56,
     xxl: 48,
@@ -158,15 +160,15 @@ function generateHeading(props: any, layout: any, spaces: string): string {
     6: 12,
   };
   const fontSizePx =
-    typeof props.fontSize === 'number' && Number.isFinite(props.fontSize)
-      ? props.fontSize
-      : props.size && sizeMap[props.size] != null
-        ? sizeMap[props.size]
+    typeof source.fontSize === 'number' && Number.isFinite(source.fontSize)
+      ? source.fontSize
+      : source.size && sizeMap[source.size] != null
+        ? sizeMap[source.size]
         : levelSizeMap[level] ?? 32;
 
-  const textAlign = props.align || 'center';
-  const fontFamily = props.font?.trim() ? props.font.trim() : '';
-  const color = props.textColor?.trim() ? props.textColor.trim() : '';
+  const textAlign = source.align || 'center';
+  const fontFamily = source.font?.trim() ? source.font.trim() : '';
+  const color = source.textColor?.trim() ? source.textColor.trim() : '';
 
   const styleParts = [
     `font-size: ${fontSizePx}px`,
@@ -175,21 +177,21 @@ function generateHeading(props: any, layout: any, spaces: string): string {
     'font-weight: 600',
     fontFamily ? `font-family: ${fontFamily}` : '',
     color ? `color: ${color}` : '',
-    props.lineHeight != null && Number.isFinite(Number(props.lineHeight))
-      ? `line-height: ${props.lineHeight}`
+    source.lineHeight != null && Number.isFinite(Number(source.lineHeight))
+      ? `line-height: ${source.lineHeight}`
       : '',
-    props.letterSpacing != null && Number.isFinite(Number(props.letterSpacing))
-      ? `letter-spacing: ${props.letterSpacing}px`
+    source.letterSpacing != null && Number.isFinite(Number(source.letterSpacing))
+      ? `letter-spacing: ${source.letterSpacing}px`
       : '',
   ].filter(Boolean);
 
-  const textHtml = escapeHtml(props.text || 'Heading');
+  const textHtml = escapeHtml(source.text || 'Heading');
   const spanInner = `<span style="display: block; width: 100%;">${textHtml}</span>`;
 
   let body = spanInner;
-  if (props.addLink && props.linkHref?.trim()) {
-    const href = escapeHtml(props.linkHref.trim());
-    const target = props.openInNewWindow ? ' target="_blank" rel="noopener noreferrer"' : '';
+  if (source.addLink && source.linkHref?.trim()) {
+    const href = escapeHtml(source.linkHref.trim());
+    const target = source.openInNewWindow ? ' target="_blank" rel="noopener noreferrer"' : '';
     body = `<a href="${href}" style="color: inherit; text-decoration: none;"${target}>${spanInner}</a>`;
   }
 
@@ -204,12 +206,13 @@ ${body}
  * 生成 Text HTML（富文本 html 字段，原样嵌入已消毒片段）
  */
 function generateText(props: any, layout: any, spaces: string): string {
+  const source = props.main ?? props;
   const raw =
-    typeof props.html === "string"
-      ? props.html
+    typeof source.html === "string"
+      ? source.html
       : "<p>Text</p>";
   const inner = `${spaces}  <div class="visbuild-text">${sanitizeRichTextHtml(raw)}</div>\n`;
-  return wrapLayoutLayers(layout, inner, spaces, props.maxWidth);
+  return wrapLayoutLayers(layout, inner, spaces);
 }
 
 /** 导出前移除 script/事件，保留富文本标签 */
@@ -223,10 +226,12 @@ function sanitizeRichTextHtml(html: string): string {
  * 生成 Button HTML
  */
 function generateButton(props: any, layout: any, spaces: string): string {
-  const href = props.href?.trim() || "#";
-  const target = props.openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
+  const main = props.main ?? {};
+  const href = (main.href ?? props.href)?.trim() || "#";
+  const openInSameTab = main.openInSameTab ?? props.openInSameTab;
+  const target = openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
   const inlineStyle = serializeButtonInlineStyle(flattenButtonProps(props));
-  const align = props.align || "center";
+  const align = main.align || props.align || "center";
   const justify =
     align === "left"
       ? "flex-start"
@@ -236,7 +241,7 @@ function generateButton(props: any, layout: any, spaces: string): string {
 
   const inner = `${spaces}  <div style="display: flex; justify-content: ${justify}; width: 100%;">
 ${spaces}    <a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
-${spaces}      ${escapeHtml(props.label || "Text")}
+${spaces}      ${escapeHtml(main.label || props.label || "Text")}
 ${spaces}    </a>
 ${spaces}  </div>
 `;
@@ -357,11 +362,12 @@ function parseVimeoId(url: string): string | null {
 }
 
 function buildVideoEmbedUrl(props: any): string {
-  const videoUrl = props.videoUrl || '';
-  const loop = !!props.loop;
-  const autoplay = !!props.autoplay;
-  const muteAudio = !!props.muteAudio;
-  const relatedVideosFromOtherChannels = props.relatedVideosFromOtherChannels !== false;
+  const source = props.main ?? props;
+  const videoUrl = source.videoUrl || '';
+  const loop = !!source.loop;
+  const autoplay = !!source.autoplay;
+  const muteAudio = !!source.muteAudio;
+  const relatedVideosFromOtherChannels = source.relatedVideosFromOtherChannels !== false;
 
   const youtubeId = parseYouTubeId(videoUrl);
   if (youtubeId) {
@@ -390,15 +396,16 @@ function buildVideoEmbedUrl(props: any): string {
 }
 
 function generateVideo(props: any, layout: any, spaces: string): string {
-  const aspectRatio = props.aspectRatio || '16:9';
+  const source = props.main ?? props;
+  const aspectRatio = source.aspectRatio || '16:9';
   const ratioPadding = aspectRatio === '4:3' ? '75%' : '56.25%';
   const embedUrl = buildVideoEmbedUrl(props);
-  const videoUrl = props.videoUrl || '';
+  const videoUrl = source.videoUrl || '';
   const directVideoRegex = /\.(mp4|webm|ogg)(\?.*)?$/i;
   const isDirectVideo = directVideoRegex.test(videoUrl);
-  const loading = props.loading === 'eager' || props.loading === 'lazy' ? props.loading : '';
+  const loading = source.loading === 'eager' || source.loading === 'lazy' ? source.loading : '';
 
-  if (!props.videoUrl || (!embedUrl && !isDirectVideo)) {
+  if (!source.videoUrl || (!embedUrl && !isDirectVideo)) {
     const inner = `<div style="border: 1px dashed #d0d0d0; border-radius: 8px; padding: 16px; color: #666; font-size: 14px;">
 Youtube or Vimeo link
 </div>
@@ -409,7 +416,7 @@ Youtube or Vimeo link
   if (isDirectVideo) {
     const inner = `<div>
 <div style="position: relative; width: 100%; padding-top: ${ratioPadding}; background-color: #000; border-radius: 8px; overflow: hidden;">
-<video src="${videoUrl}" controls ${props.autoplay ? 'autoplay' : ''} ${props.loop ? 'loop' : ''} ${props.muteAudio ? 'muted' : ''} playsinline style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;"></video>
+<video src="${videoUrl}" controls ${source.autoplay ? 'autoplay' : ''} ${source.loop ? 'loop' : ''} ${source.muteAudio ? 'muted' : ''} playsinline style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;"></video>
 </div>
 </div>
 `;
@@ -418,7 +425,7 @@ Youtube or Vimeo link
 
   const inner = `<div>
 <div style="position: relative; width: 100%; padding-top: ${ratioPadding};">
-<iframe src="${embedUrl}" title="Video player" ${loading ? `loading="${loading}"` : ''} allow="${props.autoplay ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' : 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'}" allowfullscreen style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
+<iframe src="${embedUrl}" title="Video player" ${loading ? `loading="${loading}"` : ''} allow="${source.autoplay ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' : 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'}" allowfullscreen style="position: absolute; inset: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
 </div>
 </div>
 `;
@@ -427,7 +434,7 @@ Youtube or Vimeo link
 }
 
 /**
- * 生成 Columns HTML（兼容旧 type Grid）
+ * 生成 Columns HTML
  */
 function generateColumns(props: any, spaces: string, indent: number): string {
   const main = props.main ?? {};
@@ -457,18 +464,12 @@ function generateColumns(props: any, spaces: string, indent: number): string {
   let html = `${spaces}<div class="${className}" style="${styleAttr}">\n`;
 
   if (columns && columns.length) {
-    // 每列一个 div 单元格，列内组件纵向堆叠
     columns.forEach((col: any) => {
       html += `${spaces}  <div>\n`;
       (col?.content || []).forEach((item: any) => {
         html += generateComponentHTML(item, indent + 4);
       });
       html += `${spaces}  </div>\n`;
-    });
-  } else {
-    // 兼容旧数据：单 items slot 直接作为网格子项铺入
-    (props.items || []).forEach((item: any) => {
-      html += generateComponentHTML(item, indent + 2);
     });
   }
 
@@ -481,17 +482,18 @@ function generateColumns(props: any, spaces: string, indent: number): string {
  * 生成 Flex HTML
  */
 function generateFlex(props: any, spaces: string, indent: number): string {
+  const source = props.main ?? props;
   const justifyContentMap: Record<string, string> = {
     start: 'flex-start',
     center: 'center',
     end: 'flex-end',
   };
   
-  const justifyContent = justifyContentMap[props.justifyContent] || 'flex-start';
-  const direction = props.direction || 'row';
-  const gap = props.gap || 16;
-  const wrap = props.wrap || 'wrap';
-  const items = props.items || [];
+  const justifyContent = justifyContentMap[source.justifyContent] || 'flex-start';
+  const direction = source.direction || 'row';
+  const gap = source.gap || 16;
+  const wrap = source.wrap === false || source.wrap === 'nowrap' ? 'nowrap' : 'wrap';
+  const items = source.items || [];
   
   let html = `${spaces}<div style="display: flex; justify-content: ${justifyContent}; flex-direction: ${direction}; gap: ${gap}px; flex-wrap: ${wrap}; padding: 16px 0;">\n`;
   
@@ -508,17 +510,18 @@ function generateFlex(props: any, spaces: string, indent: number): string {
  * 生成 Hero HTML
  */
 function generateHero(props: any, spaces: string): string {
-  const align = props.align || 'center';
-  const backgroundImage = props.backgroundImage 
-    ? `url(${props.backgroundImage})`
+  const source = props.main ?? props;
+  const align = source.align || 'center';
+  const backgroundImage = source.backgroundImage 
+    ? `url(${source.backgroundImage})`
     : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
   
   const alignItems = align === 'center' ? 'center' : 'flex-start';
   
   return `${spaces}<div style="padding: 80px 20px; background-image: ${backgroundImage}; background-size: cover; background-position: center; text-align: ${align}; color: #ffffff; min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: ${alignItems};">
-${spaces}  <h1 style="font-size: 3rem; font-weight: 700; margin: 0 0 20px 0; line-height: 1.2;">${escapeHtml(props.title)}</h1>
-${spaces}  <p style="font-size: 1.25rem; margin: 0 0 32px 0; line-height: 1.6; opacity: 0.95;">${escapeHtml(props.subtitle)}</p>
-${spaces}  <a href="${props.buttonHref || '#'}" style="display: inline-block; padding: 16px 32px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 1.125rem;">${escapeHtml(props.buttonText)}</a>
+${spaces}  <h1 style="font-size: 3rem; font-weight: 700; margin: 0 0 20px 0; line-height: 1.2;">${escapeHtml(source.title)}</h1>
+${spaces}  <p style="font-size: 1.25rem; margin: 0 0 32px 0; line-height: 1.6; opacity: 0.95;">${escapeHtml(source.subtitle)}</p>
+${spaces}  <a href="${source.buttonHref || '#'}" style="display: inline-block; padding: 16px 32px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 1.125rem;">${escapeHtml(source.buttonText)}</a>
 ${spaces}</div>\n`;
 }
 
@@ -526,12 +529,13 @@ ${spaces}</div>\n`;
  * 生成 Divider HTML
  */
 function generateIcon(props: any, layout: any, spaces: string): string {
-  const fontSize = iconFontSizeFromHeight(props.height);
-  const align = props.align || "center";
-  const color = props.color || "#333333";
-  const iconId = props.iconId || "shg-fa-address-book-o";
+  const source = props.main ?? props;
+  const fontSize = iconFontSizeFromHeight(source.height);
+  const align = source.align || "center";
+  const color = source.color || "#333333";
+  const iconId = source.iconId || "shg-fa-address-book-o";
   const fa = toFaIconClasses(iconId);
-  const aria = props.ariaLabel?.trim();
+  const aria = source.ariaLabel?.trim();
   const justify =
     align === "left"
       ? "flex-start"
@@ -542,9 +546,9 @@ function generateIcon(props: any, layout: any, spaces: string): string {
   const iconTag = `<i class="${fa}" style="font-size: ${escapeHtml(fontSize)}; line-height: 1; color: ${escapeHtml(color)};" aria-hidden="true"></i>`;
 
   let core: string;
-  if (props.addLink && props.linkHref?.trim()) {
-    const href = escapeHtml(props.linkHref.trim());
-    const target = props.openInNewWindow
+  if (source.addLink && source.linkHref?.trim()) {
+    const href = escapeHtml(source.linkHref.trim());
+    const target = source.openInNewWindow
       ? ' target="_blank" rel="noopener noreferrer"'
       : "";
     const aLabel = aria ? ` aria-label="${escapeHtml(aria)}"` : "";
@@ -564,9 +568,10 @@ ${core}
 }
 
 function generateDivider(props: any, layout: any, spaces: string): string {
-  const thickness = props.thickness ?? 2;
-  const color = props.color || '#e0e0e0';
-  const style = props.style || 'solid';
+  const source = props.main ?? props;
+  const thickness = source.thickness ?? 2;
+  const color = source.color || '#e0e0e0';
+  const style = source.style || 'solid';
 
   const inner = `<hr style="border: none; border-top: ${thickness}px ${style} ${escapeHtml(color)}; margin: 0;" />
 `;
@@ -578,21 +583,22 @@ function generateDivider(props: any, layout: any, spaces: string): string {
  * 生成 Table HTML
  */
 function generateTable(props: any, spaces: string, indent: number): string {
-  const columns = props.columns || [];
-  const numberOfRows = props.numberOfRows || 1;
-  const columnSpacing = props.columnSpacing ?? 10;
-  const rowSpacing = props.rowSpacing ?? 10;
-  const borderWidth = props.borderWidth ?? 1;
-  const borderColor = props.borderColor || '#D5D6D7';
-  const tableBorderRadius = props.tableBorderRadius ?? 0;
-  const headerBackgroundColor = props.headerBackgroundColor || '#FFFFFF';
-  const headerFont = props.headerFont || '';
-  const headerSize = props.headerSize ?? 14;
-  const headerTextColor = props.headerTextColor || '#22194D';
-  const headerLineHeight = props.headerLineHeight;
-  const headerLetterSpacing = props.headerLetterSpacing ?? 0;
-  const headerTextAlignment = props.headerTextAlignment || 'left';
-  const rowBackgroundColor = props.rowBackgroundColor || '#ffffff';
+  const settings = readTableSettings(props);
+  const columns = settings.columns || [];
+  const numberOfRows = settings.numberOfRows || 1;
+  const columnSpacing = settings.columnSpacing ?? 10;
+  const rowSpacing = settings.rowSpacing ?? 10;
+  const borderWidth = settings.borderWidth ?? 1;
+  const borderColor = settings.borderColor || '#D5D6D7';
+  const tableBorderRadius = settings.tableBorderRadius ?? 0;
+  const headerBackgroundColor = settings.headerBackgroundColor || '#FFFFFF';
+  const headerFont = settings.headerFont || '';
+  const headerSize = settings.headerSize ?? 14;
+  const headerTextColor = settings.headerTextColor || '#22194D';
+  const headerLineHeight = settings.headerLineHeight;
+  const headerLetterSpacing = settings.headerLetterSpacing ?? 0;
+  const headerTextAlignment = settings.headerTextAlignment || 'left';
+  const rowBackgroundColor = settings.rowBackgroundColor || '#ffffff';
 
   const thPadding = `${columnSpacing}px`;
   const tdPadding = `${rowSpacing}px`;
@@ -777,12 +783,13 @@ function generateContainer(props: any, spaces: string, indent: number): string {
  * 生成 Tabs HTML
  */
 function generateTabs(props: any, spaces: string, indent: number): string {
-  const tabs = props.tabs || [];
-  const theme = props.theme || "stretch";
-  const borderColor = props.borderColor || "#dddddd";
-  const borderThickness = props.borderThickness ?? 1;
-  const font = props.font || "";
-  const fontSize = props.fontSize ?? 16;
+  const main = props.main ?? {};
+  const tabs = main.tabs || props.tabs || [];
+  const theme = main.theme || props.theme || "stretch";
+  const borderColor = main.borderColor || props.borderColor || "#dddddd";
+  const borderThickness = main.borderThickness ?? props.borderThickness ?? 1;
+  const font = main.font || props.font || "";
+  const fontSize = main.fontSize ?? props.fontSize ?? 16;
   const defaultColor = {
     backgroundColor:
       props.defaultColor?.backgroundColor ??
@@ -1052,9 +1059,10 @@ function generateTabs(props: any, spaces: string, indent: number): string {
  * 生成 Accordion HTML
  */
 function generateAccordion(props: any, spaces: string, indent: number): string {
-  const items = props.items || [];
-  const onlyOneOpen = props.onlyOneOpen !== false; // 默认 true
-  const openIcon = props.openIcon || "none";
+  const main = props.main ?? {};
+  const items = main.items || props.items || [];
+  const onlyOneOpen = (main.onlyOneOpen ?? props.onlyOneOpen) !== false; // 默认 true
+  const openIcon = main.openIcon || props.openIcon || "none";
 
   const paneHeaderText = props.paneHeaderText || {};
   const accordionColors = props.colors || {};
@@ -1196,28 +1204,29 @@ function generateAccordion(props: any, spaces: string, indent: number): string {
 }
 
 function generateSlider(props: any, spaces: string, indent: number): string {
-  const items = props.items || [];
-  const screenCount = Math.max(1, Math.min(20, Number(props.numberOfSlides) || 1));
-  const slidesPerPage = Math.max(1, Math.min(12, Math.max(1, Number(props.slidesPerPage) || 1)));
+  const settings = readSliderProps(props);
+  const items = settings.items || [];
+  const screenCount = Math.max(1, Math.min(20, Number(settings.numberOfSlides) || 1));
+  const slidesPerPage = Math.max(1, Math.min(12, Math.max(1, Number(settings.slidesPerPage) || 1)));
   const pageCount = screenCount;
-  const showDots = props.showDots !== false;
-  const dotsLocation = props.dotsLocation || 'center';
-  const selectedDotColor = props.selectedDotColor || '#777777';
-  const unselectedDotColor = props.unselectedDotColor || '#999999';
-  const mode = props.mode || 'slide';
-  const rewind = props.rewind !== false;
-  const autoSlide = props.autoSlide === true;
-  const showEachSlideSeconds = Math.max(1, props.showEachSlideSeconds || 5);
-  const pauseAutoplayOnHover = props.pauseAutoplayOnHover === true;
-  const showArrows = props.showArrows !== false;
-  const arrowColor = props.arrowColor || '#777777';
-  const arrowHeight = props.arrowHeight || 35;
-  const arrowBackground = props.arrowBackground === true;
-  const controlsOverContent = props.controlsOverContent === true;
-  const dotsSize = props.dotsSize || 14;
-  const selectedDotWidthPercent = clampSelectedDotWidthPercent(props.selectedDotWidth);
+  const showDots = settings.showDots !== false;
+  const dotsLocation = settings.dotsLocation || 'center';
+  const selectedDotColor = settings.selectedDotColor || '#777777';
+  const unselectedDotColor = settings.unselectedDotColor || '#999999';
+  const mode = settings.mode || 'slide';
+  const rewind = settings.rewind !== false;
+  const autoSlide = settings.autoSlide === true;
+  const showEachSlideSeconds = Math.max(1, settings.showEachSlideSeconds || 5);
+  const pauseAutoplayOnHover = settings.pauseAutoplayOnHover === true;
+  const showArrows = settings.showArrows !== false;
+  const arrowColor = settings.arrowColor || '#777777';
+  const arrowHeight = settings.arrowHeight || 35;
+  const arrowBackground = settings.arrowBackground === true;
+  const controlsOverContent = settings.controlsOverContent === true;
+  const dotsSize = settings.dotsSize || 14;
+  const selectedDotWidthPercent = clampSelectedDotWidthPercent(settings.selectedDotWidth);
   const activeDotWidthPx = selectedDotWidthPx(dotsSize, selectedDotWidthPercent);
-  const spaceBetweenDots = props.spaceBetweenDots || 8;
+  const spaceBetweenDots = settings.spaceBetweenDots || 8;
 
   if (items.length === 0) {
     return `${spaces}<!-- No slides defined -->\n`;

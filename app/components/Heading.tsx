@@ -4,6 +4,7 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
 import { createPuckColorField } from "./ui/puck-color-field";
+import { onOffOptions } from "./button-field-groups";
 import { TEXT_FONT_OPTIONS } from "./text/text-fonts";
 import {
   HEADING_SIZE_BY_LEVEL,
@@ -25,126 +26,161 @@ const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
   value: o.value,
 }));
 
+const inlineNumber = (
+  label: string,
+  options: { min?: number; max?: number; step?: number },
+) => ({
+  type: "number" as const,
+  label,
+  inline: true,
+  ...options,
+});
+
+const switchField = (label: string) => ({
+  type: "radio" as const,
+  label,
+  options: [...onOffOptions],
+  switch: true,
+});
+
+const headingMainFields = {
+  level: {
+    type: "select" as const,
+    label: "Heading type",
+    options: [...levelOptions],
+  },
+  font: {
+    type: "select" as const,
+    label: "Font",
+    options: fontOptions,
+  },
+  fontSize: inlineNumber("Size", { min: 8, max: 200, step: 0.1 }),
+  textColor: createPuckColorField("Text color", "#555555"),
+  lineHeight: inlineNumber("Line height", { min: 0.5, max: 5, step: 0.1 }),
+  letterSpacing: inlineNumber("Letter spacing", { min: -10, max: 50, step: 0.1 }),
+  addLink: switchField("Add link"),
+  linkHref: {
+    type: "text" as const,
+    label: "Add link",
+    placeholder: "Link",
+  },
+  openInNewWindow: switchField("Open in new window"),
+  align: {
+    type: "radio" as const,
+    label: "Alignment",
+    options: [
+      { label: "Left", value: "left" },
+      { label: "Center", value: "center" },
+      { label: "Right", value: "right" },
+    ],
+  },
+  text: {
+    type: "textarea" as const,
+    contentEditable: true,
+  },
+};
+
 const headingFields = {
-    level: {
-      type: "select",
-      label: "Heading type",
-      options: [...levelOptions],
-    },
-    font: {
-      type: "select",
-      label: "Font",
-      options: fontOptions,
-    },
-    fontSize: {
-      type: "number",
-      label: "Size",
-      min: 8,
-      max: 200,
-      step: 0.1,
-    },
-    textColor: createPuckColorField("Text color", "#555555"),
-    lineHeight: {
-      type: "number",
-      label: "Line height",
-      min: 0.5,
-      max: 5,
-      step: 0.1,
-    },
-    letterSpacing: {
-      type: "number",
-      label: "Letter spacing",
-      min: -10,
-      max: 50,
-      step: 0.1,
-    },
-    addLink: {
-      type: "radio",
-      label: "Add link",
-      options: [
-        { label: "Off", value: false },
-        { label: "On", value: true },
-      ],
-    },
-    linkHref: {
-      type: "text",
-      label: "Add link",
-      placeholder: "Link",
-    },
-    openInNewWindow: {
-      type: "radio",
-      label: "Open in new window",
-      options: [
-        { label: "Off", value: false },
-        { label: "On", value: true },
-      ],
-    },
-    align: {
-      type: "radio",
-      label: "Alignment",
-      options: [
-        { label: "Left", value: "left" },
-        { label: "Center", value: "center" },
-        { label: "Right", value: "right" },
-      ],
-    },
-    text: {
-      type: "textarea",
-      contentEditable: true,
-    },
+  main: {
+    type: "object" as const,
+    label: "Main",
+    defaultOpen: true,
+    objectFields: headingMainFields,
+  },
 } as ComponentConfig<Components["Heading"]>["fields"];
 
 const HeadingInternal: ComponentConfig<Components["Heading"]> = {
   fields: headingFields,
-  resolveData: (data, { changed }) => {
+  resolveData: (data, { lastData }) => {
     const props = data.props || {};
-    const next = { ...props };
-    let updated = false;
+    const legacy = props as unknown as {
+      text?: string;
+      level?: unknown;
+      font?: string;
+      fontSize?: number;
+      textColor?: string;
+      lineHeight?: number;
+      letterSpacing?: number;
+      addLink?: boolean;
+      linkHref?: string;
+      openInNewWindow?: boolean;
+      align?: "left" | "center" | "right";
+      size?: string;
+    };
+    const source = props.main ?? legacy;
+    const nextMain = { ...source };
+    let updated = !props.main;
 
-    const level = normalizeHeadingLevel(next.level);
-    if (level !== next.level) {
-      next.level = level;
+    const level = normalizeHeadingLevel(nextMain.level);
+    if (level !== nextMain.level) {
+      nextMain.level = level;
       updated = true;
     }
 
-    if (next.fontSize == null || !Number.isFinite(Number(next.fontSize))) {
-      next.fontSize = resolveHeadingFontSize(next);
+    if (nextMain.fontSize == null || !Number.isFinite(Number(nextMain.fontSize))) {
+      nextMain.fontSize = resolveHeadingFontSize(nextMain);
       updated = true;
     }
 
-    if (changed.level) {
+    const previousLevel = (lastData?.props as { main?: { level?: unknown }; level?: unknown } | undefined)?.main
+      ?.level ?? (lastData?.props as { level?: unknown } | undefined)?.level;
+    if (previousLevel != null && normalizeHeadingLevel(previousLevel) !== level) {
       const mapped = HEADING_SIZE_BY_LEVEL[level];
-      if (next.fontSize !== mapped) {
-        next.fontSize = mapped;
+      if (nextMain.fontSize !== mapped) {
+        nextMain.fontSize = mapped;
         updated = true;
       }
     }
 
-    if (!updated) {
-      return {};
-    }
+    if (!updated) return {};
 
-    return { props: next };
+    return {
+      props: {
+        ...props,
+        main: nextMain,
+        text: undefined,
+        level: undefined,
+        font: undefined,
+        fontSize: undefined,
+        textColor: undefined,
+        lineHeight: undefined,
+        letterSpacing: undefined,
+        addLink: undefined,
+        linkHref: undefined,
+        openInNewWindow: undefined,
+        align: undefined,
+        size: undefined,
+      },
+    };
   },
   resolveFields: (data) => {
-    const props = data.props || {};
-    const fields = { ...headingFields } as Record<string, unknown>;
-    if (!props.addLink) {
-      delete fields.linkHref;
-      delete fields.openInNewWindow;
+    const main = data.props?.main ?? data.props;
+    const objectFields = { ...headingMainFields } as Record<string, unknown>;
+    if (!main?.addLink) {
+      delete objectFields.linkHref;
+      delete objectFields.openInNewWindow;
     }
-    return fields as NonNullable<ComponentConfig<Components["Heading"]>["fields"]>;
+    return {
+      main: {
+        type: "object" as const,
+        label: "Main",
+        defaultOpen: true,
+        objectFields,
+      },
+    } as NonNullable<ComponentConfig<Components["Heading"]>["fields"]>;
   },
   defaultProps: {
-    text: "Heading",
-    level: 1,
-    font: "",
-    fontSize: 32,
-    textColor: "#555",
-    addLink: false,
-    linkHref: "",
-    openInNewWindow: false,
-    align: "center",
+    main: {
+      text: "Heading",
+      level: 1,
+      font: "",
+      fontSize: 32,
+      textColor: "#555",
+      addLink: false,
+      linkHref: "",
+      openInNewWindow: false,
+      align: "center",
+    },
     layout: {
       ...defaultLayoutSpacing,
       sectionPadding: {
@@ -155,20 +191,22 @@ const HeadingInternal: ComponentConfig<Components["Heading"]> = {
       },
     },
   },
-  render: ({
-    align,
-    text,
-    level,
-    font,
-    fontSize,
-    textColor,
-    lineHeight,
-    letterSpacing,
-    addLink,
-    linkHref,
-    openInNewWindow,
-    puck,
-  }) => {
+  render: (props) => {
+    const main = props.main ?? props;
+    const {
+      align,
+      text,
+      level,
+      font,
+      fontSize,
+      textColor,
+      lineHeight,
+      letterSpacing,
+      addLink,
+      linkHref,
+      openInNewWindow,
+    } = main;
+    const puck = props.puck;
     const resolvedLevel = normalizeHeadingLevel(level);
     const resolvedFontSize = resolveHeadingFontSize({ fontSize, level });
 

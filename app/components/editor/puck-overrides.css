@@ -38,8 +38,32 @@
   transform: rotate(90deg);
 }
 
-.visbuild-collapsible-object__body {
-  padding: 0 0 4px;
+.visbuild-collapsible-object__body,
+.visbuild-layout-fields {
+  padding: 12px 0 4px;
+}
+
+.visbuild-layout-groups {
+  display: flex;
+  flex-direction: column;
+  margin: calc(var(--puck-space-4, 16px) * -1);
+  margin-bottom: calc(var(--puck-space-3, 12px) * -1);
+}
+
+.visbuild-layout-groups > .visbuild-collapsible-object {
+  padding: var(--puck-space-4, 16px);
+  padding-bottom: var(--puck-space-3, 12px);
+}
+
+.visbuild-layout-groups > .visbuild-collapsible-object + .visbuild-collapsible-object {
+  border-top: var(--puck-border-width-regular, 1px) solid var(--puck-color-border, #e5e7eb);
+  margin-top: var(--puck-space-2, 8px);
+}
+
+.visbuild-layout-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* 只藏当前 object 自己的分组标题，不要动内部 Min Height / Top 等字段 label */
@@ -72,8 +96,8 @@
   box-sizing: border-box;
 }
 
-/* 侧栏分段 radio：去掉标签图标，选项内边距统一 */
-[class*="PuckFields"] :has(> [class*="Input-radioGroupItems"]) [class*="Input-labelIcon"] {
+/* 侧栏字段标签前不显示类型图标（T、下箭头等） */
+[class*="PuckFields"] [class*="Input-labelIcon"] {
   display: none;
 }
 
