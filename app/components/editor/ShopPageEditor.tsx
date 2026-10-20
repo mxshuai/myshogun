@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { useFetcher, useNavigate } from "react-router";
 import type { Data } from "@puckeditor/core";
 import { Puck } from "@puckeditor/core";
@@ -16,6 +16,7 @@ import editorStyles from "@puckeditor/core/puck.css?url";
 import { MediaPickerProvider } from "~/components/editor/media/MediaPickerContext";
 import "~/components/editor/media/media.css";
 import { visbuildPuckFieldTypes } from "~/components/editor/puck-overrides";
+import { stableSlotFieldTransforms } from "~/components/editor/stable-slot-transform";
 import "~/components/editor/puck-overrides.css";
 import { VisbuildEditorHeader } from "~/components/VisbuildEditorHeader";
 import { PreviewModal } from "~/components/PreviewModal";
@@ -173,6 +174,11 @@ export function ShopPageEditor({
         config={config}
         data={editorData}
         onChange={setEditorData}
+        fieldTransforms={
+          stableSlotFieldTransforms as NonNullable<
+            ComponentProps<typeof Puck>["fieldTransforms"]
+          >
+        }
         overrides={{
           fieldTypes: visbuildPuckFieldTypes,
           header: ({ children }) => (
