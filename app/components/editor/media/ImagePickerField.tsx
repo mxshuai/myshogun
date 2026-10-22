@@ -177,7 +177,7 @@ function ImagePickerFieldInner({
   }
 
   return (
-    <FieldLabel label={label} readOnly={readOnly}>
+    <FieldLabel label={label} readOnly={readOnly} el="div">
       <SelectedImageCard
         value={normalized}
         readOnly={readOnly}

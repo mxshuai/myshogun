@@ -49,7 +49,7 @@ function resolveImageMainField(props: Components["Image"] | undefined) {
   if (main?.imageClickable === true) {
     objectFields.linkHref = {
       type: "text",
-      label: "Image url",
+      label: "Link",
       placeholder: "",
     };
     objectFields.openInNewWindow = {
