@@ -249,51 +249,29 @@ function SidebarPxInput({
   }, [pxFromEditor]);
 
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        border: "1px solid #e5e7eb",
-        borderRadius: 6,
-        background: "#fff",
-        overflow: "hidden",
+    <input
+      type="number"
+      min={0}
+      placeholder=""
+      style={numStyle}
+      disabled={disabled}
+      value={draft}
+      onFocus={() => {
+        focusedRef.current = true;
+        setDraft(parsePxAttr(pxFromEditor));
       }}
-    >
-      <input
-        type="number"
-        min={0}
-        placeholder=""
-        style={{ ...numStyle, width: 48, border: "none", borderRadius: 0 }}
-        disabled={disabled}
-        value={draft}
-        onFocus={() => {
-          focusedRef.current = true;
-          setDraft(parsePxAttr(pxFromEditor));
-        }}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          focusedRef.current = false;
-          const raw = draft.trim();
-          if (!raw) {
-            onCommit(null);
-            return;
-          }
-          const n = Number(raw);
-          onCommit(Number.isNaN(n) || n < 0 ? null : n);
-        }}
-      />
-      <span
-        style={{
-          paddingRight: 8,
-          color: "#9ca3af",
-          fontSize: 12,
-          fontWeight: 600,
-          userSelect: "none",
-        }}
-      >
-        PX
-      </span>
-    </span>
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        focusedRef.current = false;
+        const raw = draft.trim();
+        if (!raw) {
+          onCommit(null);
+          return;
+        }
+        const n = Number(raw);
+        onCommit(Number.isNaN(n) || n < 0 ? null : n);
+      }}
+    />
   );
 }
 
