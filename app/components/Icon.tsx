@@ -125,6 +125,7 @@ const IconInternal: ComponentConfig<Components["Icon"]> = {
           inline: true,
           min: 1,
           max: 512,
+          suffix: "PX",
         },
         align: {
           type: "radio",

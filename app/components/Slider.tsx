@@ -234,7 +234,7 @@ type SliderViewProps = ReturnType<typeof readSliderProps> & {
 
 const inlineNumber = (
   label: string,
-  options: { min?: number; max?: number; step?: number },
+  options: { min?: number; max?: number; step?: number; suffix?: string },
 ) => ({
   type: "number" as const,
   label,
@@ -275,12 +275,12 @@ const controlsObjectFields = {
   controlsOverContent: switchField("Controls over content"),
   showArrows: switchField("Show arrows"),
   arrowColor: createPuckColorField("Arrow color", "#777777"),
-  arrowHeight: inlineNumber("Arrow height", { min: 12, max: 80 }),
+  arrowHeight: inlineNumber("Arrow height", { min: 12, max: 80, suffix: "PX" }),
   arrowBackground: switchField("Arrow background"),
   showDots: switchField("Show dots"),
   selectedDotColor: createPuckColorField("Selected dot color", "#777777"),
   unselectedDotColor: createPuckColorField("Unselected dot color", "#999999"),
-  dotsSize: inlineNumber("Dots size", { min: 4, max: 28 }),
+  dotsSize: inlineNumber("Dots size", { min: 4, max: 28, suffix: "PX" }),
   selectedDotWidth: inlineNumber("Selected dot width", { min: 100, step: 50 }),
   dotsLocation: {
     type: "radio" as const,
@@ -291,7 +291,7 @@ const controlsObjectFields = {
       { label: "Right", value: "right" },
     ],
   },
-  spaceBetweenDots: inlineNumber("Space between dots", { min: 0, max: 40 }),
+  spaceBetweenDots: inlineNumber("Space between dots", { min: 0, max: 40, suffix: "PX" }),
 };
 
 const sliderFields = {

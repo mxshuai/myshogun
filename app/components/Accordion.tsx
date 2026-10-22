@@ -119,7 +119,7 @@ const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
 
 const inlineNumber = (
   label: string,
-  options: { min?: number; max?: number },
+  options: { min?: number; max?: number; suffix?: string },
 ) => ({
   type: "number" as const,
   label,
@@ -136,7 +136,7 @@ const paneHeaderTextFieldGroup: ObjectField<AccordionProps["paneHeaderText"]> = 
       label: "Font",
       options: fontOptions,
     },
-    headerSize: inlineNumber("Size", { min: 8, max: 72 }),
+    headerSize: inlineNumber("Size", { min: 8, max: 72, suffix: "PX" }),
     headerTextAlignment: {
       type: "radio",
       label: "Text alignment",
@@ -146,7 +146,7 @@ const paneHeaderTextFieldGroup: ObjectField<AccordionProps["paneHeaderText"]> = 
         { label: "Right", value: "right" },
       ],
     },
-    headingPadding: inlineNumber("Heading padding", { min: 0, max: 48 }),
+    headingPadding: inlineNumber("Heading padding", { min: 0, max: 48, suffix: "PX" }),
   },
 };
 

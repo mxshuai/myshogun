@@ -74,16 +74,18 @@ function LayoutSidebarFields({
     <div className="visbuild-layout-groups">
       <CollapsibleGroup title="Dimensions">
         <InlineNumberField
-          label="Min Height (px)"
+          label="Min Height"
           value={dimensions.minHeight ?? 0}
           min={0}
+          suffix="PX"
           readOnly={readOnly}
           onChange={(next) => setDimension("minHeight", next)}
         />
         <InlineNumberField
-          label="Max Width (px)"
+          label="Max Width"
           value={dimensions.maxWidth ?? 0}
           min={0}
+          suffix="PX"
           readOnly={readOnly}
           onChange={(next) => setDimension("maxWidth", next)}
         />
@@ -95,6 +97,7 @@ function LayoutSidebarFields({
             label={side[0].toUpperCase() + side.slice(1)}
             value={sideNumber(margin[side])}
             min={0}
+            suffix="PX"
             readOnly={readOnly}
             onChange={(next) => setSide("sectionMargin", margin, side, next)}
           />
@@ -107,6 +110,7 @@ function LayoutSidebarFields({
             label={side[0].toUpperCase() + side.slice(1)}
             value={sideNumber(padding[side])}
             min={0}
+            suffix="PX"
             readOnly={readOnly}
             onChange={(next) => setSide("sectionPadding", padding, side, next)}
           />

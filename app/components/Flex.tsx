@@ -33,6 +33,7 @@ const FlexInternal: ComponentConfig<Components["Flex"]> = {
           type: "number",
           inline: true,
           min: 0,
+          suffix: "PX",
         },
         wrap: {
           label: "Wrap",

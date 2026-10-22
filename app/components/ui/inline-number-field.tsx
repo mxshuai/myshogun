@@ -11,6 +11,7 @@ type InlineNumberFieldProps = {
   min?: number;
   max?: number;
   step?: number;
+  suffix?: string;
   readOnly?: boolean;
   onChange: (value: number) => void;
 };
@@ -23,6 +24,7 @@ type InlineFieldConfig = {
   min?: number;
   max?: number;
   step?: number;
+  suffix?: string;
 };
 
 function decimalsOf(step: number): number {
@@ -78,6 +80,7 @@ export function InlineNumberField({
   min,
   max,
   step = 1,
+  suffix,
   readOnly,
   onChange,
 }: InlineNumberFieldProps) {
@@ -99,7 +102,11 @@ export function InlineNumberField({
   return (
     <div className="visbuild-inline-number">
       <span className="visbuild-inline-number__label">{label}</span>
-      <div className="visbuild-inline-number__control">
+      <div
+        className={`visbuild-inline-number__control${
+          suffix ? " visbuild-inline-number__control--suffix" : ""
+        }`}
+      >
         <input
           className="visbuild-inline-number__input"
           type="text"
@@ -138,6 +145,9 @@ export function InlineNumberField({
             }
           }}
         />
+        {suffix ? (
+          <span className="visbuild-inline-number__suffix">{suffix}</span>
+        ) : null}
         <div className="visbuild-inline-number__steps">
           <button
             type="button"
@@ -237,6 +247,7 @@ export function InlineLayoutField({
         min={field.min}
         max={field.max}
         step={field.step}
+        suffix={field.suffix}
         readOnly={readOnly}
         onChange={onChange}
       />

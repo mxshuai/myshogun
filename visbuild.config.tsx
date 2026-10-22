@@ -41,7 +41,6 @@ export const config: Config = {
         "Tabs",
         "Accordion",
         "Slider",
-        "Card",
       ],
     },
     content: {
@@ -62,7 +61,7 @@ export const config: Config = {
     },
     other: {
       title: "Other",
-      components: ["CustomHtml", "RawHTML", "Flex"],
+      components: ["CustomHtml"],
     },
   },
   components: {

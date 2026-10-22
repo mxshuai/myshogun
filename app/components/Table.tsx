@@ -11,7 +11,7 @@ type TableProps = Components["Table"];
 
 const inlineNumber = (
   label: string,
-  options: { min?: number; max?: number; step?: number },
+  options: { min?: number; max?: number; step?: number; suffix?: string },
 ) => ({
   type: "number" as const,
   label,
@@ -26,8 +26,8 @@ const tableFields = {
     defaultOpen: true,
     objectFields: {
       borderColor: createPuckColorField("Border color", "#D5D6D7"),
-      borderWidth: inlineNumber("Border width", { min: 0, max: 10 }),
-      tableBorderRadius: inlineNumber("Table border radius", { min: 0, max: 50 }),
+      borderWidth: inlineNumber("Border width", { min: 0, max: 10, suffix: "PX" }),
+      tableBorderRadius: inlineNumber("Table border radius", { min: 0, max: 50, suffix: "PX" }),
     },
   },
   header: {
@@ -43,10 +43,10 @@ const tableFields = {
           value: option.value,
         })),
       },
-      headerSize: inlineNumber("Size", { min: 8, max: 72 }),
+      headerSize: inlineNumber("Size", { min: 8, max: 72, suffix: "PX" }),
       headerTextColor: createPuckColorField("Text color", "#22194D"),
       headerLineHeight: inlineNumber("Line height", { min: 0.5, max: 3, step: 0.1 }),
-      headerLetterSpacing: inlineNumber("Letter spacing", { min: -5, max: 20 }),
+      headerLetterSpacing: inlineNumber("Letter spacing", { min: -5, max: 20, suffix: "PX" }),
       headerTextAlignment: {
         type: "radio" as const,
         label: "Header text alignment",
@@ -77,7 +77,7 @@ const tableFields = {
           },
         },
       },
-      columnSpacing: inlineNumber("Column spacing", { min: 0, max: 100 }),
+      columnSpacing: inlineNumber("Column spacing", { min: 0, max: 100, suffix: "PX" }),
     },
   },
   rows: {
@@ -86,7 +86,7 @@ const tableFields = {
     objectFields: {
       numberOfRows: inlineNumber("Number of rows", { min: 1, max: 100 }),
       rowBackgroundColor: createPuckColorField("Row background color", "#ffffff"),
-      rowSpacing: inlineNumber("Row spacing", { min: 0, max: 100 }),
+      rowSpacing: inlineNumber("Row spacing", { min: 0, max: 100, suffix: "PX" }),
     },
   },
 } as ComponentConfig<TableProps>["fields"];

@@ -26,6 +26,22 @@
   overflow: hidden;
 }
 
+.visbuild-inline-number__control--suffix {
+  width: 108px;
+}
+
+.visbuild-inline-number__suffix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
 .visbuild-inline-number__input {
   width: 0;
   flex: 1;

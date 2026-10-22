@@ -28,7 +28,7 @@ const fontOptions = TEXT_FONT_OPTIONS.map((o) => ({
 
 const inlineNumber = (
   label: string,
-  options: { min?: number; max?: number; step?: number },
+  options: { min?: number; max?: number; step?: number; suffix?: string },
 ) => ({
   type: "number" as const,
   label,
@@ -54,10 +54,10 @@ const headingMainFields = {
     label: "Font",
     options: fontOptions,
   },
-  fontSize: inlineNumber("Size", { min: 8, max: 200, step: 0.1 }),
+  fontSize: inlineNumber("Size", { min: 8, max: 200, step: 0.1, suffix: "PX" }),
   textColor: createPuckColorField("Text color", "#555555"),
   lineHeight: inlineNumber("Line height", { min: 0.5, max: 5, step: 0.1 }),
-  letterSpacing: inlineNumber("Letter spacing", { min: -10, max: 50, step: 0.1 }),
+  letterSpacing: inlineNumber("Letter spacing", { min: -10, max: 50, step: 0.1, suffix: "PX" }),
   addLink: switchField("Add link"),
   linkHref: {
     type: "text" as const,

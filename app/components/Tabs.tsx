@@ -96,7 +96,7 @@ const activeColorsField: ObjectField<TabColorGroup> = {
 
 const inlineNumber = (
   label: string,
-  options: { min?: number; max?: number },
+  options: { min?: number; max?: number; suffix?: string },
 ) => ({
   type: "number" as const,
   label,
@@ -144,13 +144,13 @@ const tabsFields = {
         ],
       },
       borderColor: createPuckColorField("Border color", "#dddddd"),
-      borderThickness: inlineNumber("Border thickness", { min: 0, max: 10 }),
+      borderThickness: inlineNumber("Border thickness", { min: 0, max: 10, suffix: "PX" }),
       font: {
         type: "select" as const,
         label: "Font",
         options: fontOptions,
       },
-      fontSize: inlineNumber("Size", { min: 8, max: 72 }),
+      fontSize: inlineNumber("Size", { min: 8, max: 72, suffix: "PX" }),
     },
   },
   defaultColor: defaultColorField,

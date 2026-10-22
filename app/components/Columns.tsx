@@ -57,6 +57,7 @@ const mainObjectFields = {
     type: "number" as const,
     min: 0,
     inline: true,
+    suffix: "PX",
   },
   equalColumnHeights: {
     type: "radio" as const,

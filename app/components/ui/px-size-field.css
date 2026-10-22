@@ -15,7 +15,7 @@
 .visbuild-px-size__control {
   display: flex;
   align-items: stretch;
-  width: 112px;
+  width: 148px;
   height: 32px;
   flex-shrink: 0;
   border: 1px solid #e5e7eb;
@@ -67,14 +67,14 @@
   opacity: 0.45;
 }
 
-.visbuild-px-size__unit {
-  height: 32px;
-  min-width: 64px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #fff;
-  color: #111827;
-  font: inherit;
-  font-size: 14px;
-  padding: 0 8px;
+.visbuild-px-size__suffix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
 }

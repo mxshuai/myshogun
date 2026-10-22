@@ -17,6 +17,7 @@ const DividerInternal: ComponentConfig<Components["Divider"]> = {
           inline: true,
           min: 1,
           max: 10,
+          suffix: "PX",
         },
         color: createPuckColorField("Color", "#e0e0e0"),
         style: {

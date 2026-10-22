@@ -89,6 +89,7 @@ function PxSizeField({
               commit(Number(draft));
             }}
           />
+          <span className="visbuild-px-size__suffix">PX</span>
           <div className="visbuild-px-size__steps">
             <button
               type="button"
@@ -110,9 +111,6 @@ function PxSizeField({
             </button>
           </div>
         </div>
-        <select className="visbuild-px-size__unit" aria-label={`${label} unit`} disabled={readOnly} value="px">
-          <option value="px">px</option>
-        </select>
       </div>
     </div>
   );
