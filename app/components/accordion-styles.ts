@@ -54,7 +54,6 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
   line-height: 1;
 }
 
-/* Chevron: fa-caret-down 展开，逆时针 90° 为收起 */
 .visbuild-accordion-icon--caret {
   transform: rotate(-90deg);
 }
@@ -64,7 +63,6 @@ export const ACCORDION_EXPORT_CSS = `/* Accordion */
   transition: transform ${ACCORDION_CONTENT_FADE_MS}ms ease;
 }
 
-/* Plus: fa-plus 收起，顺时针 405° 为展开 */
 .visbuild-accordion-icon--plus {
   transform: rotate(0deg);
 }

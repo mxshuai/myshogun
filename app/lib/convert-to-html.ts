@@ -1437,15 +1437,13 @@ function escapeHtml(text: string): string {
  * 生成 CSS 文件内容
  */
 export function generateCSS(): string {
-  return `/* Visbuild Page Styles — 全部作用域化到 .visbuild-page，避免与主题双向污染 */
-.visbuild-page,
+  return `.visbuild-page,
 .visbuild-page *,
 .visbuild-page *::before,
 .visbuild-page *::after {
   box-sizing: border-box;
 }
 
-/* 容器继承基线：拦截主题 body / 外部 CSS 下发的继承属性（字体/颜色/行高/字距/对齐等） */
 .visbuild-page {
   margin: 0;
   padding: 0;
@@ -1462,7 +1460,6 @@ export function generateCSS(): string {
   text-decoration: none;
 }
 
-/* 常见原生标签基线：压过主题的裸标签选择器（p/h1.../ul 等），visbuild 自身带类的样式仍优先 */
 .visbuild-page p,
 .visbuild-page h1,
 .visbuild-page h2,
