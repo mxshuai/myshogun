@@ -215,7 +215,6 @@ export function buildButtonLinkStyle(
     ...(props.letterSpacing != null && Number.isFinite(props.letterSpacing)
       ? { letterSpacing: `${props.letterSpacing}px` }
       : {}),
-    padding: "10px 20px",
     textDecoration: "none",
     textAlign: "center",
     boxSizing: "border-box",

@@ -220,6 +220,8 @@ function generateButton(props: any, layout: any, spaces: string): string {
   const openInSameTab = main.openInSameTab;
   const target = openInSameTab ? "" : ' target="_blank" rel="noopener noreferrer"';
   const inlineStyle = serializeButtonInlineStyle(flattenButtonProps(props));
+  const textPadding = effectiveSectionSides(layout).padding;
+  const buttonStyle = `${inlineStyle}; padding-top: ${textPadding.top}; padding-right: ${textPadding.right}; padding-bottom: ${textPadding.bottom}; padding-left: ${textPadding.left}`;
   const align = main.align || "center";
   const justify =
     align === "left"
@@ -229,13 +231,20 @@ function generateButton(props: any, layout: any, spaces: string): string {
         : "center";
 
   const inner = `${spaces}  <div style="display: flex; justify-content: ${justify}; width: 100%;">
-${spaces}    <a class="visbuild-button" href="${escapeHtml(href)}" style="${inlineStyle}"${target}>
+${spaces}    <a class="visbuild-button" href="${escapeHtml(href)}" style="${buttonStyle}"${target}>
 ${spaces}      ${escapeHtml(main.label || "Text")}
 ${spaces}    </a>
 ${spaces}  </div>
 `;
 
-  return wrapLayoutLayers(layout, inner, spaces);
+  return wrapLayoutLayers(
+    {
+      ...layout,
+      sectionPadding: { top: "0", right: "0", bottom: "0", left: "0" },
+    },
+    inner,
+    spaces,
+  );
 }
 
 /**

@@ -1,7 +1,12 @@
 import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
-import { defaultLayoutSpacing, withLayout } from "./Layout";
+import {
+  defaultLayoutSpacing,
+  effectiveSectionSides,
+  withLayout,
+  type LayoutFieldProps,
+} from "./Layout";
 import {
   defaultActiveStyle,
   defaultDefaultStyle,
@@ -13,6 +18,24 @@ import {
 } from "./button-field-groups";
 import { buildButtonLinkStyle, flattenButtonProps } from "./button-styles";
 import "./button.css";
+
+const defaultButtonPadding = {
+  top: "10",
+  right: "20",
+  bottom: "10",
+  left: "20",
+};
+
+function isZeroSide(value: string | undefined): boolean {
+  const raw = (value ?? "").trim();
+  return raw === "" || raw === "0" || raw === "0px";
+}
+
+function isZeroSectionPadding(padding?: LayoutFieldProps["sectionPadding"]): boolean {
+  return (["top", "right", "bottom", "left"] as const).every((side) =>
+    isZeroSide(padding?.[side]),
+  );
+}
 
 const buttonFields = {
   main: {
@@ -74,6 +97,19 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
       ),
     } as NonNullable<ComponentConfig<Components["Button"]>["fields"]>;
   },
+  resolveData: (data, { lastData }) => {
+    const layout = data.props?.layout;
+    if (lastData || !isZeroSectionPadding(layout?.sectionPadding)) return {};
+    return {
+      props: {
+        ...data.props,
+        layout: {
+          ...layout,
+          sectionPadding: { ...defaultButtonPadding },
+        },
+      },
+    };
+  },
   defaultProps: {
     main: {
       label: "Text",
@@ -93,6 +129,7 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     activeStyle: { ...defaultActiveStyle },
     layout: {
       ...defaultLayoutSpacing,
+      sectionPadding: { ...defaultButtonPadding },
     },
   },
   render: (props) => {
@@ -105,6 +142,7 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
     const { label, href, openInSameTab, align } = main;
     const puck = props.puck;
     const linkStyle = buildButtonLinkStyle(flattenButtonProps(props));
+    const textPadding = effectiveSectionSides(props.layout).padding;
     const resolvedHref = href?.trim() || "#";
     const justifyContent =
       align === "left"
@@ -114,7 +152,12 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
           : "center";
 
     return (
-      <Section>
+      <Section
+        sectionPaddingTop="0"
+        sectionPaddingRight="0"
+        sectionPaddingBottom="0"
+        sectionPaddingLeft="0"
+      >
         <div
           style={{
             display: "flex",
@@ -130,6 +173,10 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
             onClick={puck.isEditing ? (e) => e.preventDefault() : undefined}
             style={{
               ...linkStyle,
+              paddingTop: textPadding.top,
+              paddingRight: textPadding.right,
+              paddingBottom: textPadding.bottom,
+              paddingLeft: textPadding.left,
               cursor: puck.isEditing ? "default" : "pointer",
             }}
             tabIndex={puck.isEditing ? -1 : undefined}
