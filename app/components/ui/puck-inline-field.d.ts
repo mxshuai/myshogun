@@ -15,4 +15,9 @@ declare module "@puckeditor/core" {
     /** object 分组初始是否展开。未设置时默认收起。 */
     defaultOpen?: boolean;
   }
+
+  interface NumberField {
+    /** inline 数字框在步进按钮左侧显示的单位，例如 PX。 */
+    suffix?: string;
+  }
 }
