@@ -12,7 +12,11 @@ export function useSyncTextHtmlToPuck() {
     const item = puck.selectedItem;
     if (!item || item.type !== "Text") return;
 
-    const componentId = (item.props as { id?: string }).id;
+    const props = item.props as {
+      id?: string;
+      main?: { html?: string };
+    };
+    const componentId = props.id;
     if (!componentId) return;
 
     const selector = puck.getSelectorForId(componentId);
@@ -24,7 +28,10 @@ export function useSyncTextHtmlToPuck() {
         ...item,
         props: {
           ...item.props,
-          html: editor.getHTML(),
+          main: {
+            ...(props.main ?? {}),
+            html: editor.getHTML(),
+          },
         },
       },
       destinationIndex: selector.index,

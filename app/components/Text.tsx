@@ -12,6 +12,7 @@ import type { Components } from "./types";
 import { Section } from "./Section";
 import { defaultLayoutSpacing, withLayout } from "./Layout";
 import { DEFAULT_TEXT_HTML } from "./text/text-defaults";
+import { replaceTextHeadingTags, TEXT_CONTENT_CSS } from "./text/text-heading";
 import { TextInlineEditorBridge } from "./text/TextInlineEditorBridge";
 import { TextRichTextMenu } from "./text/TextRichTextMenu";
 import { textTiptapExtensions } from "./text/text-tiptap-extensions";
@@ -39,7 +40,7 @@ function renderTextBody(htmlProp: unknown): ReactNode {
   return (
     <div
       className="visbuild-text"
-      dangerouslySetInnerHTML={{ __html: raw }}
+      dangerouslySetInnerHTML={{ __html: replaceTextHeadingTags(raw) }}
     />
   );
 }
@@ -57,7 +58,7 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
           label: "",
           contentEditable: true,
           options: {
-            heading: { levels: [1, 2, 3, 4, 5, 6] },
+            heading: false,
             link: false,
           },
           tiptap: {
@@ -93,6 +94,7 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
     const main = props.main ?? { html: DEFAULT_TEXT_HTML };
     return (
       <Section>
+        <style>{TEXT_CONTENT_CSS}</style>
         {renderTextBody(main.html)}
       </Section>
     );

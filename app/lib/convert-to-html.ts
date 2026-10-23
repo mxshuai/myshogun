@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { effectiveSectionSides } from "~/components/Layout";
+import { replaceTextHeadingTags, TEXT_CONTENT_CSS } from "~/components/text/text-heading";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import {
   containerBackgroundImageUrl,
@@ -206,9 +207,10 @@ function generateText(props: any, layout: any, spaces: string): string {
 
 /** 导出前移除 script/事件，保留富文本标签 */
 function sanitizeRichTextHtml(html: string): string {
-  return html
+  const cleaned = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  return replaceTextHeadingTags(cleaned);
 }
 
 /**
@@ -240,6 +242,7 @@ ${spaces}  </div>
   return wrapLayoutLayers(
     {
       ...layout,
+      dimensions: undefined,
       sectionPadding: { top: "0", right: "0", bottom: "0", left: "0" },
     },
     inner,
@@ -1485,13 +1488,7 @@ export function generateCSS(): string {
   border: 0;
 }
 
-.visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; }
-.visbuild-text p { margin: 0 0 0.75em; }
-.visbuild-text p:last-child { margin-bottom: 0; }
-.visbuild-text ul.visbuild-list-dash { list-style-type: "– "; padding-left: 1.25em; }
-.visbuild-text img { max-width: 100%; height: auto; }
-.visbuild-text a { color: #2563eb; text-decoration: underline; }
-.visbuild-text a.visbuild-link-no-underline { text-decoration: none; }
+${TEXT_CONTENT_CSS}
 
 ${BUTTON_EXPORT_CSS}
 

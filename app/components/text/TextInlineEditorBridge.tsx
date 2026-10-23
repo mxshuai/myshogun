@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import type { Editor } from "@tiptap/react";
 
-import { setActiveInlineTextEditor } from "./text-active-editor";
+import {
+  getActiveInlineTextEditor,
+  setActiveInlineTextEditor,
+} from "./text-active-editor";
 
 /** 注册画布 inline 编辑器，供侧栏 Formatting / 链接弹窗使用 */
 export function TextInlineEditorBridge({
@@ -13,6 +16,8 @@ export function TextInlineEditorBridge({
   editor: Editor | null;
   children?: React.ReactNode;
 }) {
+  if (editor) setActiveInlineTextEditor(editor);
+
   useEffect(() => {
     if (!editor) {
       setActiveInlineTextEditor(null);
@@ -26,7 +31,9 @@ export function TextInlineEditorBridge({
 
     return () => {
       editor.off("focus", onFocus);
-      setActiveInlineTextEditor(null);
+      if (getActiveInlineTextEditor() === editor) {
+        setActiveInlineTextEditor(null);
+      }
     };
   }, [editor]);
 

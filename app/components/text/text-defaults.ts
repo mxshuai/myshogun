@@ -2,6 +2,12 @@
 export const DEFAULT_TEXT_HTML =
   '<p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 400; color: #374151; text-align: left; line-height: 1.5; margin: 0;">Text</p>';
 
+/** 无编辑器时的侧栏占位（16px × 1.5） */
+export const DEFAULT_TEXT_LINE_HEIGHT = "24px";
+
+/** 无 mark 时侧栏字距反显为 0px（不写入文档） */
+export const DEFAULT_TEXT_LETTER_SPACING = "0px";
+
 export type LinkFormState = {
   url: string;
   text: string;

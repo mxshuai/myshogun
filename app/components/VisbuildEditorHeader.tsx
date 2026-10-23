@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { Data } from "@puckeditor/core";
-import { usePuck } from "@puckeditor/core";
+import { createUsePuck } from "@puckeditor/core";
 
 import { shopPagesPath } from "~/lib/shop-url";
+
+const useEditorPuck = createUsePuck();
 
 /**
  * 覆盖 Puck 顶栏中间标题：无边框输入，失焦时写入 Puck 并触发 onPersist（保存服务端）。
@@ -20,10 +22,11 @@ export function VisbuildEditorHeader({
   children: React.ReactNode;
   onPersist: (data: Data) => void;
 }) {
-  const { appState, dispatch } = usePuck();
+  const data = useEditorPuck((state) => state.appState.data);
+  const dispatch = useEditorPuck((state) => state.dispatch);
 
   const title =
-    (appState.data.root?.props as { title?: string } | undefined)?.title ?? "";
+    (data.root?.props as { title?: string } | undefined)?.title ?? "";
 
   const [draft, setDraft] = useState(title);
 
@@ -33,11 +36,11 @@ export function VisbuildEditorHeader({
 
   const commit = () => {
     const merged: Data = {
-      ...appState.data,
+      ...data,
       root: {
-        ...appState.data.root,
+        ...data.root,
         props: {
-          ...(appState.data.root?.props as object),
+          ...(data.root?.props as object),
           title: draft,
         },
       },

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { CustomField } from "@puckeditor/core";
-import { usePuck } from "@puckeditor/core";
+import { createUsePuck } from "@puckeditor/core";
 
 import {
   columnDividerPositions,
@@ -13,6 +13,8 @@ import {
   resolveColumnWidths,
 } from "../columns-styles";
 import "./column-widths-field.css";
+
+const useEditorPuck = createUsePuck();
 
 const MIN_COLUMNS = 1;
 const MAX_COLUMNS = 12;
@@ -32,10 +34,12 @@ function ColumnWidthsField({
   onChange: (value: number[]) => void;
   readOnly?: boolean;
 }) {
-  const { selectedItem } = usePuck();
-  const numColumns = clampColumnCount(
-    (selectedItem?.props as { main?: { numColumns?: number } } | undefined)?.main
-      ?.numColumns,
+  const numColumns = useEditorPuck((state) =>
+    clampColumnCount(
+      (
+        state.selectedItem?.props as { main?: { numColumns?: number } } | undefined
+      )?.main?.numColumns,
+    ),
   );
   const widths = resolveColumnWidths(value, numColumns);
   const dividers = columnDividerPositions(widths);

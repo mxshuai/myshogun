@@ -157,6 +157,8 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
         sectionPaddingRight="0"
         sectionPaddingBottom="0"
         sectionPaddingLeft="0"
+        sectionMinHeight=""
+        maxWidth=""
       >
         <div
           style={{
@@ -189,4 +191,4 @@ const ButtonInternal: ComponentConfig<Components["Button"]> = {
   },
 };
 
-export const Button = withLayout(ButtonInternal);
+export const Button = withLayout(ButtonInternal, { showDimensions: false });

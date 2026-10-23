@@ -1,9 +1,17 @@
-import { Extension } from "@tiptap/core";
+import { Extension, mergeAttributes } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import { Color } from "@tiptap/extension-color";
 import { FontFamily } from "@tiptap/extension-font-family";
+import Heading, { type Level } from "@tiptap/extension-heading";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
+
+import {
+  DEFAULT_TEXT_LETTER_SPACING,
+  DEFAULT_TEXT_LINE_HEIGHT,
+} from "./text-defaults";
+import { textHeadingClass, textHeadingInlineStyle } from "./text-heading";
 
 import {
   DEFAULT_LINK_TEXT_COLOR,
@@ -56,6 +64,25 @@ export const ExtendedTextStyle = TextStyle.extend({
   },
 });
 
+/** 编辑器根节点带上 .visbuild-text，正文和列表样式才能在画布里生效 */
+export const VisbuildTextRootClass = Extension.create({
+  name: "visbuildTextRootClass",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        view(editorView) {
+          editorView.dom.classList.add("visbuild-text");
+          return {
+            destroy() {
+              editorView.dom.classList.remove("visbuild-text");
+            },
+          };
+        },
+      }),
+    ];
+  },
+});
+
 /** Dash-style bullets via list class */
 export const DashList = Extension.create({
   name: "dashList",
@@ -75,7 +102,38 @@ export const DashList = Extension.create({
   },
 });
 
+/** 标题输出为 h1–h6，并把标题外观写进行内 style */
+export const VisbuildHeading = Heading.extend({
+  parseHTML() {
+    const levels = this.options.levels;
+    return [
+      ...levels.map((level: Level) => ({
+        tag: `h${level}`,
+        attrs: { level },
+      })),
+      ...levels.map((level: Level) => ({
+        tag: `div.${textHeadingClass(level)}`,
+        attrs: { level },
+      })),
+    ];
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    const level = this.options.levels.includes(node.attrs.level)
+      ? node.attrs.level
+      : this.options.levels[0];
+    return [
+      `h${level}`,
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+        style: textHeadingInlineStyle(level),
+      }),
+      0,
+    ];
+  },
+});
+
 export const textTiptapExtensions = [
+  VisbuildHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
   VisbuildLink.configure({
     openOnClick: false,
     HTMLAttributes: { rel: "noopener noreferrer" },
@@ -85,16 +143,89 @@ export const textTiptapExtensions = [
   FontFamily.configure({ types: ["textStyle"] }),
   Image.configure({ inline: true, allowBase64: true }),
   DashList,
+  VisbuildTextRootClass,
 ];
 
 export type TextEditorUiState = ReturnType<typeof readTextEditorUiState>;
+
+/** 块级未写 line-height 时与 .visbuild-text { line-height: 1.5 } 一致 */
+const VISBUILD_INHERITED_LINE_HEIGHT = "1.5";
+
+export function parseFontSizePx(fontSize: string): number {
+  const n = parseInt(String(fontSize).replace(/px$/i, ""), 10);
+  return Number.isNaN(n) ? 16 : n;
+}
+
+/** 将 line-height（px 或倍率）转为侧栏 PX 数字字符串 */
+export function lineHeightToSidebarPx(
+  lineHeight: string,
+  fontSizePx: number,
+): string {
+  const raw = lineHeight.trim();
+  if (!raw) {
+    return String(Math.round(fontSizePx * 1.5));
+  }
+  if (/^[\d.]+$/.test(raw)) {
+    return String(Math.round(parseFloat(raw) * fontSizePx));
+  }
+  if (/px$/i.test(raw)) {
+    const px = parseInt(raw, 10);
+    return String(Number.isNaN(px) ? Math.round(fontSizePx * 1.5) : px);
+  }
+  return String(Math.round(fontSizePx * 1.5));
+}
+
+function sidebarPxFromAttr(value: string): string {
+  const n = parseInt(String(value).replace(/px$/i, ""), 10);
+  return Number.isNaN(n) ? "0" : String(n);
+}
+
+/** 选区文字的实际行高、字号（含标题 em）。view 不可用时返回空。 */
+function readSelectionMetrics(editor: import("@tiptap/react").Editor): {
+  lineHeightPx: string | null;
+  fontSizePx: number | null;
+} {
+  const empty = { lineHeightPx: null, fontSizePx: null };
+  try {
+    if (editor.isDestroyed) return empty;
+    const view = editor.view;
+    if (!view?.dom?.isConnected) return empty;
+    const pos = Math.max(0, editor.state.selection.from);
+    const { node } = view.domAtPos(pos);
+    const el: HTMLElement | null =
+      node.nodeType === Node.TEXT_NODE
+        ? node.parentElement
+        : node instanceof HTMLElement
+          ? node
+          : null;
+    if (!el) return empty;
+    const style = window.getComputedStyle(el);
+    const fontSize = parseFloat(style.fontSize);
+    const lh = style.lineHeight;
+    const lhPx = parseFloat(lh);
+    return {
+      lineHeightPx:
+        lh && lh !== "normal" && !Number.isNaN(lhPx)
+          ? String(Math.round(lhPx))
+          : null,
+      fontSizePx: Number.isNaN(fontSize) ? null : fontSize,
+    };
+  } catch {
+    return empty;
+  }
+}
 
 export const emptyTextEditorUiState = (): TextEditorUiState => ({
   fontFamily: "",
   fontSize: "16px",
   fontWeight: "400",
-  lineHeight: "",
-  letterSpacing: "",
+  lineHeightSidebarPx: lineHeightToSidebarPx(
+    DEFAULT_TEXT_LINE_HEIGHT,
+    16,
+  ),
+  lineHeightExplicit: false,
+  letterSpacingSidebarPx: sidebarPxFromAttr(DEFAULT_TEXT_LETTER_SPACING),
+  letterSpacingExplicit: false,
   textColor: "#374151",
   backgroundColor: "",
   paragraphStyle: "paragraph",
@@ -180,12 +311,26 @@ export function readTextEditorUiState(editor: import("@tiptap/react").Editor) {
     (ts.color as string) ??
     (editor.isActive("link") ? DEFAULT_LINK_TEXT_COLOR : "#374151");
 
+  const markLineHeight = ts.lineHeight as string | undefined;
+  const markLetterSpacing = ts.letterSpacing as string | undefined;
+  const metrics = readSelectionMetrics(editor);
+  const fontSizePx = ts.fontSize
+    ? parseFontSizePx(ts.fontSize as string)
+    : (metrics.fontSizePx ?? 16);
+
   return {
     fontFamily: (ts.fontFamily as string) ?? "",
     fontSize: (ts.fontSize as string) ?? "16px",
     fontWeight: (ts.fontWeight as string) ?? "400",
-    lineHeight: (ts.lineHeight as string) ?? "",
-    letterSpacing: (ts.letterSpacing as string) ?? "",
+    lineHeightSidebarPx: markLineHeight
+      ? lineHeightToSidebarPx(markLineHeight, fontSizePx)
+      : (metrics.lineHeightPx ??
+        lineHeightToSidebarPx(VISBUILD_INHERITED_LINE_HEIGHT, fontSizePx)),
+    lineHeightExplicit: Boolean(markLineHeight),
+    letterSpacingSidebarPx: markLetterSpacing
+      ? sidebarPxFromAttr(markLetterSpacing)
+      : sidebarPxFromAttr(DEFAULT_TEXT_LETTER_SPACING),
+    letterSpacingExplicit: Boolean(markLetterSpacing),
     textColor,
     backgroundColor: (ts.backgroundColor as string) ?? "",
     paragraphStyle,

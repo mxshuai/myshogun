@@ -41,10 +41,12 @@ function LayoutSidebarFields({
   value,
   onChange,
   readOnly,
+  showDimensions = true,
 }: {
   value?: LayoutFieldProps;
   onChange: (value: LayoutFieldProps) => void;
   readOnly?: boolean;
+  showDimensions?: boolean;
 }) {
   const layout = value ?? {};
   const dimensions = layout.dimensions ?? {};
@@ -72,24 +74,26 @@ function LayoutSidebarFields({
 
   return (
     <div className="visbuild-layout-groups">
-      <CollapsibleGroup title="Dimensions">
-        <InlineNumberField
-          label="Min Height"
-          value={dimensions.minHeight ?? 0}
-          min={0}
-          suffix="PX"
-          readOnly={readOnly}
-          onChange={(next) => setDimension("minHeight", next)}
-        />
-        <InlineNumberField
-          label="Max Width"
-          value={dimensions.maxWidth ?? 0}
-          min={0}
-          suffix="PX"
-          readOnly={readOnly}
-          onChange={(next) => setDimension("maxWidth", next)}
-        />
-      </CollapsibleGroup>
+      {showDimensions ? (
+        <CollapsibleGroup title="Dimensions">
+          <InlineNumberField
+            label="Min Height"
+            value={dimensions.minHeight ?? 0}
+            min={0}
+            suffix="PX"
+            readOnly={readOnly}
+            onChange={(next) => setDimension("minHeight", next)}
+          />
+          <InlineNumberField
+            label="Max Width"
+            value={dimensions.maxWidth ?? 0}
+            min={0}
+            suffix="PX"
+            readOnly={readOnly}
+            onChange={(next) => setDimension("maxWidth", next)}
+          />
+        </CollapsibleGroup>
+      ) : null}
       <CollapsibleGroup title="Section margin">
         {(["top", "right", "bottom", "left"] as const).map((side) => (
           <InlineNumberField
@@ -120,10 +124,22 @@ function LayoutSidebarFields({
   );
 }
 
-export const layoutSidebarField: CustomField<LayoutFieldProps> = {
-  type: "custom",
-  label: "Layout",
-  render: ({ value, onChange, readOnly }) => (
-    <LayoutSidebarFields value={value} onChange={onChange} readOnly={readOnly} />
-  ),
-};
+export function createLayoutSidebarField(options?: {
+  showDimensions?: boolean;
+}): CustomField<LayoutFieldProps> {
+  const showDimensions = options?.showDimensions !== false;
+  return {
+    type: "custom",
+    label: "Layout",
+    render: ({ value, onChange, readOnly }) => (
+      <LayoutSidebarFields
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+        showDimensions={showDimensions}
+      />
+    ),
+  };
+}
+
+export const layoutSidebarField = createLayoutSidebarField();

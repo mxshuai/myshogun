@@ -238,7 +238,8 @@ function SidebarPxInput({
 }: {
   disabled: boolean;
   pxFromEditor: string;
-  onCommit: (px: number | null) => void;
+  /** 返回 false 表示未写入，输入框恢复为当前反显值 */
+  onCommit: (px: number | null) => boolean | void;
 }) {
   const [draft, setDraft] = useState("");
   const focusedRef = useRef(false);
@@ -264,12 +265,13 @@ function SidebarPxInput({
       onBlur={() => {
         focusedRef.current = false;
         const raw = draft.trim();
-        if (!raw) {
-          onCommit(null);
-          return;
-        }
-        const n = Number(raw);
-        onCommit(Number.isNaN(n) || n < 0 ? null : n);
+        const next = !raw
+          ? null
+          : Number.isNaN(Number(raw)) || Number(raw) < 0
+            ? null
+            : Number(raw);
+        const applied = onCommit(next);
+        if (applied === false) setDraft(parsePxAttr(pxFromEditor));
       }}
     />
   );
@@ -283,6 +285,8 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const syncHtmlToPuck = useSyncTextHtmlToPuck();
   const editor = resolveTextEditor(sidebarEditor);
+  /** 点击时再取一次：菜单首次渲染时画布编辑器可能尚未注册 */
+  const editorNow = () => resolveTextEditor(sidebarEditor) ?? editor;
 
   useEffect(() => {
     if (!editor || modal) return;
@@ -304,6 +308,18 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
     refresh();
   };
 
+  const runOnCanvas = (run: (target: Editor) => void) => {
+    const target = editorNow();
+    if (!target) return;
+    run(target);
+    syncHtmlToPuck(target);
+    refresh();
+  };
+
+  const patchStyle = (attrs: Record<string, string | null>) => {
+    runOnCanvas((target) => setTextStyleMark(target, attrs));
+  };
+
   if (!editor) {
     return <RichTextMenu>{children}</RichTextMenu>;
   }
@@ -319,7 +335,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             disabled={!canEdit}
             icon={<span style={{ fontWeight: 700 }}>B</span>}
             onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleBold())
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleBold()),
+              )
             }
           />
           <RichTextMenu.Control
@@ -328,7 +346,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             disabled={!canEdit}
             icon={<span style={{ fontStyle: "italic" }}>I</span>}
             onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleItalic())
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleItalic()),
+              )
             }
           />
           <RichTextMenu.Control
@@ -336,11 +356,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             active={Boolean(st.isUnderline)}
             disabled={!canEdit}
             icon={<span style={{ textDecoration: "underline" }}>U</span>}
-            onClick={() => {
-              toggleTextUnderline(editor);
-              syncHtmlToPuck(editor);
-              refresh();
-            }}
+            onClick={() =>
+              runOnCanvas((target) => toggleTextUnderline(target))
+            }
           />
           <RichTextMenu.Control
             title="Strikethrough"
@@ -348,7 +366,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             disabled={!canEdit}
             icon={<span style={{ textDecoration: "line-through" }}>S</span>}
             onClick={() =>
-              runEditorChainOnScope(editor, (c) => c.toggleStrike())
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleStrike()),
+              )
             }
           />
         </div>
@@ -358,7 +378,11 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           style={{ ...selectStyle, width: "100%" }}
           disabled={!canEdit}
           value={String(st.paragraphStyle ?? "paragraph")}
-          onChange={(e) => applyParagraphStyle(editor, e.target.value)}
+          onChange={(e) =>
+            runOnCanvas((target) =>
+              applyParagraphStyle(target, e.target.value),
+            )
+          }
         >
           {TEXT_PARAGRAPH_STYLE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -373,9 +397,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           disabled={!canEdit}
           value={String(st.fontFamily ?? "")}
           onChange={(e) =>
-            setTextStyleMark(editor, {
-              fontFamily: e.target.value || null,
-            })
+            patchStyle({ fontFamily: e.target.value || null })
           }
         >
           {TEXT_FONT_OPTIONS.map((o) => (
@@ -389,9 +411,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             style={selectStyle}
             disabled={!canEdit}
             value={String(st.fontWeight ?? "400")}
-            onChange={(e) =>
-              setTextStyleMark(editor, { fontWeight: e.target.value })
-            }
+            onChange={(e) => patchStyle({ fontWeight: e.target.value })}
           >
             {TEXT_FONT_WEIGHT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -403,9 +423,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             disabled={!canEdit}
             pxFromEditor={String(st.fontSize ?? "16px")}
             onCommit={(n) =>
-              setTextStyleMark(editor, {
-                fontSize: n == null ? null : `${n}px`,
-              })
+              patchStyle({ fontSize: n == null ? null : `${n}px` })
             }
           />
           <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
@@ -418,11 +436,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           disabled={!canEdit}
           textFallback="#374151"
           backgroundFallback="#ffffff"
-          onTextChange={(color) =>
-            setTextStyleMark(editor, { color })
-          }
+          onTextChange={(color) => patchStyle({ color })}
           onBackgroundChange={(backgroundColor) =>
-            setTextStyleMark(editor, { backgroundColor })
+            patchStyle({ backgroundColor })
           }
         />
 
@@ -431,11 +447,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           value={readTextAlign(editor)}
           options={TEXT_ALIGN_OPTIONS}
           disabled={!canEdit}
-          onChange={(align) => {
-            setTextAlign(editor, align);
-            syncHtmlToPuck(editor);
-            refresh();
-          }}
+          onChange={(align) =>
+            runOnCanvas((target) => setTextAlign(target, align))
+          }
         />
 
         <SidebarRadioGroup
@@ -443,33 +457,44 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
           value={readListType(editor, Boolean(st.isDashList))}
           options={TEXT_LIST_OPTIONS}
           disabled={!canEdit}
-          onChange={(listType) => {
-            setListType(editor, listType);
-            syncHtmlToPuck(editor);
-            refresh();
-          }}
+          onChange={(listType) =>
+            runOnCanvas((target) => setListType(target, listType))
+          }
         />
 
         <p style={sectionLabel}>Line height and letter spacing</p>
         <div style={{ ...row, marginBottom: 8 }}>
           <SidebarPxInput
             disabled={!canEdit}
-            pxFromEditor={String(st.lineHeight ?? "")}
-            onCommit={(n) =>
-              setTextStyleMark(editor, {
+            pxFromEditor={st.lineHeightSidebarPx}
+            onCommit={(n) => {
+              if (
+                !st.lineHeightExplicit &&
+                (n == null || n === Number(st.lineHeightSidebarPx))
+              ) {
+                return false;
+              }
+              patchStyle({
                 lineHeight: n == null ? null : `${n}px`,
-              })
-            }
+              });
+            }}
           />
           <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
           <SidebarPxInput
             disabled={!canEdit}
-            pxFromEditor={String(st.letterSpacing ?? "")}
-            onCommit={(n) =>
-              setTextStyleMark(editor, {
+            pxFromEditor={st.letterSpacingSidebarPx}
+            onCommit={(n) => {
+              if (
+                !st.letterSpacingExplicit &&
+                (n == null || n === 0) &&
+                st.letterSpacingSidebarPx === "0"
+              ) {
+                return false;
+              }
+              patchStyle({
                 letterSpacing: n == null ? null : `${n}px`,
-              })
-            }
+              });
+            }}
           />
           <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
         </div>
@@ -480,8 +505,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
             type="button"
             disabled={!canEdit}
             onClick={() => {
-              if (editor) {
-                linkSnapshotRef.current = readLinkFormFromEditor(editor);
+              const target = editorNow();
+              if (target) {
+                linkSnapshotRef.current = readLinkFormFromEditor(target);
               }
               setModal("link");
             }}
@@ -510,7 +536,9 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
         <button
           type="button"
           disabled={!canEdit}
-          onClick={() => clearFormatting(editor)}
+          onClick={() =>
+            runOnCanvas((target) => clearFormatting(target))
+          }
           style={{
             marginTop: 12,
             border: "none",
@@ -529,7 +557,7 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
       {modal === "link" && linkSnapshotRef.current ? (
         <LinkInsertModal
           key={`link-${linkSnapshotRef.current.form.url}-${linkSnapshotRef.current.range?.from ?? 0}`}
-          editor={editor}
+          editor={editorNow() ?? editor}
           initial={linkSnapshotRef.current}
           onClose={() => setModal(null)}
           onApplied={afterModalApply}
@@ -537,15 +565,20 @@ export function TextRichTextMenu({ children, editor: sidebarEditor, editorState 
       ) : null}
       {modal === "image" ? (
         <ImageInsertModal
-          editor={editor}
+          editor={editorNow() ?? editor}
           onClose={() => setModal(null)}
+          onInserted={(ed) => {
+            syncHtmlToPuck(ed);
+            setModal(null);
+          }}
         />
       ) : null}
       {modal === "code" ? (
         <SourceCodeModal
-          editor={editor}
-          onClose={() => {
-            syncHtmlToPuck(editor);
+          editor={editorNow() ?? editor}
+          onClose={() => setModal(null)}
+          onSaved={(ed) => {
+            syncHtmlToPuck(ed);
             setModal(null);
           }}
         />

@@ -5,7 +5,10 @@ import {
   SectionSpacingProvider,
   type SectionSpacingValue,
 } from "./SectionSpacingContext";
-import { layoutSidebarField } from "./ui/layout-sidebar-fields";
+import {
+  createLayoutSidebarField,
+  layoutSidebarField,
+} from "./ui/layout-sidebar-fields";
 
 function normalizeSectionSide(v: string | undefined): string {
   const raw = (v ?? "").trim() || "0";
@@ -135,14 +138,21 @@ Layout.displayName = "Layout";
 
 export function withLayout<
   ThisComponentConfig extends ComponentConfig<any> = ComponentConfig
->(componentConfig: ThisComponentConfig): ThisComponentConfig {
+>(
+  componentConfig: ThisComponentConfig,
+  options?: { showDimensions?: boolean },
+): ThisComponentConfig {
   const originalResolveFields = componentConfig.resolveFields;
+  const layoutField =
+    options?.showDimensions === false
+      ? createLayoutSidebarField({ showDimensions: false })
+      : layoutSidebarField;
 
   return {
     ...componentConfig,
     fields: {
       ...componentConfig.fields,
-      layout: layoutSidebarField,
+      layout: layoutField,
     },
     defaultProps: {
       ...componentConfig.defaultProps,
@@ -161,7 +171,7 @@ export function withLayout<
 
       return {
         ...fields,
-        layout: layoutSidebarField,
+        layout: layoutField,
       };
     },
     inline: true,

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 
+import { useMediaPicker } from "../editor/media/MediaPickerContext";
+import type { ImageValue } from "../editor/media/types";
 import { DEFAULT_IMAGE_FORM } from "./text-defaults";
 import {
   applyLinkForm,
@@ -196,13 +198,27 @@ export function LinkInsertModal({
 export function ImageInsertModal({
   editor,
   onClose,
+  onInserted,
 }: {
   editor: Editor;
   onClose: () => void;
+  onInserted?: (editor: Editor) => void;
 }) {
+  const { openPicker } = useMediaPicker();
   const [form, setForm] = useState({ ...DEFAULT_IMAGE_FORM });
-  const fileRef = useRef<HTMLInputElement>(null);
   const [ratio, setRatio] = useState<number | null>(null);
+
+  const applyPickedImage = (image: ImageValue) => {
+    const width = image.width && image.width > 0 ? String(image.width) : "";
+    const height = image.height && image.height > 0 ? String(image.height) : "";
+    setRatio(width && height ? Number(width) / Number(height) : null);
+    setForm((current) => ({
+      ...current,
+      url: image.url,
+      width,
+      height,
+    }));
+  };
 
   useEffect(() => {
     if (!form.lockAspectRatio || !form.width || !form.height) return;
@@ -247,28 +263,8 @@ export function ImageInsertModal({
     if (w > 0) attrs.width = w;
     if (h > 0) attrs.height = h;
     editor.chain().focus().setImage(attrs).run();
-    onClose();
-  };
-
-  const onFile = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result ?? "");
-      setForm((f) => ({ ...f, url }));
-      const img = new Image();
-      img.onload = () => {
-        setRatio(img.width / img.height);
-        setForm((f) => ({
-          ...f,
-          url,
-          width: f.width || String(img.width),
-          height: f.height || String(img.height),
-        }));
-      };
-      img.src = url;
-    };
-    reader.readAsDataURL(file);
+    if (onInserted) onInserted(editor);
+    else onClose();
   };
 
   return (
@@ -296,16 +292,9 @@ export function ImageInsertModal({
         </div>
       }
     >
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => onFile(e.target.files?.[0])}
-      />
       <button
         type="button"
-        onClick={() => fileRef.current?.click()}
+        onClick={() => openPicker(applyPickedImage)}
         style={{
           width: "100%",
           padding: "12px 16px",
@@ -318,7 +307,7 @@ export function ImageInsertModal({
           marginBottom: 12,
         }}
       >
-        Select image…
+        Select image
       </button>
       <p style={{ textAlign: "center", color: "#94a3b8", margin: "8px 0" }}>or</p>
       <label style={labelStyle}>Image URL</label>
@@ -387,15 +376,18 @@ export function ImageInsertModal({
 export function SourceCodeModal({
   editor,
   onClose,
+  onSaved,
 }: {
   editor: Editor;
   onClose: () => void;
+  onSaved?: (editor: Editor) => void;
 }) {
   const [code, setCode] = useState(editor.getHTML());
 
   const save = () => {
     editor.chain().focus().setContent(code, { emitUpdate: true }).run();
-    onClose();
+    if (onSaved) onSaved(editor);
+    else onClose();
   };
 
   return (

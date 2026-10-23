@@ -1,39 +1,3 @@
-.visbuild-text {
-  width: 100%;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.visbuild-text p {
-  margin: 0 0 0.75em;
-}
-
-.visbuild-text p:last-child {
-  margin-bottom: 0;
-}
-
-.visbuild-text ul.visbuild-list-dash {
-  list-style-type: "– ";
-  padding-left: 1.25em;
-}
-
-.visbuild-text img {
-  max-width: 100%;
-  height: auto;
-}
-
-.visbuild-text a,
-.visbuild-text--editing .ProseMirror a {
-  color: #2563eb;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.visbuild-text a.visbuild-link-no-underline,
-.visbuild-text--editing .ProseMirror a.visbuild-link-no-underline {
-  text-decoration: none !important;
-}
-
 /* 画布 inline 编辑：确保 TipTap 区域可见、可点击（勿与侧栏隐藏规则冲突） */
 .visbuild-text--editing,
 [class*="RichTextEditor--inline"] .rich-text,
