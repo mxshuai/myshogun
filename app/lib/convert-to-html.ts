@@ -19,6 +19,7 @@ import {
   buildResponsiveSrcSet,
   flattenImageProps,
   IMAGE_EXPORT_CSS,
+  resolveImageSectionDimensions,
   serializeImageDimensionalStyle,
   serializeImageWrapperStyle,
 } from "~/components/image-styles";
@@ -347,8 +348,16 @@ function generateImage(props: any, layout: any, spaces: string): string {
   }
 
   const inner = `${spaces}  <div class="visbuild-image${hoverClass}" style="${wrapperStyle}">\n${core}${spaces}  </div>\n`;
+  const sectionSize = resolveImageSectionDimensions(
+    flat.dimensions,
+    layout?.dimensions,
+  );
 
-  return wrapLayoutLayers(layout, inner, spaces);
+  return wrapLayoutLayers(
+    { ...layout, dimensions: sectionSize },
+    inner,
+    spaces,
+  );
 }
 
 function parseYouTubeId(url: string): string | null {

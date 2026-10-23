@@ -111,6 +111,8 @@ export type Components = {
       loading: "eager" | "lazy" | "auto";
     };
     dimensions: {
+      minHeight?: number;
+      maxWidth?: number;
       height?: number;
       imageFit: "cover" | "contain" | "stretch";
       imagePosition: string;

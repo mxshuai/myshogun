@@ -8,6 +8,10 @@ import {
 } from "./button-styles";
 
 export type ImageDimensionsGroup = {
+  /** 原 Layout Dimensions：区块最小高度 */
+  minHeight?: number;
+  /** 原 Layout Dimensions：内容最大宽度 */
+  maxWidth?: number;
   height?: number;
   imageFit: "cover" | "contain" | "stretch";
   imagePosition: string;
@@ -66,6 +70,8 @@ export type ImageRenderProps = {
 };
 
 const DEFAULT_DIMENSIONS: ImageDimensionsGroup = {
+  minHeight: 0,
+  maxWidth: 0,
   imageFit: "cover",
   imagePosition: "center center",
   zoom: 0,
@@ -206,6 +212,25 @@ export function buildImageCssVariables(props: ImageRenderProps): CSSProperties {
       props.hoverBoxShadowSpread
     ),
   } as CSSProperties;
+}
+
+/** Image Dimensions 上的 Min Height / Max Width；未设置时沿用旧的 layout.dimensions */
+export function resolveImageSectionDimensions(
+  dimensions: ImageDimensionsGroup,
+  layoutDimensions?: { minHeight?: number; maxWidth?: number },
+): { minHeight?: number; maxWidth?: number } {
+  const minHeight =
+    dimensions.minHeight != null && dimensions.minHeight > 0
+      ? dimensions.minHeight
+      : layoutDimensions?.minHeight;
+  const maxWidth =
+    dimensions.maxWidth != null && dimensions.maxWidth > 0
+      ? dimensions.maxWidth
+      : layoutDimensions?.maxWidth;
+  return {
+    minHeight: minHeight != null && minHeight > 0 ? minHeight : undefined,
+    maxWidth: maxWidth != null && maxWidth > 0 ? maxWidth : undefined,
+  };
 }
 
 export function buildImageFrameStyle(dimensions: ImageDimensionsGroup): CSSProperties {

@@ -109,6 +109,24 @@ export const imageDimensionsFieldGroup: ObjectField<ImageDimensionsGroup> = {
   type: "object",
   label: "Dimensions",
   objectFields: {
+    minHeight: {
+      type: "number",
+      label: "Min Height",
+      inline: true,
+      suffix: "PX",
+      min: 0,
+      max: 4000,
+      step: 1,
+    },
+    maxWidth: {
+      type: "number",
+      label: "Max Width",
+      inline: true,
+      suffix: "PX",
+      min: 0,
+      max: 4000,
+      step: 1,
+    },
     height: {
       type: "number",
       label: "Height",
@@ -186,6 +204,8 @@ export const imagePerformanceFieldGroup = {
 };
 
 export const defaultImageDimensions = {
+  minHeight: 0,
+  maxWidth: 0,
   imageFit: "cover",
   imagePosition: "center center",
   zoom: 0,

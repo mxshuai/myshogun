@@ -21,6 +21,7 @@ import {
   buildImageFrameStyle,
   buildResponsiveSrcSet,
   flattenImageProps,
+  resolveImageSectionDimensions,
 } from "./image-styles";
 import "./image.css";
 
@@ -78,6 +79,34 @@ const imageFields = {
 
 const ImageInternal: ComponentConfig<Components["Image"]> = {
   fields: imageFields,
+  resolveData: (data) => {
+    const props = data.props;
+    const layoutDimensions = props?.layout?.dimensions;
+    const minHeight = layoutDimensions?.minHeight;
+    const maxWidth = layoutDimensions?.maxWidth;
+    const hasLayoutMin = minHeight != null && minHeight > 0;
+    const hasLayoutMax = maxWidth != null && maxWidth > 0;
+    if (!hasLayoutMin && !hasLayoutMax) return {};
+
+    const dimensions = { ...(props.dimensions ?? defaultImageDimensions) };
+    if ((dimensions.minHeight == null || dimensions.minHeight <= 0) && hasLayoutMin) {
+      dimensions.minHeight = minHeight;
+    }
+    if ((dimensions.maxWidth == null || dimensions.maxWidth <= 0) && hasLayoutMax) {
+      dimensions.maxWidth = maxWidth;
+    }
+
+    return {
+      props: {
+        ...props,
+        dimensions,
+        layout: {
+          ...props.layout,
+          dimensions: { minHeight: 0, maxWidth: 0 },
+        },
+      },
+    };
+  },
   resolveFields: (data) => {
     const props = data.props || {};
     return {
@@ -114,10 +143,20 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
   render: (props) => {
     const flat = flattenImageProps(props as Record<string, unknown>);
     const { puck } = props;
+    const sectionSize = resolveImageSectionDimensions(
+      flat.dimensions,
+      props.layout?.dimensions,
+    );
+    const sectionMinHeight = sectionSize.minHeight
+      ? `${sectionSize.minHeight}px`
+      : "";
+    const sectionMaxWidth = sectionSize.maxWidth
+      ? `${sectionSize.maxWidth}px`
+      : "";
 
     if (!flat.src) {
       return (
-        <Section>
+        <Section sectionMinHeight={sectionMinHeight} maxWidth={sectionMaxWidth}>
           <div
             className={`visbuild-image visbuild-image--empty${puck.isEditing ? " visbuild-image--editing" : ""}`}
             style={buildImageFrameStyle(flat.dimensions)}
@@ -185,7 +224,7 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
       );
 
     return (
-      <Section>
+      <Section sectionMinHeight={sectionMinHeight} maxWidth={sectionMaxWidth}>
         <div
           className={`visbuild-image${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`}
           style={{
@@ -200,4 +239,4 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
   },
 };
 
-export const Image = withLayout(ImageInternal);
+export const Image = withLayout(ImageInternal, { showDimensions: false });
