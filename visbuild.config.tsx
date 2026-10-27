@@ -55,10 +55,6 @@ export const config: Config = {
         "Icon",
       ],
     },
-    sections: {
-      title: "Sections",
-      components: ["Hero"],
-    },
     other: {
       title: "Other",
       components: ["CustomHtml"],
