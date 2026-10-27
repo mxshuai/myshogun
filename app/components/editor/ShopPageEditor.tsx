@@ -171,6 +171,7 @@ export function ShopPageEditor({
       ) : null}
       <MediaPickerProvider shopDomain={shopDomain}>
       <Puck
+        key={path}
         config={config}
         data={editorData}
         onChange={setEditorData}

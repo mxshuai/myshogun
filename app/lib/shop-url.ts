@@ -34,14 +34,23 @@ export function shopPagesPath(domain: string): string {
   return `${shopBasePath(domain)}/pages`;
 }
 
+function encodePagePath(pagePath: string): string {
+  if (pagePath === "/") return "";
+  const segments = pagePath.split("/").filter((segment) => segment.length > 0);
+  if (segments.length === 0) return "";
+  return `/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
+}
+
 export function shopEditPath(domain: string, pagePath: string): string {
   const base = shopBasePath(domain);
-  return pagePath === "/" ? `${base}/edit` : `${base}${pagePath}/edit`;
+  const encoded = encodePagePath(pagePath);
+  return encoded ? `${base}${encoded}/edit` : `${base}/edit`;
 }
 
 export function shopPublicPath(domain: string, pagePath: string): string {
   const base = shopBasePath(domain);
-  return pagePath === "/" ? `${base}/` : `${base}${pagePath}`;
+  const encoded = encodePagePath(pagePath);
+  return encoded ? `${base}${encoded}` : `${base}/`;
 }
 
 /** After OAuth or legacy /pages, /edit links without /shop/ prefix. */

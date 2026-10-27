@@ -1,5 +1,6 @@
 import type { Data } from "@puckeditor/core";
 
+import { canonicalPagePath, literalPagePath } from "../page-path";
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
 import {
@@ -46,14 +47,9 @@ export async function getEditorPageMeta(
   };
 }
 
-/** Leading /, no .. or //, no trailing slash (except root). */
+/** Leading /, no .. or //, no trailing slash (except root). Does not slug. */
 export function normalizePagePath(raw: string): string | null {
-  let s = raw.trim();
-  if (!s) return null;
-  if (!s.startsWith("/")) s = `/${s}`;
-  if (s.includes("..") || s.includes("//")) return null;
-  while (s.length > 1 && s.endsWith("/")) s = s.slice(0, -1);
-  return s;
+  return literalPagePath(raw);
 }
 
 function handleFromPath(path: string): string {
@@ -119,9 +115,33 @@ export async function getPageDataByPath(
   return body?.currentVisbuildData;
 }
 
+function resolveDesiredPath(
+  currentPath: string,
+  desiredPathRaw: string,
+): { ok: true; path: string } | { ok: false; error: string } {
+  const literal = literalPagePath(desiredPathRaw);
+  if (!literal) return { ok: false, error: "Invalid URL path" };
+  if (literal === currentPath) return { ok: true, path: currentPath };
+  if (literal === "/") {
+    return { ok: false, error: "Path / is reserved for the home page" };
+  }
+  const desired = canonicalPagePath(desiredPathRaw);
+  if (!desired) return { ok: false, error: "Invalid URL path" };
+  return { ok: true, path: desired };
+}
+
+export function dataWithPagePath(data: Data, pagePath: string): Data {
+  const props = {
+    ...(data.root?.props as object),
+    pagePath,
+  } as Data["root"]["props"];
+  return { ...data, root: { ...data.root, props } };
+}
+
 /**
- * Save editor content for (shop, path). Creates the page on first save and
- * supports renaming the URL path (desiredPathRaw differing from currentPath).
+ * Save editor content for an existing (shop, path). Renames only when the
+ * submitted URL path is a different page path; a title-only save keeps the
+ * stored path, including legacy paths that contain spaces.
  */
 export async function savePageByPath(
   ctx: ServerContext,
@@ -130,15 +150,16 @@ export async function savePageByPath(
   data: Data,
   desiredPathRaw: string,
 ): Promise<SaveResult> {
-  const desired = normalizePagePath(desiredPathRaw);
-  if (desired === null) return { ok: false, error: "Invalid URL path" };
+  const idx = await findIndexByPath(ctx, shopId, currentPath);
+  if (!idx) return { ok: false, error: "Page not found" };
 
-  let idx = await findIndexByPath(ctx, shopId, currentPath);
+  const resolved = resolveDesiredPath(currentPath, desiredPathRaw);
+  if (!resolved.ok) return resolved;
+  const desired = resolved.path;
   const now = new Date().toISOString();
   const title = titleFromData(data, desired);
 
-  // Home-path guardrails carried over from the legacy file storage.
-  if (idx && currentPath === "/" && desired !== "/") {
+  if (currentPath === "/" && desired !== "/") {
     return { ok: false, error: "Home page path cannot be changed" };
   }
   if (desired === "/" && currentPath !== "/") {
@@ -147,38 +168,32 @@ export async function savePageByPath(
 
   if (desired !== currentPath) {
     const conflict = await findIndexByPath(ctx, shopId, desired);
-    if (conflict && (!idx || conflict.pageId !== idx.pageId)) {
+    if (conflict && conflict.pageId !== idx.pageId) {
       return { ok: false, error: "A page with this path already exists" };
     }
-  }
-
-  if (!idx) {
-    idx = {
-      pageId: newId(),
-      shopId,
-      handle: handleFromPath(desired),
-      title,
-      status: "draft",
-      shopifyPageGid: null,
-      lastPublishedAt: null,
-      pendingJobId: null,
-      pagePath: desired,
-      updatedAt: now,
-      scheduledPublishAt: null,
-    };
-  } else {
+    const handleCheck = await validatePageHandleForShop(ctx, shopId, desired, {
+      excludePageId: idx.pageId,
+      excludeShopifyGid: idx.shopifyPageGid,
+    });
+    if (!handleCheck.ok) {
+      return { ok: false, error: handleCheck.error };
+    }
     idx.pagePath = desired;
     idx.handle = handleFromPath(desired);
-    idx.title = title;
-    idx.updatedAt = now;
-    if (idx.status === "published") {
-      idx.status = "dirty";
-    }
+  }
+  idx.title = title;
+  idx.updatedAt = now;
+  if (idx.status === "published") {
+    idx.status = "dirty";
   }
 
   await ctx.repo.putPageIndex(idx);
 
-  const versionId = await savePageDraft(idx.pageId, ctx, data);
+  const versionId = await savePageDraft(
+    idx.pageId,
+    ctx,
+    dataWithPagePath(data, desired),
+  );
 
   if (idx.pendingJobId) {
     const job = await ctx.repo.getJob(idx.pendingJobId);
@@ -198,11 +213,11 @@ export async function createPageForShop(
   pathRaw: string,
   titleRaw: string,
 ): Promise<SaveResult> {
-  const path = normalizePagePath(pathRaw);
-  if (!path) return { ok: false, error: "Invalid URL path" };
-  if (path === "/") {
+  if (literalPagePath(pathRaw) === "/") {
     return { ok: false, error: "Path / is reserved for the home page" };
   }
+  const path = canonicalPagePath(pathRaw);
+  if (!path) return { ok: false, error: "Invalid URL path" };
   const existing = await findIndexByPath(ctx, shopId, path);
   if (existing) {
     return { ok: false, error: "A page with this path already exists" };
@@ -283,7 +298,13 @@ export async function duplicatePageByPath(
     body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
 
   const pages = await ctx.repo.listPagesByShop(shopId);
-  const newPath = nextDuplicatePath(path, new Set(pages.map((p) => p.pagePath)));
+  const existing = new Set(pages.map((p) => p.pagePath));
+  let newPath = nextDuplicatePath(path, existing);
+  const canonicalCopy = canonicalPagePath(newPath);
+  if (canonicalCopy && canonicalCopy !== newPath) {
+    newPath = canonicalCopy;
+    while (existing.has(newPath)) newPath = `${newPath}-copy`;
+  }
 
   const clone = structuredClone(source) as Data;
   const sourceTitle = displayTitle(

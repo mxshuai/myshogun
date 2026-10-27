@@ -12,6 +12,7 @@ import type { ShogunPageSummary } from "~/lib/pages.server";
 import type { PageStatus } from "~/lib/page-metadata.server";
 import type { ShopifyPageRow } from "~/lib/shopify-pages.server";
 import { formatPublishesIn } from "~/lib/relative-time";
+import { canonicalPagePath, slugFromTitle } from "~/lib/page-path";
 import { shopEditPath } from "~/lib/shop-url";
 import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
 
@@ -404,12 +405,18 @@ export function PagesList({
   };
 
   const submitCreate = () => {
+    const pagePath = canonicalPagePath(newPagePath);
+    if (!pagePath) {
+      setCreateError("Invalid URL path");
+      return;
+    }
     setCreateError(null);
+    setNewPagePath(pagePath.slice(1));
     fetcher.submit(
       {
         intent: "createPage",
         pageTitle: newPageTitle,
-        pagePath: newPagePath,
+        pagePath,
       },
       { method: "post", action: pagesAction }
     );
@@ -1008,7 +1015,9 @@ export function PagesList({
               type="text"
               value={newPageTitle}
               onChange={(e) => {
-                setNewPageTitle(e.target.value);
+                const value = e.target.value;
+                setNewPageTitle(value);
+                setNewPagePath(slugFromTitle(value));
                 setCreateError(null);
               }}
               placeholder="My page"
@@ -1033,28 +1042,54 @@ export function PagesList({
             >
               URL path
             </label>
-            <input
-              type="text"
-              value={newPagePath}
-              onChange={(e) => {
-                setNewPagePath(e.target.value);
-                setCreateError(null);
-              }}
-              placeholder="/about or about"
+            <div
               style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
                 border: "1px solid #e5e7eb",
+                borderRadius: 6,
                 marginBottom: 8,
-                fontSize: "0.95rem",
-                boxSizing: "border-box",
-                fontFamily: "ui-monospace, monospace",
+                overflow: "hidden",
               }}
-            />
+            >
+              <span
+                style={{
+                  padding: "10px 12px",
+                  background: "#f8fafc",
+                  color: "#64748b",
+                  borderRight: "1px solid #e5e7eb",
+                  fontFamily: "ui-monospace, monospace",
+                }}
+              >
+                /
+              </span>
+              <input
+                type="text"
+                value={newPagePath}
+                onChange={(e) => {
+                  setNewPagePath(e.target.value);
+                  setCreateError(null);
+                }}
+                onBlur={() => {
+                  const canonical = canonicalPagePath(newPagePath);
+                  setNewPagePath(canonical ? canonical.slice(1) : "");
+                }}
+                placeholder="about"
+                style={{
+                  flex: 1,
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "none",
+                  outline: "none",
+                  fontSize: "0.95rem",
+                  boxSizing: "border-box",
+                  fontFamily: "ui-monospace, monospace",
+                }}
+              />
+            </div>
             <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "#94a3b8" }}>
-              Path must be unique. Use a leading / (e.g. /promo). Home / is not
-              available here.
+              Generated from the page name. Changing the name replaces this
+              path. Saved paths use letters, numbers, and hyphens.
             </p>
             {createError ? (
               <p
@@ -1087,7 +1122,7 @@ export function PagesList({
               <button
                 type="button"
                 onClick={submitCreate}
-                disabled={busy || !newPagePath.trim()}
+                disabled={busy || !canonicalPagePath(newPagePath)}
                 style={{
                   padding: "8px 14px",
                   borderRadius: 6,
@@ -1095,7 +1130,10 @@ export function PagesList({
                   background: accent,
                   color: "#fff",
                   fontWeight: 600,
-                  cursor: busy || !newPagePath.trim() ? "not-allowed" : "pointer",
+                  cursor:
+                    busy || !canonicalPagePath(newPagePath)
+                      ? "not-allowed"
+                      : "pointer",
                 }}
               >
                 Create & edit

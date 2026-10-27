@@ -2,9 +2,10 @@ import { data } from "react-router";
 import type { Data } from "@puckeditor/core";
 
 import type { Route } from "./+types/shop.$shopDomain.splat";
-import { resolveVisbuildPath } from "~/lib/resolve-visbuild-path.server";
+import { resolveShopVisbuildPath } from "~/lib/resolve-visbuild-path.server";
 import { ensureServerContext } from "~/lib/server/factory";
 import {
+  dataWithPagePath,
   getEditorPageMeta,
   getPageDataByPath,
   savePageByPath,
@@ -31,24 +32,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     params.shopDomain ?? "",
     ctx,
   );
-  const pathname = params["*"] ?? "/";
-  const { isEditorRoute, path } = resolveVisbuildPath(pathname);
+  const { isEditorRoute, path } = resolveShopVisbuildPath(request.url, shop.domain);
   const page = await getPageDataByPath(ctx, shop.id, path);
   const pageMeta = await getEditorPageMeta(ctx, shop.id, path);
 
-  if (!isEditorRoute && !page) {
+  if (!page) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  let resolved: Data;
-  if (page) {
-    resolved = isEditorRoute ? ensureEditorRootProps(page, path) : page;
-  } else {
-    resolved = ensureEditorRootProps(
-      { content: [], root: { props: { title: "" } } },
-      path,
-    );
-  }
+  const resolved = isEditorRoute ? ensureEditorRootProps(page, path) : page;
 
   return {
     shopDomain: shop.domain,
@@ -116,8 +108,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     params.shopDomain ?? "",
     ctx,
   );
-  const pathname = params["*"] ?? "/";
-  const { path } = resolveVisbuildPath(pathname);
+  const { path } = resolveShopVisbuildPath(request.url, shop.domain);
   const raw = (await request.json()) as unknown;
   const body = parseEditorBody(raw);
 
@@ -139,29 +130,25 @@ export async function action({ params, request }: Route.ActionArgs) {
       path: result.path,
       pageId: result.pageId,
       status: result.status,
+      renamed: result.path !== path,
     });
   }
 
-  let meta = await getEditorPageMeta(ctx, shop.id, path);
-  if (!meta) {
-    const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
-    if (!saved.ok) {
-      return data({ ok: false as const, error: saved.error }, { status: 400 });
-    }
-    meta = await getEditorPageMeta(ctx, shop.id, saved.path);
-  }
-
+  const meta = await getEditorPageMeta(ctx, shop.id, path);
   if (!meta) {
     return data(
-      { ok: false as const, error: "Page not found. Save first." },
+      { ok: false as const, error: "Page not found" },
       { status: 404 },
     );
   }
 
   try {
     if (body.intent === "publish") {
-      await savePageByPath(ctx, shop.id, path, body.data, desired);
-      const result = await setPublishedByPath(ctx, shop.id, desired);
+      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
+      if (!saved.ok) {
+        return data({ ok: false as const, error: saved.error }, { status: 400 });
+      }
+      const result = await setPublishedByPath(ctx, shop.id, saved.path);
       if (!result.ok) {
         return data({ ok: false as const, error: result.error }, { status: 400 });
       }
@@ -169,6 +156,7 @@ export async function action({ params, request }: Route.ActionArgs) {
         ok: true as const,
         path: result.path,
         status: "published" as const,
+        renamed: saved.path !== path,
       });
     }
 
@@ -181,50 +169,63 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
 
     if (body.intent === "schedule") {
+      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
+      if (!saved.ok) {
+        return data({ ok: false as const, error: saved.error }, { status: 400 });
+      }
       const jobId = await schedulePageUpdate(
         meta.pageId,
         ctx,
-        body.data,
+        dataWithPagePath(body.data, saved.path),
         runAt,
         body.timezone,
       );
       return data({
         ok: true as const,
-        path: desired,
+        path: saved.path,
         status: "scheduled" as const,
         jobId,
         runAt: runAt.toISOString(),
+        renamed: saved.path !== path,
       });
     }
 
     if (body.intent === "reschedule") {
-      await savePageByPath(ctx, shop.id, path, body.data, desired);
+      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
+      if (!saved.ok) {
+        return data({ ok: false as const, error: saved.error }, { status: 400 });
+      }
       await cancelPendingJob(meta.pageId, ctx);
       const jobId = await schedulePageUpdate(
         meta.pageId,
         ctx,
-        body.data,
+        dataWithPagePath(body.data, saved.path),
         runAt,
         body.timezone,
       );
       return data({
         ok: true as const,
-        path: desired,
+        path: saved.path,
         status: "scheduled" as const,
         jobId,
         runAt: runAt.toISOString(),
+        renamed: saved.path !== path,
       });
     }
 
     if (body.intent === "unschedule") {
-      await savePageByPath(ctx, shop.id, path, body.data, desired);
+      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
+      if (!saved.ok) {
+        return data({ ok: false as const, error: saved.error }, { status: 400 });
+      }
       await cancelPendingJob(meta.pageId, ctx);
-      const updated = await getEditorPageMeta(ctx, shop.id, desired);
+      const updated = await getEditorPageMeta(ctx, shop.id, saved.path);
       return data({
         ok: true as const,
-        path: desired,
+        path: saved.path,
         pageId: meta.pageId,
         status: updated?.status ?? ("dirty" as const),
+        renamed: saved.path !== path,
       });
     }
   } catch (e) {

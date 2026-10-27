@@ -2,6 +2,7 @@ import { data } from "react-router";
 
 import type { Route } from "./+types/shop.$shopDomain.pages";
 import { PagesList } from "~/components/pages/PagesList";
+import { canonicalPagePath } from "~/lib/page-path";
 import { shopPagesPath } from "~/lib/shop-url";
 import { ensureServerContext } from "~/lib/server/factory";
 import {
@@ -24,14 +25,6 @@ function normalizePagePath(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string" || !value.startsWith("/")) return null;
   if (value.includes("..")) return null;
   return value;
-}
-
-function normalizePathInput(raw: string): string | null {
-  let s = raw.trim();
-  if (!s) return null;
-  if (!s.startsWith("/")) s = `/${s}`;
-  if (s.includes("..") || s.includes("//")) return null;
-  return s;
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -178,7 +171,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     const title = form.get("pageTitle");
     const rawPath = form.get("pagePath");
     const pagePath =
-      typeof rawPath === "string" ? normalizePathInput(rawPath) : null;
+      typeof rawPath === "string" ? canonicalPagePath(rawPath) : null;
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid URL path" }, { status: 400 });
     }

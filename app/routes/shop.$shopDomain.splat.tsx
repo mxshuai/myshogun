@@ -12,6 +12,29 @@ export async function action(args: Route.ActionArgs) {
   return runAction(args);
 }
 
+/**
+ * After a rename, revalidating the old URL 404s before the client navigates.
+ * Skip revalidation only when the action reports an actual path change.
+ */
+export function shouldRevalidate({
+  actionResult,
+  defaultShouldRevalidate,
+}: {
+  actionResult: unknown;
+  defaultShouldRevalidate: boolean;
+}) {
+  if (
+    actionResult &&
+    typeof actionResult === "object" &&
+    "ok" in actionResult &&
+    (actionResult as { ok?: boolean }).ok === true &&
+    (actionResult as { renamed?: boolean }).renamed === true
+  ) {
+    return false;
+  }
+  return defaultShouldRevalidate;
+}
+
 export function meta({ data: loaderData }: Route.MetaArgs) {
   return [
     {

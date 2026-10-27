@@ -1,5 +1,6 @@
 import type { Data } from "@puckeditor/core";
 
+import { slugFromTitle } from "../page-path";
 import type { PageIndex, Repo, Shop } from "./types";
 
 export function newId(): string {
@@ -76,12 +77,7 @@ export function normalizeShopDomain(raw: string): string {
 }
 
 export function normalizeHandle(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(/^\/+/, "")
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return slugFromTitle(raw);
 }
 
 export async function upsertShopRecord(
