@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { canonicalPagePath, literalPagePath } from "../page-path";
+import { visbuildDataEqual } from "../visbuild-data-equal";
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
 import type { ScheduleSummary, VersionDisplayStatus } from "../schedule-window";
@@ -267,11 +268,25 @@ export async function savePageByPath(
   }
   await ctx.repo.patchPageIndex(idx, patch);
 
-  const versionId = await savePageDraft(
-    idx.pageId,
-    ctx,
-    dataWithPagePath(data, desired),
-  );
+  const draftData = dataWithPagePath(data, desired);
+  const versions = await ctx.repo.listPageVersions(idx.pageId);
+  const latestId = versions[0]?.versionId;
+  let versionId: string;
+  if (latestId) {
+    const latest = await ctx.repo.getPageVersion(latestId);
+    if (latest && visbuildDataEqual(latest.visbuildData, draftData)) {
+      versionId = latestId;
+      await ctx.repo.putPageBody({
+        pageId: idx.pageId,
+        currentVisbuildData: latest.visbuildData,
+        currentHtml: latest.html,
+      });
+    } else {
+      versionId = await savePageDraft(idx.pageId, ctx, draftData);
+    }
+  } else {
+    versionId = await savePageDraft(idx.pageId, ctx, draftData);
+  }
   const updated = await ctx.repo.getPageIndex(idx.pageId);
 
   return {

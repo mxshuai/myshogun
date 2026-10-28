@@ -11,6 +11,8 @@ import {
   validateLiveUnpublish,
   validateWindow,
 } from "~/lib/schedule-window";
+import { visbuildDataEqual } from "~/lib/visbuild-data-equal";
+import { isDevPlaceholderShopToken } from "./dev-auth.server";
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { createAdminClient, type ShopifyAdminClient } from "./shopify";
 import type {
@@ -36,10 +38,6 @@ class SkippedJob extends Error {}
 
 class MissingTokenError extends Error {}
 
-function visbuildDataEqual(a: Data, b: Data): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
 function backoffMs(attempts: number): number {
   return Math.min(60_000, 2 ** attempts * 1000);
 }
@@ -48,14 +46,29 @@ function retryDelayMs(attempts: number): number {
   return Math.max(backoffMs(attempts), RETRY_MIN_LEAD_MS);
 }
 
+/** dev-login 写入的占位 token 无法调 Shopify；本地跳过 API 以便验证发布/版本逻辑。 */
+function shouldMockShopifyApi(token: string | null): boolean {
+  return isDevPlaceholderShopToken(token);
+}
+
+async function shopTokenForIndex(
+  ctx: ServerContext,
+  index: PageIndex,
+): Promise<string> {
+  const shop = await ctx.repo.getShop(index.shopId);
+  if (!shop) throw new Error("Shop not found");
+  const token = await ctx.secrets.getShopToken(shop.id);
+  if (!token) throw new MissingTokenError("Shop access token not configured");
+  return token;
+}
+
 async function shopifyClientForIndex(
   ctx: ServerContext,
   index: PageIndex,
 ): Promise<ShopifyAdminClient> {
   const shop = await ctx.repo.getShop(index.shopId);
   if (!shop) throw new Error("Shop not found");
-  const token = await ctx.secrets.getShopToken(shop.id);
-  if (!token) throw new MissingTokenError("Shop access token not configured");
+  const token = await shopTokenForIndex(ctx, index);
   return createAdminClient({
     shopDomain: shop.domain,
     accessToken: token,
@@ -71,6 +84,11 @@ async function pushPageToShopify(
   index: PageIndex,
   html: string,
 ): Promise<string> {
+  const token = await shopTokenForIndex(ctx, index);
+  if (shouldMockShopifyApi(token)) {
+    return index.shopifyPageGid ?? `gid://shopify/Page/dev-${index.pageId}`;
+  }
+
   const client = await shopifyClientForIndex(ctx, index);
 
   let gid = index.shopifyPageGid;
@@ -104,6 +122,8 @@ export async function hidePageOnShopify(
   index: PageIndex,
 ): Promise<void> {
   if (!index.shopifyPageGid) return;
+  const token = await shopTokenForIndex(ctx, index);
+  if (shouldMockShopifyApi(token)) return;
   const client = await shopifyClientForIndex(ctx, index);
   const existing = await client.getPage(index.shopifyPageGid);
   if (!existing || !existing.isPublished) return;
@@ -121,6 +141,8 @@ export async function deleteShopifyPage(
   if (!index.shopifyPageGid) return;
   let client: ShopifyAdminClient;
   try {
+    const token = await shopTokenForIndex(ctx, index);
+    if (shouldMockShopifyApi(token)) return;
     client = await shopifyClientForIndex(ctx, index);
   } catch (err) {
     if (err instanceof MissingTokenError) {
