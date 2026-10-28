@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Data } from "@puckeditor/core";
 
-import { ScheduleWindowDialog } from "~/components/schedule/ScheduleWindowDialog";
 import {
   editorActionButtonStyle,
   SplitActionDropdown,
 } from "~/components/ui/SplitActionDropdown";
 import type { ScheduleSummary } from "~/lib/schedule-window";
 import type { PageStatus, PageVersionSummary } from "~/lib/server/types";
+
+const ScheduleWindowDialog = lazy(() =>
+  import("~/components/schedule/ScheduleWindowDialog").then((m) => ({
+    default: m.ScheduleWindowDialog,
+  })),
+);
 
 export type EditorPageMeta = {
   pageId: string;
@@ -138,7 +143,8 @@ export function EditorPublishActions({
   }, [busy, lastResult]);
 
   const dialog = formOpen ? (
-    <ScheduleWindowDialog
+    <Suspense fallback={null}>
+      <ScheduleWindowDialog
       key={`${selectedVersionId ?? "new"}:${editable?.updatedAt ?? ""}`}
       title={editable ? "Edit scheduling" : "Schedule publish"}
       schedules={schedules}
@@ -172,6 +178,7 @@ export function EditorPublishActions({
         );
       }}
     />
+    </Suspense>
   ) : null;
 
   if (mode === "save") {

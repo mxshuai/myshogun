@@ -1,8 +1,20 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 
-import { DateTimeField } from "~/components/ui/DateTimeField";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Typography from "@mui/material/Typography";
+
+import { ScheduleDateTimeField } from "~/components/schedule/ScheduleDateTimeField";
+import { ScheduleMuiProvider } from "~/components/schedule/ScheduleMuiProvider";
 import {
   blockedRanges,
   earliestPublishAt,
@@ -13,8 +25,6 @@ import {
   type OccupiedRange,
   type ScheduleLike,
 } from "~/lib/schedule-window";
-
-const accent = "#7c3aed";
 
 export type ScheduleWindowValue = {
   publishAt: string;
@@ -94,174 +104,119 @@ export function ScheduleWindowDialog({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15,23,42,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        padding: 16,
-      }}
-      role="presentation"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
+    <ScheduleMuiProvider>
+      <Dialog
+        open
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
         aria-labelledby="schedule-window-title"
-        style={{
-          background: "#fff",
-          borderRadius: 12,
-          padding: 24,
-          width: "min(760px, 100%)",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
-        }}
       >
-        <h2 id="schedule-window-title" style={{ margin: "0 0 8px", fontSize: "1.15rem" }}>
-          {title}
-        </h2>
-        <p style={{ margin: "0 0 16px", color: "#64748b", fontSize: "0.9rem" }}>
-          Your page will be published on the day and time you specify. You can also
-          choose to unpublish the page on a specified day and time.
-        </p>
-        {message ? (
-          <p role="alert" style={{ color: "#b91c1c", fontSize: "0.875rem" }}>
-            {message}
-          </p>
-        ) : null}
-        <style>{`
-          .schedule-window-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-          @media (max-width: 720px) {
-            .schedule-window-columns { grid-template-columns: 1fr; }
-          }
-        `}</style>
-        <div className="schedule-window-columns">
-          <section style={columnStyle}>
-            <Check
-              checked={publishOn}
-              disabled={Boolean(publishLocked)}
-              label="Publish page on"
-              onChange={(checked) => {
-                setPublishOn(checked);
-                if (!checked) setUnpublishOn(false);
-                setLocalError(null);
-              }}
-            />
-            <DateTimeField
-              value={publishAt}
-              min={earliestPublishAt()}
-              ranges={ranges}
-              disabled={!publishOn || Boolean(publishLocked)}
-              onChange={(next) => {
-                setPublishAt(next);
-                if (unpublishAt.getTime() < next.getTime() + 60_000) {
-                  setUnpublishAt(new Date(next.getTime() + 60 * 60_000));
-                }
-                setLocalError(null);
-              }}
-            />
-          </section>
-          <section style={{ ...columnStyle, opacity: publishOn ? 1 : 0.5 }}>
-            <Check
-              checked={unpublishOn && publishOn}
-              disabled={!publishOn}
-              label="Unpublish on…"
-              onChange={(checked) => {
-                setUnpublishOn(checked);
-                setLocalError(null);
-              }}
-            />
-            <DateTimeField
-              value={unpublishAt}
-              min={new Date(truncateToMinute(publishAt).getTime() + 60_000)}
-              ranges={unpublishRanges}
-              disabled={!publishOn || !unpublishOn}
-              onChange={(next) => {
-                setUnpublishAt(next);
-                setLocalError(null);
-              }}
-            />
-          </section>
-        </div>
-        <p style={{ margin: "12px 0 0", color: "#94a3b8", fontSize: "0.8rem" }}>
-          Times use your local timezone. Leave unpublish off to keep the version published.
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
-          <button type="button" onClick={onClose} style={secondaryButton}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={confirm}
-            style={{
-              ...primaryButton,
-              cursor: busy ? "wait" : "pointer",
+        <DialogTitle id="schedule-window-title">{title}</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Your page will be published on the day and time you specify. You can also choose
+            to unpublish the page on a specified day and time.
+          </Typography>
+          {message ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {message}
+            </Alert>
+          ) : null}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2,
             }}
           >
+            <Box
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 2,
+                p: 1.5,
+                bgcolor: "grey.50",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={publishOn}
+                    disabled={Boolean(publishLocked)}
+                    onChange={(_, checked) => {
+                      setPublishOn(checked);
+                      if (!checked) setUnpublishOn(false);
+                      setLocalError(null);
+                    }}
+                  />
+                }
+                label="Publish page on"
+                sx={{ mb: 1, fontWeight: 600 }}
+              />
+              <ScheduleDateTimeField
+                value={publishAt}
+                min={earliestPublishAt()}
+                ranges={ranges}
+                disabled={!publishOn || Boolean(publishLocked)}
+                onChange={(next) => {
+                  setPublishAt(next);
+                  if (unpublishAt.getTime() < next.getTime() + 60_000) {
+                    setUnpublishAt(new Date(next.getTime() + 60 * 60_000));
+                  }
+                  setLocalError(null);
+                }}
+              />
+            </Box>
+            <Box
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 2,
+                p: 1.5,
+                bgcolor: "grey.50",
+                opacity: publishOn ? 1 : 0.5,
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={unpublishOn && publishOn}
+                    disabled={!publishOn}
+                    onChange={(_, checked) => {
+                      setUnpublishOn(checked);
+                      setLocalError(null);
+                    }}
+                  />
+                }
+                label="Unpublish on…"
+                sx={{ mb: 1, fontWeight: 600 }}
+              />
+              <ScheduleDateTimeField
+                value={unpublishAt}
+                min={new Date(truncateToMinute(publishAt).getTime() + 60_000)}
+                ranges={unpublishRanges}
+                disabled={!publishOn || !unpublishOn}
+                onChange={(next) => {
+                  setUnpublishAt(next);
+                  setLocalError(null);
+                }}
+              />
+            </Box>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+            Times use your local timezone. Leave unpublish off to keep the version published.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onClose} variant="outlined" color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={confirm} variant="contained" disabled={busy}>
             Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </ScheduleMuiProvider>
   );
 }
-
-function Check({
-  checked,
-  disabled,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  label: string;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 12,
-        fontWeight: 600,
-        cursor: disabled ? "not-allowed" : "pointer",
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      {label}
-    </label>
-  );
-}
-
-const columnStyle: CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 12,
-  background: "#f8fafc",
-};
-
-const secondaryButton: CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: 6,
-  border: "1px solid #e5e7eb",
-  background: "#fff",
-  cursor: "pointer",
-};
-
-const primaryButton: CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: 6,
-  border: "none",
-  background: accent,
-  color: "#fff",
-  fontWeight: 600,
-};
