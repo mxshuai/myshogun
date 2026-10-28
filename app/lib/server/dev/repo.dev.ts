@@ -1,3 +1,4 @@
+import { titleFromVisbuildData, toVersionSummaries } from "../../page-version";
 import { paginateMediaList } from "../media-pagination.server";
 import type {
   MediaAsset,
@@ -7,6 +8,7 @@ import type {
   PublishJob,
   Repo,
   Shop,
+  VersionSchedule,
 } from "../types";
 import { readJsonFile, writeJsonFile } from "./persist";
 
@@ -15,24 +17,25 @@ type Store = {
   pageIndex: Record<string, PageIndex>;
   pageBodies: Record<string, PageBody>;
   versions: Record<string, PageVersion>;
+  schedules: Record<string, VersionSchedule>;
   jobs: Record<string, PublishJob>;
   media: Record<string, MediaAsset>;
 };
 
 const FILE = "repo.json";
 
-/** Keep at most this many versions per page (mirrors DDB repo). */
-const VERSION_HISTORY_LIMIT = 10;
-
 async function load(): Promise<Store> {
-  return readJsonFile<Store>(FILE, {
+  const store = await readJsonFile<Store>(FILE, {
     shops: {},
     pageIndex: {},
     pageBodies: {},
     versions: {},
+    schedules: {},
     jobs: {},
     media: {},
   });
+  store.schedules ??= {};
+  return store;
 }
 
 async function save(store: Store): Promise<void> {
@@ -92,12 +95,25 @@ export function createDevRepo(): Repo {
       s.pageIndex[index.pageId] = index;
       await save(s);
     },
+    async patchPageIndex(index, patch) {
+      const s = await load();
+      const current = s.pageIndex[index.pageId];
+      if (!current) throw new Error("Page not found");
+      const defined = Object.fromEntries(
+        Object.entries(patch).filter(([, value]) => value !== undefined),
+      );
+      s.pageIndex[index.pageId] = { ...current, ...defined };
+      await save(s);
+    },
     async deletePage(pageId) {
       const s = await load();
       delete s.pageIndex[pageId];
       delete s.pageBodies[pageId];
       for (const [vid, v] of Object.entries(s.versions)) {
         if (v.pageId === pageId) delete s.versions[vid];
+      }
+      for (const [vid, schedule] of Object.entries(s.schedules ?? {})) {
+        if (schedule.pageId === pageId) delete s.schedules[vid];
       }
       for (const [jid, j] of Object.entries(s.jobs)) {
         if (j.pageId === pageId) delete s.jobs[jid];
@@ -116,20 +132,45 @@ export function createDevRepo(): Repo {
     async appendPageVersion(version) {
       const s = await load();
       s.versions[version.versionId] = version;
-      // Prune: keep only the most recent N versions for this page.
-      const forPage = Object.values(s.versions)
-        .filter((v) => v.pageId === version.pageId)
-        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
-      if (forPage.length > VERSION_HISTORY_LIMIT) {
-        for (const v of forPage.slice(0, forPage.length - VERSION_HISTORY_LIMIT)) {
-          delete s.versions[v.versionId];
-        }
-      }
       await save(s);
     },
     async getPageVersion(versionId) {
       const s = await load();
       return s.versions[versionId] ?? null;
+    },
+    async listPageVersions(pageId) {
+      const s = await load();
+      return toVersionSummaries(
+        Object.values(s.versions)
+          .filter((version) => version.pageId === pageId)
+          .map((version) => ({
+            versionId: version.versionId,
+            pageId: version.pageId,
+            source: version.source,
+            createdAt: version.createdAt,
+            title: version.title || titleFromVisbuildData(version.visbuildData),
+          })),
+      );
+    },
+    async putVersionSchedule(schedule) {
+      const s = await load();
+      s.schedules[schedule.versionId] = schedule;
+      await save(s);
+    },
+    async getVersionSchedule(pageId, versionId) {
+      const s = await load();
+      const schedule = s.schedules[versionId];
+      if (!schedule || schedule.pageId !== pageId) return null;
+      return schedule;
+    },
+    async listVersionSchedules(pageId) {
+      const s = await load();
+      return Object.values(s.schedules).filter((schedule) => schedule.pageId === pageId);
+    },
+    async deleteVersionSchedule(_pageId, versionId) {
+      const s = await load();
+      delete s.schedules[versionId];
+      await save(s);
     },
     async putJob(job) {
       const s = await load();

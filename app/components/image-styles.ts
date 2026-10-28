@@ -328,6 +328,9 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
 }
 .visbuild-image__link {
   display: block;
+  width: 100%;
+  height: 100%;
+  position: relative;
   text-decoration: none;
   color: inherit;
 }

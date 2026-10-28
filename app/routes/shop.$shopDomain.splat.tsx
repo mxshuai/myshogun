@@ -55,6 +55,7 @@ export default function ShopVisbuildSplatRoute({
         path={loaderData.path}
         initialData={loaderData.data}
         initialPageMeta={loaderData.pageMeta}
+        initialVersions={loaderData.versions}
       />
     );
   }

@@ -5,7 +5,7 @@ import { createDevRepo } from "../app/lib/server/dev/repo.dev";
 import { createDevSecretsStore } from "../app/lib/server/dev/secrets.dev";
 import { createDevScheduler } from "../app/lib/server/dev/scheduler.dev";
 import { createManagedPage, upsertShopRecord } from "../app/lib/server/page-ops";
-import { publishPageVersion, savePageDraft, schedulePageUpdate } from "../app/lib/server/publish";
+import { runScheduledJob, savePageDraft, scheduleVersion } from "../app/lib/server/publish";
 import type { ServerContext } from "../app/lib/server/types";
 
 async function main() {
@@ -39,25 +39,29 @@ async function main() {
     root: { props: { title: "Verify Page" } },
   } as import("@puckeditor/core").Data;
 
-  await savePageDraft(page.pageId, ctx, visbuildData);
+  const versionId = await savePageDraft(page.pageId, ctx, visbuildData);
+  const publishAt = new Date(Date.now() + 120_000);
+  const unpublishAt = new Date(Date.now() + 240_000);
+  await scheduleVersion(ctx, {
+    pageId: page.pageId,
+    versionId,
+    publishAt,
+    unpublishAt,
+    timezone: "UTC",
+  });
 
-  const runAt = new Date(Date.now() + 120_000);
-  const jobId = await schedulePageUpdate(
-    page.pageId,
-    ctx,
-    visbuildData,
-    runAt,
-    "UTC"
-  );
-
-  const job = await repo.getJob(jobId);
-  if (!job || job.status !== "pending") {
-    throw new Error(`Job should be pending, got ${job?.status}`);
+  const schedules = await repo.listVersionSchedules(page.pageId);
+  const schedule = schedules.find((item) => item.versionId === versionId);
+  if (!schedule || schedule.status !== "pending" || !schedule.publishJobId) {
+    throw new Error("Expected a pending version schedule");
+  }
+  if (!schedule.unpublishJobId) {
+    throw new Error("Expected an unpublish job");
   }
 
-  await publishPageVersion(jobId, ctx);
+  await runScheduledJob(schedule.publishJobId, ctx);
 
-  const after = await repo.getJob(jobId);
+  const after = await repo.getJob(schedule.publishJobId);
   if (!after) throw new Error("Job missing after run");
 
   // Without real Shopify, publish fails and retries — expect failed after max attempts

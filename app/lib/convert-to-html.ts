@@ -10,6 +10,7 @@ import {
 import { readSliderProps } from "~/components/slider-settings";
 import { readTableSettings } from "~/components/table-settings";
 import { iconFontSizeFromHeight, toFaIconClasses } from "~/components/icon-options";
+import { HERO_EXPORT_CSS, heroButtonCss, heroShellCss, heroSubtitleCss, heroTitleCss } from "~/components/hero-styles";
 import {
   BUTTON_EXPORT_CSS,
   flattenButtonProps,
@@ -523,17 +524,14 @@ function generateFlex(props: any, spaces: string, indent: number): string {
  */
 function generateHero(props: any, spaces: string): string {
   const source = props.main ?? {};
-  const align = source.align || 'center';
-  const backgroundImage = source.backgroundImage 
-    ? `url(${source.backgroundImage})`
-    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-  
-  const alignItems = align === 'center' ? 'center' : 'flex-start';
-  
-  return `${spaces}<div style="padding: 80px 20px; background-image: ${backgroundImage}; background-size: cover; background-position: center; text-align: ${align}; color: #ffffff; min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: ${alignItems};">
-${spaces}  <h1 style="font-size: 3rem; font-weight: 700; margin: 0 0 20px 0; line-height: 1.2;">${escapeHtml(source.title)}</h1>
-${spaces}  <p style="font-size: 1.25rem; margin: 0 0 32px 0; line-height: 1.6; opacity: 0.95;">${escapeHtml(source.subtitle)}</p>
-${spaces}  <a href="${source.buttonHref || '#'}" style="display: inline-block; padding: 16px 32px; background-color: #ffffff; color: #667eea; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 1.125rem;">${escapeHtml(source.buttonText)}</a>
+  const align = source.align === "left" ? "left" : "center";
+  const backgroundImage =
+    typeof source.backgroundImage === "string" ? source.backgroundImage : "";
+
+  return `${spaces}<div class="visbuild-hero" style="${heroShellCss(align, backgroundImage)}">
+${spaces}  <h1 style="${heroTitleCss()}">${escapeHtml(source.title)}</h1>
+${spaces}  <p style="${heroSubtitleCss()}">${escapeHtml(source.subtitle)}</p>
+${spaces}  <a href="${escapeHtml(source.buttonHref || "#")}" style="${heroButtonCss()}">${escapeHtml(source.buttonText)}</a>
 ${spaces}</div>\n`;
 }
 
@@ -1498,6 +1496,8 @@ export function generateCSS(): string {
 }
 
 ${TEXT_CONTENT_CSS}
+
+${HERO_EXPORT_CSS}
 
 ${BUTTON_EXPORT_CSS}
 

@@ -1,5 +1,5 @@
 import { ensureServerContext } from "~/lib/server/factory";
-import { publishPageVersion } from "~/lib/server/publish";
+import { runScheduledJob } from "~/lib/server/publish";
 
 export type PublishEvent = { jobId: string };
 
@@ -10,6 +10,6 @@ export async function handler(event: PublishEvent) {
     return { ok: false };
   }
   const ctx = await ensureServerContext();
-  await publishPageVersion(jobId, ctx);
+  await runScheduledJob(jobId, ctx);
   return { ok: true };
 }

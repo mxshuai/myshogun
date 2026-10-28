@@ -11,7 +11,7 @@ import {
   savePageByPath,
   setPublishedByPath,
 } from "~/lib/server/page-service.server";
-import { cancelPendingJob, schedulePageUpdate } from "~/lib/server/publish";
+import { cancelVersionSchedule, scheduleVersion } from "~/lib/server/publish";
 import { requireShopRouteContext } from "~/lib/server/shop-route.server";
 
 function ensureEditorRootProps(pageData: Data, urlPath: string): Data {
@@ -41,6 +41,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   const resolved = isEditorRoute ? ensureEditorRootProps(page, path) : page;
+  const versions =
+    isEditorRoute && pageMeta
+      ? await ctx.repo.listPageVersions(pageMeta.pageId)
+      : [];
 
   return {
     shopDomain: shop.domain,
@@ -48,6 +52,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     path,
     data: resolved,
     pageMeta,
+    versions,
   };
 }
 
@@ -67,16 +72,20 @@ type EditorActionBody =
   | {
       intent: "schedule";
       data: Data;
-      runAt: string;
+      versionId: string | null;
+      publishAt: string;
+      unpublishAt: string | null;
       timezone: string;
     }
-  | {
-      intent: "reschedule";
-      data: Data;
-      runAt: string;
-      timezone: string;
-    }
-  | { intent: "unschedule"; data: Data };
+  | { intent: "unschedule"; data: Data; versionId: string };
+
+function isRestoreRequest(
+  raw: unknown,
+): raw is { intent: "restore"; versionId: string } {
+  if (!raw || typeof raw !== "object") return false;
+  const body = raw as Record<string, unknown>;
+  return body.intent === "restore" && typeof body.versionId === "string" && body.versionId.trim().length > 0;
+}
 
 function parseEditorBody(raw: unknown): EditorActionBody | null {
   if (!raw || typeof raw !== "object") return null;
@@ -87,18 +96,38 @@ function parseEditorBody(raw: unknown): EditorActionBody | null {
     intent !== "save" &&
     intent !== "publish" &&
     intent !== "schedule" &&
-    intent !== "reschedule" &&
     intent !== "unschedule"
   ) {
     return null;
   }
   if (!payload || typeof payload !== "object") return null;
-  if (intent === "save" || intent === "publish" || intent === "unschedule") {
+  if (intent === "save" || intent === "publish") {
     return { intent, data: payload as Data };
   }
-  const runAt = typeof b.runAt === "string" ? b.runAt : "";
+  if (intent === "unschedule") {
+    const versionId = typeof b.versionId === "string" ? b.versionId.trim() : "";
+    if (!versionId) return null;
+    return { intent, data: payload as Data, versionId };
+  }
+  const publishAt = typeof b.publishAt === "string" ? b.publishAt : "";
+  const unpublishAt =
+    typeof b.unpublishAt === "string" && b.unpublishAt.trim()
+      ? b.unpublishAt
+      : null;
   const timezone = typeof b.timezone === "string" ? b.timezone : "UTC";
-  return { intent, data: payload as Data, runAt, timezone };
+  const versionId =
+    typeof b.versionId === "string" && b.versionId.trim() ? b.versionId.trim() : null;
+  return { intent, data: payload as Data, versionId, publishAt, unpublishAt, timezone };
+}
+
+async function editorSnapshot(
+  ctx: Awaited<ReturnType<typeof ensureServerContext>>,
+  shopId: string,
+  pagePath: string,
+) {
+  const pageMeta = await getEditorPageMeta(ctx, shopId, pagePath);
+  const versions = pageMeta ? await ctx.repo.listPageVersions(pageMeta.pageId) : [];
+  return { pageMeta, versions };
 }
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -110,6 +139,26 @@ export async function action({ params, request }: Route.ActionArgs) {
   );
   const { path } = resolveShopVisbuildPath(request.url, shop.domain);
   const raw = (await request.json()) as unknown;
+  if (isRestoreRequest(raw)) {
+    const meta = await getEditorPageMeta(ctx, shop.id, path);
+    if (!meta) {
+      return data({ ok: false as const, error: "Page not found" }, { status: 404 });
+    }
+    const version = await ctx.repo.getPageVersion(raw.versionId);
+    if (!version || version.pageId !== meta.pageId) {
+      return data(
+        { ok: false as const, error: "Version not found" },
+        { status: 404 },
+      );
+    }
+    return data({
+      ok: true as const,
+      intent: "restore" as const,
+      versionId: version.versionId,
+      data: dataWithPagePath(version.visbuildData, path),
+    });
+  }
+
   const body = parseEditorBody(raw);
 
   const rootProps = body?.data?.root?.props as { pagePath?: string } | undefined;
@@ -125,11 +174,15 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!result.ok) {
       return data({ ok: false as const, error: result.error }, { status: 400 });
     }
+    const snapshot = await editorSnapshot(ctx, shop.id, result.path);
     return data({
       ok: true as const,
       path: result.path,
       pageId: result.pageId,
-      status: result.status,
+      versionId: result.versionId,
+      status: snapshot.pageMeta?.status ?? result.status,
+      pageMeta: snapshot.pageMeta,
+      versions: snapshot.versions,
       renamed: result.path !== path,
     });
   }
@@ -148,84 +201,79 @@ export async function action({ params, request }: Route.ActionArgs) {
       if (!saved.ok) {
         return data({ ok: false as const, error: saved.error }, { status: 400 });
       }
-      const result = await setPublishedByPath(ctx, shop.id, saved.path);
+      const result = await setPublishedByPath(ctx, shop.id, saved.path, {
+        versionId: saved.versionId,
+      });
       if (!result.ok) {
         return data({ ok: false as const, error: result.error }, { status: 400 });
       }
+      const snapshot = await editorSnapshot(ctx, shop.id, result.path);
       return data({
         ok: true as const,
         path: result.path,
-        status: "published" as const,
+        versionId: saved.versionId ?? snapshot.versions[0]?.versionId,
+        status: snapshot.pageMeta?.status ?? ("published" as const),
+        pageMeta: snapshot.pageMeta,
+        versions: snapshot.versions,
         renamed: saved.path !== path,
       });
-    }
-
-    const runAt = new Date((body as { runAt?: string }).runAt as string);
-    if (Number.isNaN(runAt.getTime())) {
-      return data(
-        { ok: false as const, error: "Invalid schedule time" },
-        { status: 400 },
-      );
     }
 
     if (body.intent === "schedule") {
-      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
-      if (!saved.ok) {
-        return data({ ok: false as const, error: saved.error }, { status: 400 });
+      let versionId = body.versionId;
+      let savedPath = path;
+      if (!versionId) {
+        const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
+        if (!saved.ok) {
+          return data({ ok: false as const, error: saved.error }, { status: 400 });
+        }
+        versionId = saved.versionId ?? null;
+        savedPath = saved.path;
       }
-      const jobId = await schedulePageUpdate(
-        meta.pageId,
-        ctx,
-        dataWithPagePath(body.data, saved.path),
-        runAt,
-        body.timezone,
-      );
-      return data({
-        ok: true as const,
-        path: saved.path,
-        status: "scheduled" as const,
-        jobId,
-        runAt: runAt.toISOString(),
-        renamed: saved.path !== path,
+      if (!versionId) {
+        return data({ ok: false as const, error: "Version not found" }, { status: 400 });
+      }
+      const publishAt = new Date(body.publishAt);
+      const unpublishAt = body.unpublishAt ? new Date(body.unpublishAt) : null;
+      if (
+        Number.isNaN(publishAt.getTime()) ||
+        (unpublishAt && Number.isNaN(unpublishAt.getTime()))
+      ) {
+        return data(
+          { ok: false as const, error: "Invalid schedule time" },
+          { status: 400 },
+        );
+      }
+      await scheduleVersion(ctx, {
+        pageId: meta.pageId,
+        versionId,
+        publishAt,
+        unpublishAt,
+        timezone: body.timezone,
       });
-    }
-
-    if (body.intent === "reschedule") {
-      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
-      if (!saved.ok) {
-        return data({ ok: false as const, error: saved.error }, { status: 400 });
-      }
-      await cancelPendingJob(meta.pageId, ctx);
-      const jobId = await schedulePageUpdate(
-        meta.pageId,
-        ctx,
-        dataWithPagePath(body.data, saved.path),
-        runAt,
-        body.timezone,
-      );
+      const snapshot = await editorSnapshot(ctx, shop.id, savedPath);
       return data({
         ok: true as const,
-        path: saved.path,
-        status: "scheduled" as const,
-        jobId,
-        runAt: runAt.toISOString(),
-        renamed: saved.path !== path,
+        path: savedPath,
+        versionId,
+        status: snapshot.pageMeta?.status ?? ("scheduled" as const),
+        pageMeta: snapshot.pageMeta,
+        versions: snapshot.versions,
+        renamed: savedPath !== path,
       });
     }
 
     if (body.intent === "unschedule") {
-      const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
-      if (!saved.ok) {
-        return data({ ok: false as const, error: saved.error }, { status: 400 });
-      }
-      await cancelPendingJob(meta.pageId, ctx);
-      const updated = await getEditorPageMeta(ctx, shop.id, saved.path);
+      await cancelVersionSchedule(ctx, meta.pageId, body.versionId);
+      const snapshot = await editorSnapshot(ctx, shop.id, path);
       return data({
         ok: true as const,
-        path: saved.path,
+        path,
         pageId: meta.pageId,
-        status: updated?.status ?? ("dirty" as const),
-        renamed: saved.path !== path,
+        versionId: body.versionId,
+        status: snapshot.pageMeta?.status ?? ("dirty" as const),
+        pageMeta: snapshot.pageMeta,
+        versions: snapshot.versions,
       });
     }
   } catch (e) {

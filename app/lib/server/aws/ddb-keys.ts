@@ -5,17 +5,27 @@ import type {
   PageVersion,
   PublishJob,
   Shop,
+  VersionSchedule,
 } from "../types";
 
 export const GSI1_NAME = "GSI1";
 
-const PAGE_STATUSES = new Set(["draft", "dirty", "published", "scheduled"]);
-const VERSION_SOURCES = new Set([
-  "manual_save",
-  "publish",
-  "scheduled_publish",
-  "import",
+const PAGE_STATUSES = new Set([
+  "draft",
+  "dirty",
+  "published",
+  "scheduled",
+  "unpublished",
 ]);
+const VERSION_SOURCES = new Set(["manual_save", "publish", "import"]);
+const SCHEDULE_STATUSES = new Set([
+  "pending",
+  "live",
+  "ended",
+  "cancelled",
+  "failed",
+]);
+const JOB_KINDS = new Set(["publish", "unpublish"]);
 const JOB_STATUSES = new Set([
   "pending",
   "running",
@@ -108,7 +118,13 @@ export function pageIndexFromItem(item: Record<string, unknown>): PageIndex {
     lastPublishedAt: item.lastPublishedAt
       ? String(item.lastPublishedAt)
       : null,
-    pendingJobId: item.pendingJobId ? String(item.pendingJobId) : null,
+    liveVersionId: item.liveVersionId ? String(item.liveVersionId) : null,
+    evergreenVersionId: item.evergreenVersionId
+      ? String(item.evergreenVersionId)
+      : null,
+    evergreenClearedAt: item.evergreenClearedAt
+      ? String(item.evergreenClearedAt)
+      : null,
     // Backfill defaults for records written before these fields existed.
     pagePath: item.pagePath ? String(item.pagePath) : `/${handle}`,
     updatedAt: item.updatedAt
@@ -156,7 +172,41 @@ export function versionFromItem(item: Record<string, unknown>): PageVersion {
     visbuildData: item.visbuildData as PageVersion["visbuildData"],
     html: String(item.html),
     source: item.source as PageVersion["source"],
+    title: item.title ? String(item.title) : "Untitled",
     createdAt: String(item.createdAt),
+  };
+}
+
+export function scheduleSk(versionId: string) {
+  return `SCHEDULE#${versionId}`;
+}
+
+export function scheduleToItem(schedule: VersionSchedule) {
+  return {
+    PK: pagePk(schedule.pageId),
+    SK: scheduleSk(schedule.versionId),
+    entity: "version_schedule",
+    ...schedule,
+  };
+}
+
+export function scheduleFromItem(item: Record<string, unknown>): VersionSchedule {
+  checkEnum("VersionSchedule.status", item.status, SCHEDULE_STATUSES);
+  return {
+    versionId: String(item.versionId),
+    pageId: String(item.pageId),
+    shopId: String(item.shopId),
+    publishAt: String(item.publishAt),
+    unpublishAt: item.unpublishAt ? String(item.unpublishAt) : null,
+    timezone: String(item.timezone || "UTC"),
+    publishJobId: item.publishJobId ? String(item.publishJobId) : null,
+    unpublishJobId: item.unpublishJobId ? String(item.unpublishJobId) : null,
+    status: item.status as VersionSchedule["status"],
+    publishedAt: item.publishedAt ? String(item.publishedAt) : null,
+    unpublishedAt: item.unpublishedAt ? String(item.unpublishedAt) : null,
+    lastError: item.lastError ? String(item.lastError) : null,
+    createdAt: String(item.createdAt),
+    updatedAt: String(item.updatedAt),
   };
 }
 
@@ -200,11 +250,13 @@ export function mediaAssetFromItem(item: Record<string, unknown>): MediaAsset {
 
 export function jobFromItem(item: Record<string, unknown>): PublishJob {
   checkEnum("PublishJob.status", item.status, JOB_STATUSES);
+  checkEnum("PublishJob.kind", item.kind, JOB_KINDS);
   return {
     jobId: String(item.jobId),
     pageId: String(item.pageId),
     shopId: String(item.shopId),
     payloadVersionId: String(item.payloadVersionId),
+    kind: item.kind === "unpublish" ? "unpublish" : "publish",
     runAt: String(item.runAt),
     timezone: String(item.timezone),
     status: item.status as PublishJob["status"],

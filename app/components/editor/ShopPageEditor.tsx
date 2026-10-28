@@ -11,6 +11,7 @@ import {
   type EditorActionResult,
   type EditorPageMeta,
 } from "~/components/editor/EditorPublishActions";
+import type { PageVersionSummary } from "~/lib/server/types";
 import { shopEditPath } from "~/lib/shop-url";
 import editorStyles from "@puckeditor/core/puck.css?url";
 import { MediaPickerProvider } from "~/components/editor/media/MediaPickerContext";
@@ -27,11 +28,13 @@ export function ShopPageEditor({
   path,
   initialData,
   initialPageMeta,
+  initialVersions,
 }: {
   shopDomain: string;
   path: string;
   initialData: Data;
   initialPageMeta: EditorPageMeta | null;
+  initialVersions: PageVersionSummary[];
 }) {
   const fetcher = useFetcher();
   const navigate = useNavigate();
@@ -40,6 +43,11 @@ export function ShopPageEditor({
   const [editorData, setEditorData] = useState<Data>(initialData);
   const [savedData, setSavedData] = useState<Data>(initialData);
   const [pageMeta, setPageMeta] = useState<EditorPageMeta | null>(initialPageMeta);
+  const [versions, setVersions] = useState<PageVersionSummary[]>(initialVersions);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    initialVersions[0]?.versionId ?? null,
+  );
+  const [restoreEpoch, setRestoreEpoch] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const busy = fetcher.state !== "idle";
@@ -53,7 +61,13 @@ export function ShopPageEditor({
     setEditorData(initialData);
     setSavedData(initialData);
     setPageMeta(initialPageMeta);
+    setSelectedVersionId(initialVersions[0]?.versionId ?? null);
+    setRestoreEpoch(0);
   }, [path]);
+
+  useEffect(() => {
+    setVersions(initialVersions);
+  }, [initialVersions]);
 
   useEffect(() => {
     if (fetcher.state === "submitting" || fetcher.state === "loading") {
@@ -72,58 +86,27 @@ export function ShopPageEditor({
       setActionError(d.error);
       return;
     }
+    if (d.ok && d.intent === "restore" && d.data) {
+      setActionError(null);
+      setEditorData(d.data);
+      setSavedData(d.data);
+      if (d.versionId) setSelectedVersionId(d.versionId);
+      setRestoreEpoch((epoch) => epoch + 1);
+      return;
+    }
     if (d.ok) {
       setActionError(null);
       const snapshot = editorDataRef.current;
       setSavedData(snapshot);
-      if (d.status === "published") {
-        setPageMeta((m) =>
-          m
-            ? {
-                ...m,
-                status: "published",
-                scheduledPublishAt: null,
-                pendingJobId: null,
-              }
-            : m,
-        );
-      } else if (d.status === "scheduled") {
-        setPageMeta((m) =>
-          m
-            ? {
-                ...m,
-                status: "scheduled",
-                pendingJobId: d.jobId ?? m.pendingJobId,
-                scheduledPublishAt:
-                  typeof d.runAt === "string" ? d.runAt : m.scheduledPublishAt,
-              }
-            : m,
-        );
-      } else if (
-        d.status === "dirty" ||
-        d.status === "draft" ||
-        d.status === "published"
-      ) {
-        setPageMeta((m) =>
-          m
-            ? {
-                ...m,
-                status: d.status!,
-                scheduledPublishAt: null,
-                pendingJobId: null,
-              }
-            : m,
-        );
-      } else if (d.pageId && d.status) {
-        setPageMeta({
-          pageId: d.pageId,
-          status: d.status,
-          scheduledPublishAt: null,
-          pendingJobId: null,
-        });
+      if (d.pageMeta) {
+        setPageMeta(d.pageMeta);
       } else if (d.status) {
-        setPageMeta((m) => (m ? { ...m, status: d.status! } : m));
+        setPageMeta((current) =>
+          current ? { ...current, status: d.status! } : current,
+        );
       }
+      if (d.versions) setVersions(d.versions);
+      if (d.versionId) setSelectedVersionId(d.versionId);
       if (d.path && d.path !== path) {
         navigate(editHref(d.path));
       }
@@ -138,6 +121,13 @@ export function ShopPageEditor({
       });
     },
     [fetcher],
+  );
+
+  const restoreVersion = useCallback(
+    (versionId: string) => {
+      submitAction({ intent: "restore", versionId });
+    },
+    [submitAction],
   );
 
   const saveEditor = useCallback(() => {
@@ -171,7 +161,7 @@ export function ShopPageEditor({
       ) : null}
       <MediaPickerProvider shopDomain={shopDomain}>
       <Puck
-        key={path}
+        key={`${path}:${restoreEpoch}`}
         config={config}
         data={editorData}
         onChange={setEditorData}
@@ -183,7 +173,13 @@ export function ShopPageEditor({
         overrides={{
           fieldTypes: visbuildPuckFieldTypes,
           header: ({ children }) => (
-            <VisbuildEditorHeader shopDomain={shopDomain} onPersist={persistPage}>
+            <VisbuildEditorHeader
+              shopDomain={shopDomain}
+              onPersist={persistPage}
+              versions={versions}
+              selectedVersionId={selectedVersionId}
+              onRestore={restoreVersion}
+            >
               {children}
             </VisbuildEditorHeader>
           ),
@@ -219,32 +215,32 @@ export function ShopPageEditor({
               </button>
               <EditorPublishActions
                 pageMeta={pageMeta}
+                selectedVersionId={selectedVersionId}
                 editorData={editorData}
                 savedData={savedData}
                 busy={busy}
                 actionError={actionError}
+                lastResult={
+                  fetcher.state === "idle"
+                    ? (fetcher.data as EditorActionResult | undefined)
+                    : undefined
+                }
                 onSave={saveEditor}
                 onPublish={() =>
                   submitAction({ intent: "publish", data: editorData })
                 }
-                onSchedule={(runAt, timezone) =>
+                onSchedule={(publishAt, unpublishAt, timezone, versionId) =>
                   submitAction({
                     intent: "schedule",
                     data: editorData,
-                    runAt,
+                    publishAt,
+                    unpublishAt,
                     timezone,
+                    versionId,
                   })
                 }
-                onReschedule={(runAt, timezone) =>
-                  submitAction({
-                    intent: "reschedule",
-                    data: editorData,
-                    runAt,
-                    timezone,
-                  })
-                }
-                onUnschedule={() =>
-                  submitAction({ intent: "unschedule", data: editorData })
+                onUnschedule={(versionId) =>
+                  submitAction({ intent: "unschedule", data: editorData, versionId })
                 }
               />
             </div>

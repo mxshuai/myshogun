@@ -27,11 +27,13 @@ export function SplitActionDropdown({
   busy,
   onPrimary,
   items,
+  primaryDisabled = false,
 }: {
   label: string;
   busy: boolean;
   onPrimary: () => void;
   items: SplitDropdownItem[];
+  primaryDisabled?: boolean;
 }) {
   const menuId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -155,16 +157,16 @@ export function SplitActionDropdown({
     >
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || primaryDisabled}
         onClick={onPrimary}
         style={{
           padding: "0 16px",
           border: "none",
-          background: accent,
-          color: "#fff",
+          background: primaryDisabled ? "#ede9fe" : accent,
+          color: primaryDisabled ? "#64748b" : "#fff",
           fontWeight: 600,
           fontSize: "0.875rem",
-          cursor: busy ? "wait" : "pointer",
+          cursor: busy ? "wait" : primaryDisabled ? "not-allowed" : "pointer",
           lineHeight: 1,
         }}
       >

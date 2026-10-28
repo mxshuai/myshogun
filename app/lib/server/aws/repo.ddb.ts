@@ -10,16 +10,16 @@ import {
 import type { TransactWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
+import { toVersionSummaries, type VersionListRow } from "../../page-version";
 import { getAwsRegion, getDynamoTableName } from "../env";
 import { paginateMediaList } from "../media-pagination.server";
 import type {
   MediaAsset,
   PageBody,
   PageIndex,
-  PageVersion,
-  PublishJob,
   Repo,
   Shop,
+  VersionSchedule,
 } from "../types";
 import {
   GSI1_NAME,
@@ -34,6 +34,9 @@ import {
   pageIndexFromItem,
   pageIndexToItem,
   pagePk,
+  scheduleFromItem,
+  scheduleSk,
+  scheduleToItem,
   shopDirSk,
   shopDomainLookupPk,
   shopFromItem,
@@ -55,9 +58,6 @@ const TableName = () => getDynamoTableName();
 /** Terminal jobs are kept this long, then auto-removed by DynamoDB TTL. */
 const TERMINAL_JOB_TTL_DAYS = 30;
 const TERMINAL_JOB_STATUSES = new Set(["done", "failed", "cancelled"]);
-
-/** Keep at most this many versions per page; older ones pruned on append. */
-const VERSION_HISTORY_LIMIT = 10;
 
 export function createDdbRepo(): Repo {
   const doc = client();
@@ -269,6 +269,45 @@ export function createDdbRepo(): Repo {
       await doc.send(new TransactWriteCommand({ TransactItems: items }));
     },
 
+    async patchPageIndex(index, patch) {
+      const entries = Object.entries(patch).filter(([, value]) => value !== undefined);
+      if (entries.length === 0) return;
+      const names: Record<string, string> = {};
+      const values: Record<string, unknown> = {};
+      const sets = entries.map(([key, value], i) => {
+        names[`#f${i}`] = key;
+        values[`:v${i}`] = value;
+        return `#f${i} = :v${i}`;
+      });
+      const items: NonNullable<TransactWriteCommandInput["TransactItems"]> = [
+        {
+          Update: {
+            TableName: TableName(),
+            Key: { PK: shopPk(index.shopId), SK: `PAGE#${index.pageId}` },
+            UpdateExpression: `SET ${sets.join(", ")}`,
+            ConditionExpression: "attribute_exists(PK)",
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: values,
+          },
+        },
+      ];
+      if (patch.shopifyPageGid) {
+        items.push({
+          Put: {
+            TableName: TableName(),
+            Item: {
+              PK: gidLookupPk(patch.shopifyPageGid),
+              SK: "META",
+              entity: "gid_lookup",
+              shopId: index.shopId,
+              pageId: index.pageId,
+            },
+          },
+        });
+      }
+      await doc.send(new TransactWriteCommand({ TransactItems: items }));
+    },
+
     async deletePage(pageId) {
       const index = await this.getPageIndex(pageId);
       if (index) {
@@ -314,6 +353,25 @@ export function createDdbRepo(): Repo {
           })
         );
       }
+
+      const schedules = await doc.send(
+        new QueryCommand({
+          TableName: TableName(),
+          KeyConditionExpression: "PK = :pk AND begins_with(SK, :v)",
+          ExpressionAttributeValues: {
+            ":pk": pagePk(pageId),
+            ":v": "SCHEDULE#",
+          },
+        })
+      );
+      for (const item of schedules.Items ?? []) {
+        await doc.send(
+          new DeleteCommand({
+            TableName: TableName(),
+            Key: { PK: item.PK, SK: item.SK },
+          })
+        );
+      }
     },
 
     async getPageBody(pageId) {
@@ -338,34 +396,93 @@ export function createDdbRepo(): Repo {
       await doc.send(
         new PutCommand({ TableName: TableName(), Item: versionToItem(version) })
       );
-      // Prune: keep only the most recent N versions for this page.
-      const res = await doc.send(
-        new QueryCommand({
-          TableName: TableName(),
-          KeyConditionExpression: "PK = :pk AND begins_with(SK, :v)",
-          ExpressionAttributeValues: {
-            ":pk": pagePk(version.pageId),
-            ":v": "VERSION#",
-          },
-          ProjectionExpression: "PK, SK",
-        })
-      );
-      const items = res.Items ?? [];
-      if (items.length > VERSION_HISTORY_LIMIT) {
-        // SK sorts chronologically (VERSION#{pageId}#{ts}#{source}); drop oldest.
-        const sorted = [...items].sort((a, b) =>
-          String(a.SK) < String(b.SK) ? -1 : String(a.SK) > String(b.SK) ? 1 : 0
+    },
+
+    async listPageVersions(pageId) {
+      const rows: VersionListRow[] = [];
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const res = await doc.send(
+          new QueryCommand({
+            TableName: TableName(),
+            KeyConditionExpression: "PK = :pk AND begins_with(SK, :v)",
+            ExpressionAttributeValues: {
+              ":pk": pagePk(pageId),
+              ":v": "VERSION#",
+            },
+            ProjectionExpression: "entity, versionId, pageId, #src, createdAt, title",
+            ExpressionAttributeNames: { "#src": "source" },
+            ExclusiveStartKey: lastKey,
+          }),
         );
-        const stale = sorted.slice(0, items.length - VERSION_HISTORY_LIMIT);
-        for (const it of stale) {
-          await doc.send(
-            new DeleteCommand({
-              TableName: TableName(),
-              Key: { PK: it.PK, SK: it.SK },
-            })
-          );
+        for (const item of res.Items ?? []) {
+          if (item.entity !== "version") continue;
+          rows.push({
+            versionId: String(item.versionId),
+            pageId: String(item.pageId),
+            source: item.source as VersionListRow["source"],
+            createdAt: String(item.createdAt),
+            title: item.title ? String(item.title) : "Untitled",
+          });
         }
-      }
+        lastKey = res.LastEvaluatedKey;
+      } while (lastKey);
+      return toVersionSummaries(rows);
+    },
+
+    async putVersionSchedule(schedule: VersionSchedule) {
+      await doc.send(
+        new PutCommand({
+          TableName: TableName(),
+          Item: scheduleToItem(schedule),
+        }),
+      );
+    },
+
+    async getVersionSchedule(pageId, versionId) {
+      const res = await doc.send(
+        new GetCommand({
+          TableName: TableName(),
+          Key: { PK: pagePk(pageId), SK: scheduleSk(versionId) },
+        }),
+      );
+      return res.Item && res.Item.entity === "version_schedule"
+        ? scheduleFromItem(res.Item)
+        : null;
+    },
+
+    async listVersionSchedules(pageId) {
+      const schedules: VersionSchedule[] = [];
+      let lastKey: Record<string, unknown> | undefined;
+      do {
+        const res = await doc.send(
+          new QueryCommand({
+            TableName: TableName(),
+            KeyConditionExpression: "PK = :pk AND begins_with(SK, :v)",
+            ExpressionAttributeValues: {
+              ":pk": pagePk(pageId),
+              ":v": "SCHEDULE#",
+            },
+            ExclusiveStartKey: lastKey,
+          }),
+        );
+        for (const item of res.Items ?? []) {
+          if (item.entity === "version_schedule") {
+            schedules.push(scheduleFromItem(item));
+          }
+        }
+        lastKey = res.LastEvaluatedKey;
+      } while (lastKey);
+      return schedules;
+    },
+
+    async deleteVersionSchedule(pageId, versionId) {
+      await doc.send(
+        new DeleteCommand({
+          TableName: TableName(),
+          Key: { PK: pagePk(pageId), SK: scheduleSk(versionId) },
+        }),
+      );
     },
 
     async getPageVersion(versionId) {

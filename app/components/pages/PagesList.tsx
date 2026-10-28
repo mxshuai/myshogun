@@ -8,10 +8,13 @@ import {
   useRevalidator,
 } from "react-router";
 
-import type { ShogunPageSummary } from "~/lib/pages.server";
-import type { PageStatus } from "~/lib/page-metadata.server";
+import { ScheduleWindowDialog } from "~/components/schedule/ScheduleWindowDialog";
+import { ScheduledVersionsDialog } from "~/components/schedule/ScheduledVersionsDialog";
+import type { ShopPageSummary } from "~/lib/server/page-service.server";
 import type { ShopifyPageRow } from "~/lib/shopify-pages.server";
+import { formatScheduleInstant } from "~/lib/schedule-format";
 import { formatPublishesIn } from "~/lib/relative-time";
+import type { VersionDisplayStatus } from "~/lib/schedule-window";
 import { canonicalPagePath, slugFromTitle } from "~/lib/page-path";
 import { shopEditPath } from "~/lib/shop-url";
 import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
@@ -19,23 +22,7 @@ import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
 const accent = "#7c3aed";
 const danger = "#7c3aed";
 
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function nowDatetimeLocalValue(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-/** ISO 8601 → `<input type="datetime-local">` 值（本地时区） */
-function isoToDatetimeLocalValue(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-function statusLabel(s: PageStatus): string {
+function statusLabel(s: VersionDisplayStatus): string {
   switch (s) {
     case "draft":
       return "Draft";
@@ -45,12 +32,14 @@ function statusLabel(s: PageStatus): string {
       return "Scheduled";
     case "outdated":
       return "Outdated";
+    case "unpublished":
+      return "Unpublished";
     default:
       return s;
   }
 }
 
-function statusDotColor(s: PageStatus): string {
+function statusDotColor(s: VersionDisplayStatus): string {
   switch (s) {
     case "draft":
       return accent;
@@ -60,12 +49,14 @@ function statusDotColor(s: PageStatus): string {
       return "#14b8a6";
     case "outdated":
       return "#dc2626";
+    case "unpublished":
+      return "#64748b";
     default:
       return "#94a3b8";
   }
 }
 
-type ShogunRow = ShogunPageSummary & { editedRelative: string };
+type ShogunRow = ShopPageSummary & { editedRelative: string };
 
 type FetcherData = {
   ok?: boolean;
@@ -80,6 +71,7 @@ function ShogunRowMenu({
   onClose,
   onPublish,
   onSchedule,
+  onUnpublish,
   onDuplicate,
   onDelete,
 }: {
@@ -89,6 +81,7 @@ function ShogunRowMenu({
   onClose: () => void;
   onPublish: () => void;
   onSchedule: () => void;
+  onUnpublish: (() => void) | null;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
@@ -163,6 +156,7 @@ function ShogunRowMenu({
         >
           <MenuBtn label="Publish" onClick={onPublish} />
           <MenuBtn label="Schedule" onClick={onSchedule} />
+          {onUnpublish ? <MenuBtn label="Unpublish" onClick={onUnpublish} /> : null}
           <MenuBtn label="Duplicate page" onClick={onDuplicate} />
           <MenuBtn label="Delete page" danger onClick={onDelete} />
         </div>
@@ -186,17 +180,17 @@ export function PagesList({
   const [tab, setTab] = useState<"shogun" | "shopify">("shogun");
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [menuPath, setMenuPath] = useState<string | null>(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleTarget, setScheduleTarget] = useState<string | null>(null);
-  const [scheduleHadPending, setScheduleHadPending] = useState(false);
-  const [publishOn, setPublishOn] = useState(true);
-  const [scheduleAt, setScheduleAt] = useState("");
+  const [scheduleTarget, setScheduleTarget] = useState<ShogunRow | null>(null);
+  const [scheduleListOpen, setScheduleListOpen] = useState(false);
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false);
+  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [shopifyFilter, setShopifyFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
   const [newPagePath, setNewPagePath] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [shogunSort, setShogunSort] = useState<
     "recent" | "name" | "path"
   >("recent");
@@ -229,11 +223,13 @@ export function PagesList({
       return;
     }
 
-    if (scheduleOpen) {
+    if (scheduleTarget) {
       if (d.ok === true) {
         setScheduleError(null);
-        setScheduleOpen(false);
+        setScheduleFormOpen(false);
+        setScheduleListOpen(false);
         setScheduleTarget(null);
+        setEditingVersionId(null);
         revalidate();
         return;
       }
@@ -248,10 +244,16 @@ export function PagesList({
       return;
     }
 
+    if (d.ok === false && typeof d.error === "string") {
+      setActionError(d.error);
+      return;
+    }
+
     if (d.ok) {
+      setActionError(null);
       revalidate();
     }
-  }, [fetcher.state, fetcher.data, navigate, revalidate, scheduleOpen, createOpen]);
+  }, [fetcher.state, fetcher.data, navigate, revalidate, scheduleTarget, createOpen]);
 
   const pathKeys = useMemo(() => shogunPages.map((r) => r.path), [shogunPages]);
 
@@ -321,72 +323,38 @@ export function PagesList({
     setMenuPath(null);
   };
 
-  const openSchedule = (
-    pagePath: string,
-    existingScheduledAt?: string | null,
-    isScheduled?: boolean,
-  ) => {
-    const hadPending = Boolean(isScheduled || existingScheduledAt?.trim());
-    setScheduleTarget(pagePath);
-    setScheduleHadPending(hadPending);
-    setPublishOn(true);
-    setScheduleAt(
-      existingScheduledAt?.trim()
-        ? isoToDatetimeLocalValue(existingScheduledAt)
-        : nowDatetimeLocalValue(),
+  const visibleSchedules = (row: ShogunRow) =>
+    row.schedules.filter(
+      (schedule) =>
+        schedule.status === "pending" ||
+        schedule.status === "live" ||
+        schedule.status === "ended" ||
+        schedule.status === "failed",
     );
+
+  const openSchedule = (row: ShogunRow) => {
+    setScheduleTarget(row);
+    setEditingVersionId(null);
     setScheduleError(null);
-    setScheduleOpen(true);
+    setScheduleFormOpen(visibleSchedules(row).length === 0);
+    setScheduleListOpen(visibleSchedules(row).length > 0);
     setMenuPath(null);
   };
 
-  const handlePublishOnChange = (checked: boolean) => {
-    setPublishOn(checked);
-    if (checked) {
-      setScheduleAt((prev) => prev.trim() || nowDatetimeLocalValue());
-    } else {
-      setScheduleAt("");
-    }
-    setScheduleError(null);
-  };
-
-  const confirmSchedule = () => {
+  const submitSchedule = (
+    publishAt: string,
+    unpublishAt: string | null,
+    versionId?: string,
+  ) => {
     if (!scheduleTarget) return;
-
-    if (!publishOn) {
-      if (scheduleHadPending) {
-        setScheduleError(null);
-        fetcher.submit(
-          { intent: "unschedule", pagePath: scheduleTarget },
-          { method: "post", action: pagesAction },
-        );
-      } else {
-        setScheduleOpen(false);
-        setScheduleTarget(null);
-        setScheduleError(null);
-      }
-      return;
-    }
-
-    if (!scheduleAt.trim()) {
-      setScheduleError("Choose date and time");
-      return;
-    }
-    const local = new Date(scheduleAt);
-    if (Number.isNaN(local.getTime())) {
-      setScheduleError("Invalid date and time");
-      return;
-    }
-    if (local.getTime() < Date.now() + 60_000) {
-      setScheduleError("Schedule must be at least 1 minute in the future");
-      return;
-    }
     setScheduleError(null);
     fetcher.submit(
       {
         intent: "schedule",
-        pagePath: scheduleTarget,
-        scheduledAt: local.toISOString(),
+        pagePath: scheduleTarget.path,
+        publishAt,
+        unpublishAt: unpublishAt ?? "",
+        versionId: versionId ?? "",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       },
       { method: "post", action: pagesAction },
@@ -396,12 +364,27 @@ export function PagesList({
   const confirmDelete = (pagePath: string) => {
     if (
       !window.confirm(
-        `Delete page "${pagePath}"? This cannot be undone.`
+        `Delete page "${pagePath}"? The Shopify page will also be deleted. This cannot be undone.`,
       )
     ) {
       return;
     }
     submitIntent("delete", { pagePath });
+  };
+
+  const confirmUnpublish = (row: ShogunRow) => {
+    const future = row.schedules.filter((schedule) => schedule.status === "pending");
+    const message =
+      future.length > 0
+        ? `Hide this page on Shopify?\n\nThese versions are still scheduled to publish:\n${future
+            .map(
+              (schedule) =>
+                `${schedule.title} (Version ${schedule.versionNumber}) · ${formatScheduleInstant(schedule.publishAt)}`,
+            )
+            .join("\n")}\n\nFuture publishes will still run.`
+        : "Hide this page on Shopify?";
+    if (!window.confirm(message)) return;
+    submitIntent("unpublish", { pagePath: row.path });
   };
 
   const submitCreate = () => {
@@ -444,6 +427,41 @@ export function PagesList({
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 48px" }}>
+        {actionError ? (
+          <div
+            role="alert"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 16,
+              padding: "10px 14px",
+              borderRadius: 8,
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              fontSize: "0.875rem",
+            }}
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setActionError(null)}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#b91c1c",
+                cursor: "pointer",
+                fontSize: "1rem",
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -747,10 +765,9 @@ export function PagesList({
                                 flexShrink: 0,
                               }}
                             />
-                            {statusLabel(row.status)}
+                            {statusLabel(row.latestVersion?.status ?? row.status)}
                           </div>
-                          {row.status === "scheduled" &&
-                          row.scheduledPublishAt ? (
+                          {row.latestVersion ? (
                             <span
                               style={{
                                 fontSize: "0.75rem",
@@ -759,7 +776,16 @@ export function PagesList({
                                 lineHeight: 1.3,
                               }}
                             >
-                              {formatPublishesIn(row.scheduledPublishAt)}
+                              Version {row.latestVersion.versionNumber}
+                              {row.latestVersion.status === "scheduled"
+                                ? (() => {
+                                    const publishAt = row.schedules.find(
+                                      (schedule) =>
+                                        schedule.versionId === row.latestVersion?.versionId,
+                                    )?.publishAt;
+                                    return publishAt ? ` · ${formatPublishesIn(publishAt)}` : "";
+                                  })()
+                                : ""}
                             </span>
                           ) : null}
                         </div>
@@ -793,12 +819,9 @@ export function PagesList({
                           onPublish={() =>
                             submitIntent("publish", { pagePath: row.path })
                           }
-                          onSchedule={() =>
-                            openSchedule(
-                              row.path,
-                              row.scheduledPublishAt,
-                              row.status === "scheduled",
-                            )
+                          onSchedule={() => openSchedule(row)}
+                          onUnpublish={
+                            row.canUnpublish ? () => confirmUnpublish(row) : null
                           }
                           onDuplicate={() =>
                             submitIntent("duplicate", {
@@ -1143,120 +1166,65 @@ export function PagesList({
         </div>
       ) : null}
 
-      {scheduleOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
+      {scheduleListOpen && scheduleTarget ? (
+        <ScheduledVersionsDialog
+          pageTitle={scheduleTarget.title}
+          schedules={scheduleTarget.schedules}
+          onClose={() => {
+            setScheduleListOpen(false);
+            setScheduleTarget(null);
           }}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              background: "#fff",
-              borderRadius: 10,
-              padding: 24,
-              minWidth: 320,
-              boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
-            }}
-          >
-            <h2 style={{ margin: "0 0 16px", fontSize: "1.1rem" }}>
-              Schedule publish
-            </h2>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 12,
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={publishOn}
-                onChange={(e) => handlePublishOnChange(e.target.checked)}
-              />
-              Publish page on…
-            </label>
-            <p style={{ margin: "0 0 8px", fontSize: "0.875rem", color: "#64748b" }}>
-              Your page will be published on the day and time you specify.
-            </p>
-            {scheduleError ? (
-              <p
-                role="alert"
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: "0.875rem",
-                  color: "#b91c1c",
-                }}
-              >
-                {scheduleError}
-              </p>
-            ) : null}
-            <input
-              type="datetime-local"
-              value={scheduleAt}
-              disabled={!publishOn}
-              required={publishOn}
-              onChange={(e) => setScheduleAt(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                marginBottom: 16,
-                boxSizing: "border-box",
-                background: publishOn ? "#fff" : "#f8fafc",
-                color: publishOn ? "#111827" : "#94a3b8",
-                cursor: publishOn ? "text" : "not-allowed",
-              }}
-            />
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => setScheduleOpen(false)}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmSchedule}
-                disabled={busy || (publishOn && !scheduleAt.trim())}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: accent,
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor:
-                    busy || (publishOn && !scheduleAt.trim())
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
+          onEdit={(versionId) => {
+            setEditingVersionId(versionId);
+            setScheduleListOpen(false);
+            setScheduleFormOpen(true);
+          }}
+        />
+      ) : null}
+      {scheduleFormOpen && scheduleTarget ? (
+        <ScheduleWindowDialog
+          key={editingVersionId ?? "new"}
+          schedules={scheduleTarget.schedules}
+          excludeVersionId={editingVersionId}
+          initialPublishAt={
+            scheduleTarget.schedules.find((schedule) => schedule.versionId === editingVersionId)
+              ?.publishAt
+          }
+          initialUnpublishAt={
+            scheduleTarget.schedules.find((schedule) => schedule.versionId === editingVersionId)
+              ?.unpublishAt
+          }
+          publishLocked={
+            scheduleTarget.schedules.find((schedule) => schedule.versionId === editingVersionId)
+              ?.status === "live"
+          }
+          canClear={["pending", "failed"].includes(
+            scheduleTarget.schedules.find((schedule) => schedule.versionId === editingVersionId)
+              ?.status ?? "",
+          )}
+          busy={busy}
+          error={scheduleError}
+          onClose={() => {
+            setScheduleFormOpen(false);
+            setScheduleError(null);
+            if (editingVersionId) setScheduleListOpen(true);
+            else setScheduleTarget(null);
+          }}
+          onClear={() => {
+            if (!editingVersionId) return;
+            fetcher.submit(
+              {
+                intent: "unschedule",
+                pagePath: scheduleTarget.path,
+                versionId: editingVersionId,
+              },
+              { method: "post", action: pagesAction },
+            );
+          }}
+          onConfirm={(value) =>
+            submitSchedule(value.publishAt, value.unpublishAt, editingVersionId ?? undefined)
+          }
+        />
       ) : null}
     </div>
   );

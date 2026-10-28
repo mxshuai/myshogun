@@ -8,10 +8,10 @@ import { config } from "../../visbuild.config";
 import { requireAdmin } from "~/lib/server/auth.server";
 import { ensureServerContext } from "~/lib/server/factory";
 import {
-  cancelPendingJob,
+  cancelVersionSchedule,
   publishPageNow,
   savePageDraft,
-  schedulePageUpdate,
+  scheduleVersion,
 } from "~/lib/server/publish";
 import editorStyles from "@puckeditor/core/puck.css?url";
 import { MediaPickerProvider } from "~/components/editor/media/MediaPickerContext";
@@ -27,10 +27,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!index) throw new Response("Page not found", { status: 404 });
   const body = await ctx.repo.getPageBody(pageId);
   const shop = await ctx.repo.getShop(index.shopId);
-  let pendingJob = null;
-  if (index.pendingJobId) {
-    pendingJob = await ctx.repo.getJob(index.pendingJobId);
-  }
+  const schedules = await ctx.repo.listVersionSchedules(pageId);
+  const pendingSchedule = schedules.find((schedule) => schedule.status === "pending") ?? null;
   return {
     index,
     shop,
@@ -38,7 +36,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       content: [],
       root: { props: { title: index.title } },
     },
-    pendingJob,
+    pendingSchedule,
   };
 }
 
@@ -78,12 +76,21 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (Number.isNaN(runAt.getTime())) {
       return data({ error: "Invalid schedule time" }, { status: 400 });
     }
-    const jobId = await schedulePageUpdate(pageId, ctx, visbuildData, runAt, tz);
-    return data({ ok: true, jobId });
+    const versionId = await savePageDraft(pageId, ctx, visbuildData);
+    await scheduleVersion(ctx, {
+      pageId,
+      versionId,
+      publishAt: runAt,
+      unpublishAt: null,
+      timezone: tz,
+    });
+    return data({ ok: true, versionId });
   }
 
   if (intent === "cancelSchedule") {
-    await cancelPendingJob(pageId, ctx);
+    const schedules = await ctx.repo.listVersionSchedules(pageId);
+    const pending = schedules.find((schedule) => schedule.status === "pending");
+    if (pending) await cancelVersionSchedule(ctx, pageId, pending.versionId);
     return data({ ok: true });
   }
 
@@ -95,7 +102,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export default function AdminPageEditor() {
-  const { index, shop, data: initialData, pendingJob } =
+  const { index, shop, data: initialData, pendingSchedule } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const [editorData, setEditorData] = useState<Data>(initialData);
@@ -186,11 +193,12 @@ export default function AdminPageEditor() {
           <input type="hidden" name="timezone" value="UTC" />
           <button type="submit">Schedule Update</button>
         </Form>
-        {pendingJob && pendingJob.status === "pending" ? (
+        {pendingSchedule ? (
           <Form method="post">
             <input type="hidden" name="intent" value="cancelSchedule" />
             <span style={{ fontSize: 13 }}>
-              Pending: {new Date(pendingJob.runAt).toLocaleString()} ({pendingJob.jobId.slice(0, 8)}…)
+              Pending: {new Date(pendingSchedule.publishAt).toLocaleString()} (
+              {pendingSchedule.versionId.slice(0, 8)}…)
             </span>
             <button type="submit" style={{ marginLeft: 8 }}>
               Cancel

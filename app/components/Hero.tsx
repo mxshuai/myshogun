@@ -1,6 +1,12 @@
 import type { ComponentConfig } from "@puckeditor/core";
 import type { Components } from "./types";
 import { Section } from "./Section";
+import {
+  heroButtonStyle,
+  heroShellStyle,
+  heroSubtitleStyle,
+  heroTitleStyle,
+} from "./hero-styles";
 
 export const Hero: ComponentConfig<Components["Hero"]> = {
   fields: {
@@ -72,53 +78,14 @@ export const Hero: ComponentConfig<Components["Hero"]> = {
     return (
       <Section>
         <div
-          style={{
-            padding: "80px 20px",
-            backgroundImage: backgroundImage ? `url(${backgroundImage})` : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            textAlign: align,
-            color: "#ffffff",
-            minHeight: "400px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: align === "center" ? "center" : "flex-start",
-          }}
+          className="visbuild-hero"
+          style={heroShellStyle(align, backgroundImage ?? "")}
         >
-          <h1
-            style={{
-              fontSize: "3rem",
-              fontWeight: 700,
-              margin: "0 0 20px 0",
-              lineHeight: 1.2,
-            }}
-          >
-            {title}
-          </h1>
-          <p
-            style={{
-              fontSize: "1.25rem",
-              margin: "0 0 32px 0",
-              lineHeight: 1.6,
-              opacity: 0.95,
-            }}
-          >
-            {subtitle}
-          </p>
+          <h1 style={heroTitleStyle}>{title}</h1>
+          <p style={heroSubtitleStyle}>{subtitle}</p>
           <a
             href={buttonHref}
-            style={{
-              display: "inline-block",
-              padding: "16px 32px",
-              backgroundColor: "#ffffff",
-              color: "#667eea",
-              textDecoration: "none",
-              borderRadius: "8px",
-              fontWeight: 600,
-              fontSize: "1.125rem",
-              transition: "transform 0.2s ease",
-            }}
+            style={heroButtonStyle}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "scale(1.05)";
             }}

@@ -147,11 +147,14 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 | 步骤 | 操作 | 预期 |
 |------|------|------|
 | L1 | 新建页面并进入编辑 | 创建成功，跳转编辑 URL |
-| L2 | 行菜单 → **Schedule**，勾选 **Publish page on…**，选未来 1 分钟以上时间 → Save | 状态 **Scheduled**，列表显示定时时间 |
-| L3 | 再次打开 Schedule，**取消勾选** → Save | 状态回到 Draft / Outdated 等，定时取消 |
-| L4 | 对已发布页再 **Schedule** 并保存 | 可重新变为 Scheduled |
-| L5 | 删除 **Scheduled** 行 | 删除成功；到点 **不应** 再触发 Publish（本地为 dev 定时器，删除后 timer 已取消） |
-| L6 | Network：保存或定时后 | **不应** 连续刷 `pages.data` / `edit.data` |
+| L2 | 行菜单 → **Schedule**。该页尚无定时时直接出现双日历；勾选 **Publish page on**，可选 **Unpublish on…**（必须晚于 publish 至少 1 分钟）→ Confirm | 最新版本状态 **Scheduled**，并显示 Version n |
+| L3 | 该页已有定时时再点 **Schedule** | 先列出已定时版本（标题、相对时间、publish/unpublish；等待发布为黑色，已发布为灰色），点某一行可改该版本时间 |
+| L4 | 两个版本的时间窗口（含起止分钟）重叠 | Confirm 被拒绝，提示重叠 |
+| L5 | 只设 publish、不勾 unpublish，等到点 | 该版本成为长期有效版本，页面保持可见 |
+| L6 | 窗口 unpublish 到点，且存在长期有效版本 | Shopify 切回该长期有效版本；若没有，则页面变为 Hidden，列表为 **Unpublished** |
+| L7 | 行菜单 **Unpublish**。若有未来定时版本 | 确认框列出这些版本；确认后 Shopify 页面 Hidden，未来定时仍会执行 |
+| L8 | 行菜单 **Delete page** | 本地记录删除，Shopify 对应页面一并删除 |
+| L9 | Network：保存或定时后 | **不应** 连续刷 `pages.data` / `edit.data` |
 
 **编辑页顶栏 `/shop/<shop>/…/edit`**
 
@@ -159,11 +162,12 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 |------|------|------|
 | E1 | 有未保存改动，非 scheduled / 非 published | 主按钮 **Save** |
 | E2 | 保存后（draft） | **Publish** 分裂按钮 +「Schedule publish」 |
-| E3 | 已 **Published** 且无未保存改动 | 灰色 **Published** 徽章，不可点 |
-| E4 | 已 **Published** 且有未保存改动 | **Save**（非 Published 徽章） |
-| E5 | **Scheduled** 且有改动 | 主按钮 **Save**；保存后恢复 **Scheduled** 分裂按钮；到点发布最新已保存内容 |
-| E6 | **Edit scheduling** / **Schedule publish** 弹框 | 提示语固定为 *Your page will be published on the day and time you specify.*；勾选才可填时间，默认当前时间；取消勾选并 Confirm 取消定时 |
-| E7 | Preview、Publish 等按钮 | 位于顶栏**右侧**，无纵向滚动条 |
+| E3 | 已 **Published** 且无未保存改动 | 主按钮 **Published** 不可点，菜单仍可 **Schedule publish** |
+| E4 | 已 **Published** 且有未保存改动 | **Save** |
+| E5 | 已有未来定时且无未保存改动 | 主按钮 **Scheduled** 打开版本列表；菜单可 **Schedule publish** 或 **Publish now** |
+| E6 | Schedule 弹框 | 左右两列日期 + At 时间；未勾选 Publish 时不能设 Unpublish；其它版本已占用的分钟不可选；不设 Unpublish 则到点后长期有效；编辑尚未发布的定时并取消 Publish 勾选会取消该定时 |
+| E7 | 到点发布 | 发布的是**该版本快照**，不是之后又保存的编辑器内容；若 Shopify 页面是 Hidden，会改回可见 |
+| E8 | Preview、Publish 等按钮 | 位于顶栏**右侧**，无纵向滚动条 |
 
 **可选（场景 B）**：`USE_AWS_DATA_LAYER=true` + 本机 AWS 凭证，重复 L2/L5，在 DynamoDB 与 CloudWatch 中确认 job 与 Schedule 行为与生产一致。
 
@@ -185,21 +189,33 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 | P1 | 多标签打开不同 `shop` 的 URL | 页面数据按 URL 店铺隔离，不串店 |
 | P2 | 访问 `/auth/dev-login` | **404**（生产后门关闭） |
 
-**功能（与本地表格 L1–L6、E1–E7 相同，在生产域名执行）**
+**功能（与本地表格 L1–L9、E1–E8 相同，在生产域名执行）**
 
 | 重点 | 生产额外确认 |
 |------|----------------|
-| 定时发布 | Schedule 后 DynamoDB 页面 `status=scheduled`、`pendingJobId` 有值；EventBridge 存在对应 schedule；到点 Publish Lambda 执行成功，Shopify 可见页面 |
-| 取消定时 | 列表/编辑弹框取消勾选并保存，或删除 Scheduled 页面前，EventBridge schedule 已删除，job 为 `cancelled` |
-| 发布 | **Publish** 立即推 Shopify；已发布再编辑保存为 **Outdated**（列表红色） |
+| 定时发布 | 每个版本一条 `SCHEDULE#` 记录；publish / unpublish 各有一个 EventBridge `visbuild-publish-{jobId}`；到点 Publish Lambda 按 `job.kind` 推送该版本快照 |
+| 取消定时 | 取消勾选 Publish 后，对应 pending job 为 `cancelled`，EventBridge schedule 已删除 |
+| 发布 / 隐藏 | **Publish** 立即推 Shopify 并记为长期有效版本；Hidden 页面再次发布会改为可见；**Unpublish** 或窗口结束且无长期有效版本时 `isPublished=false` |
+| 删除 | Delete page 后 Shopify Admin 中对应页面不存在 |
 | 构建 | 浏览器 Network 无 `edit.data` / `pages.data` 无限轮询 |
+
+**升级到版本级 Schedule（不兼容旧数据）**
+
+旧的页面级 `pendingJobId` 定时不再读取。上线新 SSR 与 Publish Lambda 之前清空数据：
+
+```powershell
+npx tsx scripts/clear-app-data.ts --dry-run --keep-shops
+npx tsx scripts/clear-app-data.ts --keep-shops
+```
+
+`--keep-shops` 保留店铺与 token 索引。本地开发只需 `npx tsx scripts/clear-app-data.ts --local`（删除 `.dev-data/repo.json`）。随后 `npm run deploy:publish-lambda`，再 push 触发 Amplify。回滚到旧版本后也要再清一次库，因为旧代码不认识 `SCHEDULE#` 与 `job.kind`。
 
 **发布后冒烟（建议顺序）**
 
 1. OAuth 登录 → 新建页 → 保存 → Publish → Shopify Admin 可见页面。
-2. Schedule 2–3 分钟后 → 等待 → 刷新 Shopify 与列表状态为 Published。
-3. 编辑 Scheduled 页取消勾选定时 → 列表状态恢复非 Scheduled。
-4. 删除带定时的页面 → 确认 CloudWatch 无持续失败的 Publish 调用。
+2. Schedule 一个 2–3 分钟后的窗口（含 unpublish）→ 到点后列表为 Published，Shopify 可见；unpublish 到点后按是否有长期有效版本回退或 Hidden。
+3. 编辑尚未发布的定时，取消勾选 Publish → 该版本定时取消。
+4. Delete page → Shopify 页面被删除，CloudWatch 无持续失败的 Publish 调用。
 
 **回滚**：Amplify 控制台 Redeploy 上一成功构建，或 Git revert 后重新部署。
 

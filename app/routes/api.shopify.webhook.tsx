@@ -46,7 +46,5 @@ export async function action({ request }: Route.ActionArgs) {
     bodyHtml
   );
   await savePageDraft(match.pageId, ctx, visbuildData);
-  match.status = "dirty";
-  await ctx.repo.putPageIndex(match);
   return data({ ok: true, pageId: match.pageId });
 }

@@ -97,6 +97,16 @@ export async function importShopifyPageForShop(
     visbuildData,
     shopifyPageGid: remote.id,
   });
-  await savePageDraft(page.pageId, ctx, visbuildData);
+  const versionId = await savePageDraft(page.pageId, ctx, visbuildData);
+  if (remote.isPublished) {
+    const now = new Date().toISOString();
+    await ctx.repo.patchPageIndex(page, {
+      liveVersionId: versionId,
+      evergreenVersionId: versionId,
+      lastPublishedAt: now,
+      status: "published",
+      updatedAt: now,
+    });
+  }
   return true;
 }

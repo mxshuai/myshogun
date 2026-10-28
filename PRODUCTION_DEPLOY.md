@@ -72,7 +72,19 @@ npm run verify:local-admin
 npm run seed:publish-test
 ```
 
-脚本会：写入 Secrets Manager → 写入 DynamoDB（shop/page/version/job）→ 调用 `visbuild-shopify-data-publish` → 轮询 job 是否 `done`。仅写入不调用 Lambda 时设 `SEED_SKIP_INVOKE=1`。
+脚本会：写入 Secrets Manager → 写入 DynamoDB（shop/page/version/schedule/job，`job.kind=publish`）→ 调用 `visbuild-shopify-data-publish` → 轮询 job 是否 `done`。仅写入不调用 Lambda 时设 `SEED_SKIP_INVOKE=1`。
+
+### 升级到版本级 Schedule
+
+这一版不读取旧的页面级定时数据。部署新 Publish Lambda 和 SSR **之前**清空表内业务数据和残留的 `visbuild-publish-*` schedule：
+
+```powershell
+npx tsx scripts/clear-app-data.ts --dry-run --keep-shops
+npx tsx scripts/clear-app-data.ts --keep-shops
+npm run deploy:publish-lambda
+```
+
+`--keep-shops` 保留店铺记录，避免重新 OAuth。本地 mock 数据用 `npx tsx scripts/clear-app-data.ts --local`。回滚旧 Lambda / 旧 SSR 后需要再次清库。
 
 ---
 
@@ -183,7 +195,7 @@ npm run deploy:publish-lambda
 
 | 动作 | 说明 |
 |------|------|
-| esbuild | 把 `publishPageVersion`（读 job → 读版本 → 调 Shopify `pageUpdate`）打成 Node 20 包 |
+| esbuild | 把 `runScheduledJob`（读 job → 按 publish / unpublish 执行版本发布或下线 → 调 Shopify）打成 Node 20 包 |
 | `update-function-code` | **只替换** Lambda 里的代码 zip，不改函数名、环境变量、执行角色 |
 
 ### AWS 上会发生什么

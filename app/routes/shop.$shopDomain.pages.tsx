@@ -10,9 +10,10 @@ import {
   deletePageByPath,
   duplicatePageByPath,
   listPagesForShop,
+  scheduleVersionByPath,
   setPublishedByPath,
-  setScheduledByPath,
-  unschedulePageByPath,
+  unpublishPageByPath,
+  unscheduleVersionByPath,
 } from "~/lib/server/page-service.server";
 import { requireShopRouteContext } from "~/lib/server/shop-route.server";
 import {
@@ -102,10 +103,23 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   if (intent === "unschedule") {
     const pagePath = normalizePagePath(form.get("pagePath"));
+    const versionId = form.get("versionId");
+    if (!pagePath || typeof versionId !== "string" || !versionId.trim()) {
+      return data({ ok: false as const, error: "Invalid input" }, { status: 400 });
+    }
+    const result = await unscheduleVersionByPath(ctx, shopId, pagePath, versionId.trim());
+    if (!result.ok) {
+      return data({ ok: false as const, error: result.error }, { status: 400 });
+    }
+    return data({ ok: true as const });
+  }
+
+  if (intent === "unpublish") {
+    const pagePath = normalizePagePath(form.get("pagePath"));
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    const result = await unschedulePageByPath(ctx, shopId, pagePath);
+    const result = await unpublishPageByPath(ctx, shopId, pagePath);
     if (!result.ok) {
       return data({ ok: false as const, error: result.error }, { status: 400 });
     }
@@ -114,29 +128,33 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   if (intent === "schedule") {
     const pagePath = normalizePagePath(form.get("pagePath"));
-    const at = form.get("scheduledAt");
+    const at = form.get("publishAt");
     if (!pagePath || typeof at !== "string" || !at.trim()) {
       return data({ ok: false as const, error: "Invalid input" }, { status: 400 });
     }
-    const parsed = new Date(at);
-    if (Number.isNaN(parsed.getTime())) {
+    const publishAt = new Date(at);
+    const unpublishRaw = form.get("unpublishAt");
+    const unpublishAt =
+      typeof unpublishRaw === "string" && unpublishRaw.trim()
+        ? new Date(unpublishRaw)
+        : null;
+    if (
+      Number.isNaN(publishAt.getTime()) ||
+      (unpublishAt && Number.isNaN(unpublishAt.getTime()))
+    ) {
       return data({ ok: false as const, error: "Invalid date" }, { status: 400 });
-    }
-    if (parsed.getTime() < Date.now() + 60_000) {
-      return data(
-        { ok: false as const, error: "Schedule time must be at least 1 minute in the future" },
-        { status: 400 },
-      );
     }
     const tzRaw = form.get("timezone");
     const timezone = typeof tzRaw === "string" && tzRaw.trim() ? tzRaw : "UTC";
-    const result = await setScheduledByPath(
-      ctx,
-      shopId,
-      pagePath,
-      parsed.toISOString(),
+    const versionRaw = form.get("versionId");
+    const versionId =
+      typeof versionRaw === "string" && versionRaw.trim() ? versionRaw.trim() : null;
+    const result = await scheduleVersionByPath(ctx, shopId, pagePath, {
+      versionId,
+      publishAt,
+      unpublishAt,
       timezone,
-    );
+    });
     if (!result.ok) {
       return data({ ok: false as const, error: result.error }, { status: 400 });
     }
@@ -160,9 +178,16 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    const removed = await deletePageByPath(ctx, shopId, pagePath);
-    if (!removed) {
-      return data({ ok: false as const, error: "Not found" }, { status: 404 });
+    try {
+      const removed = await deletePageByPath(ctx, shopId, pagePath);
+      if (!removed) {
+        return data({ ok: false as const, error: "Not found" }, { status: 404 });
+      }
+    } catch (e) {
+      return data(
+        { ok: false as const, error: e instanceof Error ? e.message : String(e) },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }

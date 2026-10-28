@@ -3,33 +3,56 @@ import type { Data } from "@puckeditor/core";
 import { canonicalPagePath, literalPagePath } from "../page-path";
 import { validatePageHandleForShop } from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
+import type { ScheduleSummary, VersionDisplayStatus } from "../schedule-window";
+import { versionDisplayStatus } from "../schedule-window";
 import {
-  cancelPendingJob,
+  cancelAllPageJobs,
+  cancelVersionSchedule,
+  deleteShopifyPage,
   publishPageNow,
   savePageDraft,
-  schedulePageUpdate,
+  scheduleVersion,
+  unpublishPageNow,
 } from "./publish";
-import type { PageIndex, PageStatus, ServerContext } from "./types";
+import type {
+  PageIndex,
+  PageIndexPatch,
+  PageStatus,
+  PageVersionSummary,
+  ScheduleStatus,
+  ServerContext,
+} from "./types";
 
 /** Shape consumed by the /pages list UI (mirrors the legacy file-based summary). */
 export type ShopPageSummary = {
   path: string;
   title: string;
   displayPath: string;
-  status: "draft" | "published" | "scheduled" | "outdated";
+  status: VersionDisplayStatus;
   updatedAt: string;
   scheduledPublishAt: string | null;
+  latestVersion: {
+    versionId: string;
+    versionNumber: number;
+    title: string;
+    status: VersionDisplayStatus;
+    at: string;
+  } | null;
+  schedules: ScheduleSummary[];
+  canUnpublish: boolean;
 };
 
 export type SaveResult =
-  | { ok: true; path: string; pageId?: string; status?: PageStatus }
+  | { ok: true; path: string; pageId?: string; status?: PageStatus; versionId?: string }
   | { ok: false; error: string };
 
 export type EditorPageMeta = {
   pageId: string;
   status: PageStatus;
   scheduledPublishAt: string | null;
-  pendingJobId: string | null;
+  liveVersionId: string | null;
+  evergreenVersionId: string | null;
+  schedules: ScheduleSummary[];
 };
 
 export async function getEditorPageMeta(
@@ -39,12 +62,41 @@ export async function getEditorPageMeta(
 ): Promise<EditorPageMeta | null> {
   const idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return null;
+  const schedules = await scheduleSummaries(ctx, idx.pageId);
   return {
     pageId: idx.pageId,
     status: idx.status,
     scheduledPublishAt: idx.scheduledPublishAt,
-    pendingJobId: idx.pendingJobId,
+    liveVersionId: idx.liveVersionId,
+    evergreenVersionId: idx.evergreenVersionId,
+    schedules,
   };
+}
+
+async function scheduleSummaries(
+  ctx: ServerContext,
+  pageId: string,
+  knownVersions?: PageVersionSummary[],
+): Promise<ScheduleSummary[]> {
+  const [versions, schedules] = await Promise.all([
+    knownVersions ? Promise.resolve(knownVersions) : ctx.repo.listPageVersions(pageId),
+    ctx.repo.listVersionSchedules(pageId),
+  ]);
+  const numberById = new Map(versions.map((version) => [version.versionId, version.versionNumber]));
+  const titleById = new Map(versions.map((version) => [version.versionId, version.title]));
+  return schedules
+    .filter((schedule) => schedule.status !== "cancelled")
+    .map((schedule) => ({
+      versionId: schedule.versionId,
+      versionNumber: numberById.get(schedule.versionId) ?? 0,
+      title: titleById.get(schedule.versionId) ?? "Untitled",
+      publishAt: schedule.publishAt,
+      unpublishAt: schedule.unpublishAt,
+      status: schedule.status,
+      lastError: schedule.lastError,
+      updatedAt: schedule.updatedAt,
+    }))
+    .sort((a, b) => (a.publishAt < b.publishAt ? -1 : a.publishAt > b.publishAt ? 1 : 0));
 }
 
 /** Leading /, no .. or //, no trailing slash (except root). Does not slug. */
@@ -68,12 +120,9 @@ function titleFromData(data: Data, path: string): string {
   return displayTitle(raw, path);
 }
 
-/** Map the 4-value index status onto the 3-value list status. */
-function listStatus(status: PageStatus): ShopPageSummary["status"] {
-  if (status === "published") return "published";
-  if (status === "scheduled") return "scheduled";
-  if (status === "dirty") return "outdated";
-  return "draft";
+function laterIso(a: string, b: string | null | undefined): string {
+  if (!b) return a;
+  return a > b ? a : b;
 }
 
 async function findIndexByPath(
@@ -90,14 +139,48 @@ export async function listPagesForShop(
   shopId: string,
 ): Promise<ShopPageSummary[]> {
   const pages = await ctx.repo.listPagesByShop(shopId);
-  const rows: ShopPageSummary[] = pages.map((p) => ({
-    path: p.pagePath,
-    title: displayTitle(p.title, p.pagePath),
-    displayPath: p.pagePath,
-    status: listStatus(p.status),
-    updatedAt: p.updatedAt,
-    scheduledPublishAt: p.scheduledPublishAt,
-  }));
+  const rows: ShopPageSummary[] = await Promise.all(
+    pages.map(async (p) => {
+      const versions = await ctx.repo.listPageVersions(p.pageId);
+      const scheduleRows = await scheduleSummaries(ctx, p.pageId, versions);
+      const latest = versions[0] ?? null;
+      const latestSchedule = latest
+        ? scheduleRows.find((schedule) => schedule.versionId === latest.versionId) ?? null
+        : null;
+      const visible = Boolean(p.liveVersionId);
+      const status: VersionDisplayStatus = latest
+        ? versionDisplayStatus({
+            source: latest.source,
+            scheduleStatus: (latestSchedule?.status ?? null) as ScheduleStatus | null,
+            isLive: p.liveVersionId === latest.versionId,
+            pageHasPublishHistory: Boolean(p.lastPublishedAt || p.liveVersionId),
+            pageIsVisible: visible,
+          })
+        : "draft";
+      const at = latest
+        ? laterIso(latest.createdAt, latestSchedule?.updatedAt)
+        : p.updatedAt;
+      return {
+        path: p.pagePath,
+        title: displayTitle(p.title, p.pagePath),
+        displayPath: p.pagePath,
+        status,
+        updatedAt: at,
+        scheduledPublishAt: p.scheduledPublishAt,
+        latestVersion: latest
+          ? {
+              versionId: latest.versionId,
+              versionNumber: latest.versionNumber,
+              title: latest.title,
+              status,
+              at,
+            }
+          : null,
+        schedules: scheduleRows,
+        canUnpublish: Boolean(p.shopifyPageGid && p.liveVersionId),
+      };
+    }),
+  );
   rows.sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
@@ -166,6 +249,7 @@ export async function savePageByPath(
     return { ok: false, error: "Path / is reserved for the home page" };
   }
 
+  const patch: PageIndexPatch = { title, updatedAt: now };
   if (desired !== currentPath) {
     const conflict = await findIndexByPath(ctx, shopId, desired);
     if (conflict && conflict.pageId !== idx.pageId) {
@@ -178,33 +262,25 @@ export async function savePageByPath(
     if (!handleCheck.ok) {
       return { ok: false, error: handleCheck.error };
     }
-    idx.pagePath = desired;
-    idx.handle = handleFromPath(desired);
+    patch.pagePath = desired;
+    patch.handle = handleFromPath(desired);
   }
-  idx.title = title;
-  idx.updatedAt = now;
-  if (idx.status === "published") {
-    idx.status = "dirty";
-  }
-
-  await ctx.repo.putPageIndex(idx);
+  await ctx.repo.patchPageIndex(idx, patch);
 
   const versionId = await savePageDraft(
     idx.pageId,
     ctx,
     dataWithPagePath(data, desired),
   );
+  const updated = await ctx.repo.getPageIndex(idx.pageId);
 
-  if (idx.pendingJobId) {
-    const job = await ctx.repo.getJob(idx.pendingJobId);
-    if (job?.pageId === idx.pageId && job.status === "pending") {
-      job.payloadVersionId = versionId;
-      job.updatedAt = now;
-      await ctx.repo.putJob(job);
-    }
-  }
-
-  return { ok: true, path: desired, pageId: idx.pageId, status: idx.status };
+  return {
+    ok: true,
+    path: desired,
+    pageId: idx.pageId,
+    status: updated?.status ?? idx.status,
+    versionId,
+  };
 }
 
 export async function createPageForShop(
@@ -243,7 +319,9 @@ export async function createPageForShop(
     status: "draft",
     shopifyPageGid: null,
     lastPublishedAt: null,
-    pendingJobId: null,
+    liveVersionId: null,
+    evergreenVersionId: null,
+    evergreenClearedAt: null,
     pagePath: path,
     updatedAt: now,
     scheduledPublishAt: null,
@@ -257,14 +335,15 @@ export async function createPageForShop(
   return { ok: true, path };
 }
 
-/** Cancel EventBridge / dev timer and mark job cancelled, then remove page records. */
+/** Cancel pending jobs, delete the Shopify page, then remove local records. */
 export async function deletePageForShop(
   ctx: ServerContext,
   pageId: string,
 ): Promise<boolean> {
   const idx = await ctx.repo.getPageIndex(pageId);
   if (!idx) return false;
-  await cancelPendingJob(pageId, ctx);
+  await deleteShopifyPage(ctx, idx);
+  await cancelAllPageJobs(ctx, pageId);
   await ctx.repo.deletePage(pageId);
   return true;
 }
@@ -331,7 +410,9 @@ export async function duplicatePageByPath(
     status: "draft",
     shopifyPageGid: null,
     lastPublishedAt: null,
-    pendingJobId: null,
+    liveVersionId: null,
+    evergreenVersionId: null,
+    evergreenClearedAt: null,
     pagePath: newPath,
     updatedAt: now,
     scheduledPublishAt: null,
@@ -354,6 +435,7 @@ export async function setPublishedByPath(
   ctx: ServerContext,
   shopId: string,
   path: string,
+  options?: { versionId?: string },
 ): Promise<SaveResult> {
   const idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return { ok: false, error: "Page not found" };
@@ -363,58 +445,73 @@ export async function setPublishedByPath(
     body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
 
   try {
-    await publishPageNow(idx.pageId, ctx, data);
-    return { ok: true, path };
+    await publishPageNow(idx.pageId, ctx, data, {
+      versionId: options?.versionId,
+    });
+    const versions = await ctx.repo.listPageVersions(idx.pageId);
+    return { ok: true, path, versionId: versions[0]?.versionId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-/**
- * Schedule a real Shopify publish for (shop, path): creates a PublishJob and an
- * EventBridge schedule via schedulePageUpdate. Previously this only flipped the
- * local status, so the scheduled time never actually pushed to Shopify.
- *
- * At run time, Publish Lambda creates the Shopify page if shopifyPageGid is missing.
- */
-export async function unschedulePageByPath(
+export async function unscheduleVersionByPath(
+  ctx: ServerContext,
+  shopId: string,
+  path: string,
+  versionId: string,
+): Promise<SaveResult> {
+  const idx = await findIndexByPath(ctx, shopId, path);
+  if (!idx) return { ok: false, error: "Page not found" };
+  await cancelVersionSchedule(ctx, idx.pageId, versionId);
+  return { ok: true, path };
+}
+
+export async function scheduleVersionByPath(
+  ctx: ServerContext,
+  shopId: string,
+  path: string,
+  input: {
+    versionId?: string | null;
+    publishAt: Date;
+    unpublishAt: Date | null;
+    timezone: string;
+  },
+): Promise<SaveResult> {
+  const idx = await findIndexByPath(ctx, shopId, path);
+  if (!idx) return { ok: false, error: "Page not found" };
+
+  let versionId = input.versionId?.trim() || "";
+  if (!versionId) {
+    const body = await ctx.repo.getPageBody(idx.pageId);
+    const data: Data =
+      body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
+    versionId = await savePageDraft(idx.pageId, ctx, data);
+  }
+
+  try {
+    await scheduleVersion(ctx, {
+      pageId: idx.pageId,
+      versionId,
+      publishAt: input.publishAt,
+      unpublishAt: input.unpublishAt,
+      timezone: input.timezone,
+    });
+    return { ok: true, path, versionId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function unpublishPageByPath(
   ctx: ServerContext,
   shopId: string,
   path: string,
 ): Promise<SaveResult> {
   const idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return { ok: false, error: "Page not found" };
-  await cancelPendingJob(idx.pageId, ctx);
-  return { ok: true, path };
-}
-
-export async function setScheduledByPath(
-  ctx: ServerContext,
-  shopId: string,
-  path: string,
-  scheduledPublishAt: string,
-  timezone = "UTC",
-): Promise<SaveResult> {
-  let idx = await findIndexByPath(ctx, shopId, path);
-  if (!idx) return { ok: false, error: "Page not found" };
-
-  if (idx.pendingJobId) {
-    await cancelPendingJob(idx.pageId, ctx);
-    idx = await findIndexByPath(ctx, shopId, path);
-    if (!idx) return { ok: false, error: "Page not found" };
-  }
-
-  const runAt = new Date(scheduledPublishAt);
-  if (Number.isNaN(runAt.getTime())) {
-    return { ok: false, error: "Invalid schedule time" };
-  }
-
-  const body = await ctx.repo.getPageBody(idx.pageId);
-  const data: Data =
-    body?.currentVisbuildData ?? ({ content: [], root: { props: {} } } as Data);
-
   try {
-    await schedulePageUpdate(idx.pageId, ctx, data, runAt, timezone);
+    await unpublishPageNow(idx.pageId, ctx);
     return { ok: true, path };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

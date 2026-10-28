@@ -29,10 +29,18 @@ import {
   jobToItem,
   pageBodyToItem,
   pageIndexToItem,
+  scheduleToItem,
   shopToItem,
   versionToItem,
 } from "../app/lib/server/aws/ddb-keys";
-import type { PageBody, PageIndex, PageVersion, PublishJob, Shop } from "../app/lib/server/types";
+import type {
+  PageBody,
+  PageIndex,
+  PageVersion,
+  PublishJob,
+  Shop,
+  VersionSchedule,
+} from "../app/lib/server/types";
 
 function loadEnvFile(filename: string) {
   const path = resolve(process.cwd(), filename);
@@ -186,7 +194,9 @@ async function main() {
     status: "scheduled",
     shopifyPageGid,
     lastPublishedAt: null,
-    pendingJobId: jobId,
+    liveVersionId: null,
+    evergreenVersionId: null,
+    evergreenClearedAt: null,
     pagePath: handle.startsWith("/") ? handle : `/${handle}`,
     updatedAt: now,
     scheduledPublishAt: runAt,
@@ -204,6 +214,7 @@ async function main() {
     visbuildData,
     html,
     source: "manual_save",
+    title,
     createdAt: now,
   };
 
@@ -212,11 +223,29 @@ async function main() {
     pageId,
     shopId,
     payloadVersionId: versionId,
+    kind: "publish",
     runAt,
     timezone: "UTC",
     status: "pending",
     attempts: 0,
     maxAttempts: 5,
+    lastError: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const schedule: VersionSchedule = {
+    versionId,
+    pageId,
+    shopId,
+    publishAt: runAt,
+    unpublishAt: null,
+    timezone: "UTC",
+    publishJobId: jobId,
+    unpublishJobId: null,
+    status: "pending",
+    publishedAt: null,
+    unpublishedAt: null,
     lastError: null,
     createdAt: now,
     updatedAt: now,
@@ -243,6 +272,7 @@ async function main() {
   );
   await doc.send(new PutCommand({ TableName: tableName, Item: pageBodyToItem(body) }));
   await doc.send(new PutCommand({ TableName: tableName, Item: versionToItem(version) }));
+  await doc.send(new PutCommand({ TableName: tableName, Item: scheduleToItem(schedule) }));
   await doc.send(new PutCommand({ TableName: tableName, Item: jobToItem(job) }));
 
   console.log("   shopId:", shopId);

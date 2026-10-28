@@ -1,4 +1,4 @@
-import { Form, Link, data, useLoaderData } from "react-router";
+import { Form, Link, data, useActionData, useLoaderData } from "react-router";
 
 import type { Route } from "./+types/admin.shops.$shopId.pages";
 import { requireAdmin } from "~/lib/server/auth.server";
@@ -63,12 +63,15 @@ export async function action({ request, params }: Route.ActionArgs) {
       visbuildData,
       shopifyPageGid: remote.id,
     });
-    await savePageDraft(page.pageId, ctx, visbuildData);
-    const index = await ctx.repo.getPageIndex(page.pageId);
-    if (index) {
-      index.status = remote.isPublished ? "published" : "draft";
-      index.lastPublishedAt = remote.updatedAt;
-      await ctx.repo.putPageIndex(index);
+    const versionId = await savePageDraft(page.pageId, ctx, visbuildData);
+    if (remote.isPublished) {
+      await ctx.repo.patchPageIndex(page, {
+        liveVersionId: versionId,
+        evergreenVersionId: versionId,
+        lastPublishedAt: remote.updatedAt,
+        status: "published",
+        updatedAt: new Date().toISOString(),
+      });
     }
     return data({ ok: true, pageId: page.pageId });
   }
@@ -108,8 +111,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === "delete") {
     const pageId = String(form.get("pageId") ?? "");
-    if (pageId) await deletePageForShop(ctx, pageId);
-    return data({ ok: true });
+    if (!pageId) return data({ ok: true });
+    try {
+      await deletePageForShop(ctx, pageId);
+      return data({ ok: true });
+    } catch (e) {
+      return data(
+        { error: e instanceof Error ? e.message : String(e) },
+        { status: 400 },
+      );
+    }
   }
 
   return data({ error: "Unknown intent" }, { status: 400 });
@@ -117,11 +128,19 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export default function AdminShopPages() {
   const { shop, pages } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const actionError =
+    actionData && "error" in actionData ? String(actionData.error) : null;
 
   return (
     <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 960 }}>
       <Link to="/admin/shops">← Shops</Link>
       <h1>{shop.name} — Pages</h1>
+      {actionError ? (
+        <p role="alert" style={{ color: "#b91c1c" }}>
+          {actionError}
+        </p>
+      ) : null}
 
       <Form method="post" style={{ margin: "16px 0", display: "inline" }}>
         <input type="hidden" name="intent" value="importAll" />
@@ -159,7 +178,7 @@ export default function AdminShopPages() {
               </Link>
               <div style={{ fontSize: 13, color: "#666" }}>
                 /{p.handle} · {p.status}
-                {p.pendingJobId ? " · scheduled" : ""}
+                {p.scheduledPublishAt ? " · scheduled" : ""}
               </div>
             </div>
             <Form method="post">
