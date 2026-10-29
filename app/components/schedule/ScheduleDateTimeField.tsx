@@ -62,6 +62,7 @@ export function ScheduleDateTimeField({
           actionBar: { actions: [] },
         }}
         sx={{
+          zoom: 0.7,
           "& .MuiPickersLayout-root": {
             minWidth: 0,
           },

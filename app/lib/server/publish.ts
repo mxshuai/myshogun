@@ -700,7 +700,16 @@ export async function publishPageNow(
     currentVisbuildData: bodyData,
     currentHtml: html,
   });
-  await refreshPageScheduleState(ctx, pageId, versionId);
+
+  const scheduled = await ctx.repo.getVersionSchedule(pageId, versionId);
+  if (
+    scheduled &&
+    (scheduled.status === "pending" || scheduled.status === "failed")
+  ) {
+    await cancelVersionSchedule(ctx, pageId, versionId);
+  } else {
+    await refreshPageScheduleState(ctx, pageId, versionId);
+  }
 }
 
 export async function unpublishPageNow(

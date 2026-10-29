@@ -108,7 +108,7 @@ export function ScheduleWindowDialog({
       <Dialog
         open
         onClose={onClose}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
         aria-labelledby="schedule-window-title"
       >
