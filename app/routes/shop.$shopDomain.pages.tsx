@@ -119,7 +119,10 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid path" }, { status: 400 });
     }
-    const result = await unpublishPageByPath(ctx, shopId, pagePath);
+    const cancelPendingSchedules = form.get("cancelPending") === "1";
+    const result = await unpublishPageByPath(ctx, shopId, pagePath, {
+      cancelPendingSchedules,
+    });
     if (!result.ok) {
       return data({ ok: false as const, error: result.error }, { status: 400 });
     }

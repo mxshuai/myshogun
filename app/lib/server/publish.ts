@@ -452,6 +452,18 @@ async function syncLiveUnpublish(
   await refreshPageScheduleState(ctx, index.pageId);
 }
 
+/** Cancels every pending version schedule (same as unschedule per version). */
+export async function cancelAllPendingSchedulesForPage(
+  ctx: ServerContext,
+  pageId: string,
+): Promise<void> {
+  const schedules = await ctx.repo.listVersionSchedules(pageId);
+  for (const schedule of schedules) {
+    if (schedule.status !== "pending") continue;
+    await cancelVersionSchedule(ctx, pageId, schedule.versionId);
+  }
+}
+
 export async function cancelVersionSchedule(
   ctx: ServerContext,
   pageId: string,

@@ -5,23 +5,32 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 
+import {
+  ScheduleSummaryCardButton,
+  type ScheduleSummaryCardData,
+} from "~/components/schedule/ScheduleSummaryCard";
 import { ScheduleMuiProvider } from "~/components/schedule/ScheduleMuiProvider";
-import { formatRelativeTime } from "~/lib/relative-time";
-import { formatScheduleLine } from "~/lib/schedule-format";
 import type { ScheduleSummary } from "~/lib/schedule-window";
 
+function toCardData(schedule: ScheduleSummary): ScheduleSummaryCardData {
+  return {
+    title: schedule.title,
+    versionNumber: schedule.versionNumber,
+    updatedAt: schedule.updatedAt,
+    publishAt: schedule.publishAt,
+    unpublishAt: schedule.unpublishAt,
+  };
+}
+
 export function ScheduledVersionsDialog({
-  pageTitle,
   schedules,
   onEdit,
   onClose,
 }: {
-  pageTitle: string;
   schedules: ScheduleSummary[];
   onEdit: (versionId: string) => void;
   onClose: () => void;
@@ -45,59 +54,26 @@ export function ScheduledVersionsDialog({
       >
         <DialogTitle id="scheduled-versions-title">Scheduled versions</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {pageTitle}
-          </Typography>
           <List disablePadding>
             {rows.map((schedule) => {
-              const waiting = schedule.status === "pending";
-              const secondary = (
-                <>
-                  <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>
-                    {formatRelativeTime(schedule.updatedAt)}
-                  </Typography>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    sx={{
-                      display: "block",
-                      color: waiting ? "text.primary" : "text.secondary",
-                    }}
-                  >
-                    {formatScheduleLine(schedule.publishAt, schedule.unpublishAt)}
-                  </Typography>
-                  {schedule.status === "failed" || schedule.lastError ? (
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="error"
-                      sx={{ display: "block" }}
-                    >
+              const errorFooter =
+                schedule.status === "failed" || schedule.lastError ? (
+                  <>
+                    <Divider />
+                    <Typography variant="caption" color="error" sx={{ px: 2, py: 1, display: "block" }}>
                       {schedule.status === "failed" ? "Publish failed" : "Last run failed"}
                       {schedule.lastError ? `: ${schedule.lastError}` : ""}
                     </Typography>
-                  ) : null}
-                </>
-              );
+                  </>
+                ) : null;
+
               return (
-                <ListItemButton
+                <ScheduleSummaryCardButton
                   key={schedule.versionId}
+                  schedule={toCardData(schedule)}
                   onClick={() => onEdit(schedule.versionId)}
-                  sx={{
-                    border: 1,
-                    borderColor: "divider",
-                    borderRadius: 1,
-                    mb: 1,
-                  }}
-                >
-                  <ListItemText
-                    primary={`${schedule.title} (Version ${schedule.versionNumber})`}
-                    secondary={secondary}
-                    slotProps={{
-                      primary: { sx: { fontWeight: 600 } },
-                    }}
-                  />
-                </ListItemButton>
+                  footer={errorFooter}
+                />
               );
             })}
           </List>

@@ -8,6 +8,7 @@ import type { ScheduleSummary, VersionDisplayStatus } from "../schedule-window";
 import { versionDisplayStatus } from "../schedule-window";
 import {
   cancelAllPageJobs,
+  cancelAllPendingSchedulesForPage,
   cancelVersionSchedule,
   deleteShopifyPage,
   publishPageNow,
@@ -522,10 +523,14 @@ export async function unpublishPageByPath(
   ctx: ServerContext,
   shopId: string,
   path: string,
+  options?: { cancelPendingSchedules?: boolean },
 ): Promise<SaveResult> {
   const idx = await findIndexByPath(ctx, shopId, path);
   if (!idx) return { ok: false, error: "Page not found" };
   try {
+    if (options?.cancelPendingSchedules) {
+      await cancelAllPendingSchedulesForPage(ctx, idx.pageId);
+    }
     await unpublishPageNow(idx.pageId, ctx);
     return { ok: true, path };
   } catch (e) {

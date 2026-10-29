@@ -14,7 +14,7 @@ import { formatPublishesIn } from "~/lib/relative-time";
 import type { VersionDisplayStatus } from "~/lib/schedule-window";
 import { canonicalPagePath, slugFromTitle } from "~/lib/page-path";
 import { shopEditPath } from "~/lib/shop-url";
-import { HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
+import { HIDE_BULK_PUBLISH_BUTTON, HIDE_SHOPIFY_ADMIN_UI } from "~/lib/ui-flags";
 import {
   PageActionConfirmDialog,
   type PageActionConfirmState,
@@ -304,17 +304,22 @@ export function PagesList({
       pendingSchedules: future.map((schedule) => ({
         title: schedule.title,
         versionNumber: schedule.versionNumber,
+        updatedAt: schedule.updatedAt,
         publishAt: schedule.publishAt,
+        unpublishAt: schedule.unpublishAt,
       })),
     });
   };
 
-  const runPageConfirm = () => {
+  const runPageConfirm = (cancelPendingSchedules = false) => {
     if (!pageConfirm) return;
     if (pageConfirm.kind === "delete") {
       submitIntent("delete", { pagePath: pageConfirm.pagePath });
     } else {
-      submitIntent("unpublish", { pagePath: pageConfirm.pagePath });
+      submitIntent("unpublish", {
+        pagePath: pageConfirm.pagePath,
+        ...(cancelPendingSchedules ? { cancelPending: "1" } : {}),
+      });
     }
     setPageConfirm(null);
   };
@@ -470,30 +475,34 @@ export function PagesList({
                   }}
                 >
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={someSelected}
-                      onChange={toggleSelectAll}
-                      disabled={pathKeys.length === 0 || busy}
-                      slotProps={{ input: { "aria-label": "Select all pages" } }}
-                      size="small"
-                    />
-                    <Button
-                      variant="outlined"
-                      onClick={submitBulkPublish}
-                      disabled={selected.size === 0 || busy}
-                      sx={{
-                        borderColor: "divider",
-                        color: "text.primary",
-                        fontSize: "0.875rem",
-                        py: 1,
-                        px: 1.75,
-                        bgcolor:
-                          selected.size === 0 ? "action.hover" : "background.paper",
-                      }}
-                    >
-                      Bulk publish pages
-                    </Button>
+                    {!HIDE_BULK_PUBLISH_BUTTON ? (
+                      <>
+                        <Checkbox
+                          checked={allSelected}
+                          indeterminate={someSelected}
+                          onChange={toggleSelectAll}
+                          disabled={pathKeys.length === 0 || busy}
+                          slotProps={{ input: { "aria-label": "Select all pages" } }}
+                          size="small"
+                        />
+                        <Button
+                          variant="outlined"
+                          onClick={submitBulkPublish}
+                          disabled={selected.size === 0 || busy}
+                          sx={{
+                            borderColor: "divider",
+                            color: "text.primary",
+                            fontSize: "0.875rem",
+                            py: 1,
+                            px: 1.75,
+                            bgcolor:
+                              selected.size === 0 ? "action.hover" : "background.paper",
+                          }}
+                        >
+                          Bulk publish pages
+                        </Button>
+                      </>
+                    ) : null}
                   </Stack>
                   <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -519,7 +528,9 @@ export function PagesList({
                   <Table>
                     <TableHead>
                       <TableRow>
-                        <TableCell padding="checkbox" sx={{ pl: 2, width: 48 }} />
+                        {!HIDE_BULK_PUBLISH_BUTTON ? (
+                          <TableCell padding="checkbox" sx={{ pl: 2, width: 48 }} />
+                        ) : null}
                         <TableCell>Page</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Edited</TableCell>
@@ -529,17 +540,19 @@ export function PagesList({
                     <TableBody>
                       {sortedShogunPages.map((row) => (
                         <TableRow key={row.path} hover>
-                          <TableCell padding="checkbox" sx={{ pl: 2, verticalAlign: "middle" }}>
-                            <Checkbox
-                              checked={selected.has(row.path)}
-                              onChange={() => toggleRow(row.path)}
-                              disabled={busy}
-                              slotProps={{
-                                input: { "aria-label": `Select ${row.title}` },
-                              }}
-                              size="small"
-                            />
-                          </TableCell>
+                          {!HIDE_BULK_PUBLISH_BUTTON ? (
+                            <TableCell padding="checkbox" sx={{ pl: 2, verticalAlign: "middle" }}>
+                              <Checkbox
+                                checked={selected.has(row.path)}
+                                onChange={() => toggleRow(row.path)}
+                                disabled={busy}
+                                slotProps={{
+                                  input: { "aria-label": `Select ${row.title}` },
+                                }}
+                                size="small"
+                              />
+                            </TableCell>
+                          ) : null}
                           <TableCell sx={{ verticalAlign: "middle" }}>
                             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                               <Box
@@ -854,7 +867,6 @@ export function PagesList({
       {scheduleListOpen && scheduleTarget ? (
         <Suspense fallback={null}>
           <ScheduledVersionsDialog
-            pageTitle={scheduleTarget.title}
             schedules={scheduleTarget.schedules}
             onClose={() => {
               setScheduleListOpen(false);
@@ -920,7 +932,8 @@ export function PagesList({
         pending={pageConfirm}
         busy={busy}
         onClose={() => setPageConfirm(null)}
-        onConfirm={runPageConfirm}
+        onConfirm={() => runPageConfirm(false)}
+        onConfirmUnpublishAll={() => runPageConfirm(true)}
       />
       </Box>
     </PagesMuiProvider>

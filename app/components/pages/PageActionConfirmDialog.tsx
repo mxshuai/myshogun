@@ -6,12 +6,13 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 
 import { ScheduleMuiProvider } from "~/components/schedule/ScheduleMuiProvider";
-import { formatScheduleInstant } from "~/lib/schedule-format";
+import {
+  ScheduleSummaryCard,
+  type ScheduleSummaryCardData,
+} from "~/components/schedule/ScheduleSummaryCard";
 
 export type PageDeleteConfirm = {
   kind: "delete";
@@ -21,11 +22,7 @@ export type PageDeleteConfirm = {
 export type PageUnpublishConfirm = {
   kind: "unpublish";
   pagePath: string;
-  pendingSchedules: Array<{
-    title: string;
-    versionNumber: number;
-    publishAt: string;
-  }>;
+  pendingSchedules: ScheduleSummaryCardData[];
 };
 
 export type PageActionConfirmState = PageDeleteConfirm | PageUnpublishConfirm;
@@ -35,11 +32,14 @@ export function PageActionConfirmDialog({
   busy,
   onClose,
   onConfirm,
+  onConfirmUnpublishAll,
 }: {
   pending: PageActionConfirmState | null;
   busy?: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  /** When unpublish has pending schedules: unpublish + cancel all pending schedules. */
+  onConfirmUnpublishAll?: () => void;
 }) {
   const open = pending !== null;
 
@@ -70,29 +70,22 @@ export function PageActionConfirmDialog({
     body = (
       <>
         <Typography variant="body2" sx={{ mb: future.length > 0 ? 1.5 : 0 }}>
-          Hide this page on Shopify?
+          {future.length > 0
+            ? "Hide this page on Shopify? Note that some versions are still scheduled to publish."
+            : "Hide this page on Shopify?"}
         </Typography>
         {future.length > 0 ? (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              These versions are still scheduled to publish:
-            </Typography>
-            <List dense disablePadding sx={{ mb: 1 }}>
+            <List disablePadding sx={{ mb: 1.5 }}>
               {future.map((schedule) => (
-                <ListItem key={`${schedule.versionNumber}-${schedule.publishAt}`} disableGutters>
-                  <ListItemText
-                    primary={`${schedule.title} (Version ${schedule.versionNumber})`}
-                    secondary={formatScheduleInstant(schedule.publishAt)}
-                    slotProps={{
-                      primary: { variant: "body2" },
-                      secondary: { variant: "caption" },
-                    }}
-                  />
-                </ListItem>
+                <ScheduleSummaryCard
+                  key={`${schedule.versionNumber}-${schedule.publishAt}-${schedule.updatedAt}`}
+                  schedule={schedule}
+                />
               ))}
             </List>
             <Typography variant="body2" color="text.secondary">
-              Future publishes will still run.
+              Future publish events will continue unless you choose to Unpublish All.
             </Typography>
           </>
         ) : null}
@@ -100,12 +93,17 @@ export function PageActionConfirmDialog({
     );
   }
 
+  const showUnpublishAll =
+    pending?.kind === "unpublish" &&
+    pending.pendingSchedules.length > 0 &&
+    Boolean(onConfirmUnpublishAll);
+
   return (
     <ScheduleMuiProvider>
-      <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="page-action-confirm-title">
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="page-action-confirm-title">
         <DialogTitle id="page-action-confirm-title">{title}</DialogTitle>
         <DialogContent dividers>{body}</DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+        <DialogActions sx={{ px: 3, py: 2, flexWrap: "wrap", gap: 1 }}>
           <Button onClick={onClose} variant="outlined" color="inherit" disabled={busy}>
             Cancel
           </Button>
@@ -117,6 +115,16 @@ export function PageActionConfirmDialog({
           >
             {confirmLabel}
           </Button>
+          {showUnpublishAll ? (
+            <Button
+              onClick={onConfirmUnpublishAll}
+              variant="contained"
+              color="error"
+              disabled={busy}
+            >
+              Unpublish All
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
     </ScheduleMuiProvider>

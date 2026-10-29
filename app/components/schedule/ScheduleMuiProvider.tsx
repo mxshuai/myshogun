@@ -12,6 +12,14 @@ const scheduleTheme = createTheme({
     primary: {
       main: "#7c3aed",
     },
+    text: {
+      primary: "#212121",
+      secondary: "#666666",
+    },
+    divider: "#E0E0E0",
+    background: {
+      paper: "#ffffff",
+    },
   },
   zIndex: {
     modal: SCHEDULE_MODAL_Z_INDEX,
