@@ -41,7 +41,6 @@ export function ScheduledVersionsDialog({
     (schedule) =>
       schedule.status === "pending" ||
       schedule.status === "live" ||
-      schedule.status === "ended" ||
       schedule.status === "failed",
   );
 

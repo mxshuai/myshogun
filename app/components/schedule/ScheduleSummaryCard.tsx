@@ -26,11 +26,11 @@ export type ScheduleSummaryCardData = {
   status?: ScheduleStatus;
 };
 
-const PENDING_BORDER = "rgba(124, 58, 237, 0.4)";
-const LIVE_OPEN_BORDER = "rgba(129, 199, 132, 0.4)";
-const LIVE_WAITING_UNPUBLISH_BORDER = "rgba(27, 94, 32, 0.4)";
-const ENDED_BORDER = "rgba(158, 158, 158, 0.4)";
-const FAILED_BORDER = "rgba(211, 47, 47, 0.4)";
+const PENDING_BORDER = "rgba(124, 58, 237, 0.7)";
+const LIVE_OPEN_BORDER = "rgba(129, 199, 132, 0.7)";
+const LIVE_WAITING_UNPUBLISH_BORDER = "rgba(27, 94, 32, 0.7)";
+const ENDED_BORDER = "rgba(158, 158, 158, 0.7)";
+const FAILED_BORDER = "rgba(211, 47, 47, 0.7)";
 
 export function scheduleCardBorderColor(
   schedule: Pick<ScheduleSummaryCardData, "status" | "unpublishAt" | "unpublishedAt">,
