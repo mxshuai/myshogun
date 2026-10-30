@@ -108,9 +108,16 @@ export function ScheduleWindowDialog({
       <Dialog
         open
         onClose={onClose}
-        maxWidth="sm"
-        fullWidth
+        maxWidth={false}
         aria-labelledby="schedule-window-title"
+        slotProps={{
+          paper: {
+            sx: {
+              width: "min(760px, calc(100vw - 32px))",
+              maxWidth: "calc(100vw - 32px)",
+            },
+          },
+        }}
       >
         <DialogTitle id="schedule-window-title">{title}</DialogTitle>
         <DialogContent dividers>
@@ -128,6 +135,7 @@ export function ScheduleWindowDialog({
               display: "grid",
               gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
               gap: 2,
+              alignItems: "start",
             }}
           >
             <Box
@@ -204,9 +212,6 @@ export function ScheduleWindowDialog({
               />
             </Box>
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
-            Times use your local timezone. Leave unpublish off to keep the version published.
-          </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={onClose} variant="outlined" color="inherit">

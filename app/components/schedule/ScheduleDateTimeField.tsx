@@ -2,9 +2,11 @@
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { StaticDateTimePicker } from "@mui/x-date-pickers/StaticDateTimePicker";
+import { DateCalendar } from "@mui/x-date-pickers/DateCalendar";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { type Dayjs } from "dayjs";
 
+import { SCHEDULE_MODAL_Z_INDEX } from "~/components/schedule/ScheduleMuiProvider";
 import { startOfLocalDay } from "~/lib/schedule-format";
 import {
   isDayBlocked,
@@ -12,6 +14,12 @@ import {
   truncateToMinute,
   type OccupiedRange,
 } from "~/lib/schedule-window";
+
+function mergeDateAndTime(date: Dayjs, time: Dayjs): Date {
+  return truncateToMinute(
+    date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0).toDate(),
+  );
+}
 
 export function ScheduleDateTimeField({
   value,
@@ -26,6 +34,7 @@ export function ScheduleDateTimeField({
   disabled?: boolean;
   onChange: (value: Date) => void;
 }) {
+  const valueDay = dayjs(value);
   const minMs = min ? truncateToMinute(min).getTime() : null;
   const isAvailable = (date: Date) =>
     (minMs === null || date.getTime() >= minMs) &&
@@ -39,37 +48,84 @@ export function ScheduleDateTimeField({
     return isDayBlocked(d, ranges);
   };
 
-  const shouldDisableTime = (dateValue: Dayjs) => {
-    const d = truncateToMinute(dateValue.toDate());
-    return !isAvailable(d);
+  const shouldDisableTime = (dateValue: Dayjs, view: "hours" | "minutes" | "seconds") => {
+    if (view !== "minutes") return false;
+    const probe = valueDay.hour(dateValue.hour()).minute(dateValue.minute());
+    return !isAvailable(truncateToMinute(probe.toDate()));
+  };
+
+  const tryApply = (candidate: Date) => {
+    const next = truncateToMinute(candidate);
+    if (isAvailable(next)) onChange(next);
   };
 
   return (
     <Box sx={{ opacity: disabled ? 0.55 : 1, pointerEvents: disabled ? "none" : "auto" }}>
-      <StaticDateTimePicker
+      <DateCalendar
         disabled={disabled}
-        ampm
-        value={dayjs(value)}
-        onChange={(next) => {
-          if (!next || !next.isValid()) return;
-          const d = truncateToMinute(next.toDate());
-          if (isAvailable(d)) onChange(d);
-        }}
-        minDateTime={min ? dayjs(min) : undefined}
+        value={valueDay}
+        minDate={min ? dayjs(min) : undefined}
         shouldDisableDate={shouldDisableDate}
-        shouldDisableTime={shouldDisableTime}
-        slotProps={{
-          actionBar: { actions: [] },
+        onChange={(next) => {
+          if (!next?.isValid()) return;
+          tryApply(mergeDateAndTime(next, valueDay));
         }}
         sx={{
-          zoom: 0.7,
-          "& .MuiPickersLayout-root": {
-            minWidth: 0,
+          width: 260,
+          maxWidth: "100%",
+          height: "auto",
+          mx: "auto",
+          "& .MuiPickersCalendarHeader-root": {
+            px: 0.5,
+            mt: 0,
+            mb: 0.5,
+            minHeight: 32,
+          },
+          "& .MuiPickersCalendarHeader-label": { fontSize: "0.875rem" },
+          "& .MuiDayCalendar-weekDayLabel": {
+            width: 32,
+            height: 28,
+            fontSize: "0.7rem",
+          },
+          "& .MuiPickersDay-root": {
+            width: 32,
+            height: 32,
+            fontSize: "0.75rem",
+          },
+          "& .MuiDayCalendar-slideTransition": {
+            minHeight: 208,
+            overflow: "hidden",
           },
         }}
       />
+      <Box sx={{ px: 1, pb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+          Time
+        </Typography>
+        <TimePicker
+          ampm
+          timeSteps={{ hours: 1, minutes: 1 }}
+          disabled={disabled}
+          value={valueDay}
+          onChange={(next) => {
+            if (!next?.isValid()) return;
+            tryApply(mergeDateAndTime(valueDay, next));
+          }}
+          shouldDisableTime={shouldDisableTime}
+          slotProps={{
+            textField: {
+              size: "small",
+              fullWidth: true,
+              readOnly: true,
+            },
+            popper: {
+              sx: { zIndex: SCHEDULE_MODAL_Z_INDEX + 1 },
+            },
+          }}
+        />
+      </Box>
       {blocked && !disabled ? (
-        <Typography color="error" variant="caption" sx={{ display: "block", mt: 1 }}>
+        <Typography color="error" variant="caption" sx={{ display: "block", px: 1, pb: 1 }}>
           This minute is not available.
         </Typography>
       ) : null}
