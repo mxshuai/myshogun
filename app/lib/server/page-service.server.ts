@@ -94,6 +94,7 @@ async function scheduleSummaries(
       title: titleById.get(schedule.versionId) ?? "Untitled",
       publishAt: schedule.publishAt,
       unpublishAt: schedule.unpublishAt,
+      unpublishedAt: schedule.unpublishedAt,
       status: schedule.status,
       lastError: schedule.lastError,
       updatedAt: schedule.updatedAt,

@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 
 import { formatRelativeTime } from "~/lib/relative-time";
 import { formatScheduleInstant } from "~/lib/schedule-format";
+import type { ScheduleStatus } from "~/lib/server/types";
 
 const PUBLISH_ARROW = "#2e7d32";
 const UNPUBLISH_ARROW = "#b45309";
@@ -21,7 +22,32 @@ export type ScheduleSummaryCardData = {
   updatedAt: string;
   publishAt: string;
   unpublishAt: string | null;
+  unpublishedAt?: string | null;
+  status?: ScheduleStatus;
 };
+
+const PENDING_BORDER = "rgba(167, 139, 250, 0.3)";
+const LIVE_OPEN_BORDER = "rgba(129, 199, 132, 0.3)";
+const LIVE_WAITING_UNPUBLISH_BORDER = "rgba(27, 94, 32, 0.3)";
+const ENDED_BORDER = "rgba(158, 158, 158, 0.3)";
+const FAILED_BORDER = "rgba(239, 83, 80, 0.3)";
+
+export function scheduleCardBorderColor(
+  schedule: Pick<ScheduleSummaryCardData, "status" | "unpublishAt" | "unpublishedAt">,
+): string | undefined {
+  if (schedule.status === "pending") return PENDING_BORDER;
+  if (schedule.status === "failed") return FAILED_BORDER;
+  if (schedule.status === "ended") return ENDED_BORDER;
+  if (
+    schedule.status === "live" &&
+    schedule.unpublishAt &&
+    !schedule.unpublishedAt
+  ) {
+    return LIVE_WAITING_UNPUBLISH_BORDER;
+  }
+  if (schedule.status === "live") return LIVE_OPEN_BORDER;
+  return undefined;
+}
 
 function ScheduleTimingRow({
   kind,
@@ -135,10 +161,16 @@ function ScheduleSummaryCardBody({
   );
 }
 
+function cardBorderSx(schedule: ScheduleSummaryCardData) {
+  const borderColor = scheduleCardBorderColor(schedule);
+  if (!borderColor) return {};
+  return { borderColor, borderWidth: 2 };
+}
+
 /** Read-only card (e.g. unpublish confirm). */
 export function ScheduleSummaryCard({ schedule }: { schedule: ScheduleSummaryCardData }) {
   return (
-    <Box sx={cardShellSx}>
+    <Box sx={{ ...cardShellSx, ...cardBorderSx(schedule) }}>
       <ScheduleSummaryCardBody schedule={schedule} />
     </Box>
   );
@@ -159,6 +191,7 @@ export function ScheduleSummaryCardButton({
       onClick={onClick}
       sx={{
         ...cardShellSx,
+        ...cardBorderSx(schedule),
         "&:hover": { bgcolor: "action.hover" },
       }}
     >

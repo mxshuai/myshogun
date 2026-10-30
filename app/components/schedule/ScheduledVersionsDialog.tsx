@@ -23,6 +23,8 @@ function toCardData(schedule: ScheduleSummary): ScheduleSummaryCardData {
     updatedAt: schedule.updatedAt,
     publishAt: schedule.publishAt,
     unpublishAt: schedule.unpublishAt,
+    unpublishedAt: schedule.unpublishedAt,
+    status: schedule.status,
   };
 }
 

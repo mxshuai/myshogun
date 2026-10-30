@@ -243,6 +243,7 @@ export type ScheduleSummary = {
   title: string;
   publishAt: string;
   unpublishAt: string | null;
+  unpublishedAt: string | null;
   status: ScheduleStatus;
   lastError: string | null;
   updatedAt: string;
