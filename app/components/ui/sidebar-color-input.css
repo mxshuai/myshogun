@@ -1,0 +1,249 @@
+.visbuild-sidebar-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.visbuild-sidebar-color__prefix {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visbuild-sidebar-color__abbr {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--puck-color-grey-04, #64748b);
+  min-width: 1.25rem;
+}
+
+.visbuild-sidebar-color__abbr--bg {
+  font-weight: 500;
+}
+
+.visbuild-sidebar-color__picker {
+  width: 36px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  border-radius: 6px;
+  background: var(--puck-color-white, #fff);
+  cursor: pointer;
+}
+
+.visbuild-sidebar-color__swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.visbuild-sidebar-color__swatch-fill,
+.visbuild-color-popover__preview-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.visbuild-sidebar-color__picker:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.visbuild-color-popover {
+  position: fixed;
+  z-index: 10001;
+  width: 252px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+}
+
+.visbuild-color-popover__sv {
+  position: relative;
+  height: 150px;
+  border-radius: 2px;
+  background-image:
+    linear-gradient(to top, #000, transparent),
+    linear-gradient(to right, #fff, transparent);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.visbuild-color-popover__sv-thumb,
+.visbuild-color-popover__bar-thumb {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+  pointer-events: none;
+}
+
+.visbuild-color-popover__sv-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.visbuild-color-popover__hue,
+.visbuild-color-popover__alpha {
+  position: relative;
+  height: 12px;
+  margin-top: 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.visbuild-color-popover__hue {
+  background: linear-gradient(
+    to right,
+    #f00 0%,
+    #ff0 17%,
+    #0f0 33%,
+    #0ff 50%,
+    #00f 67%,
+    #f0f 83%,
+    #f00 100%
+  );
+}
+
+.visbuild-color-popover__alpha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visbuild-color-popover__alpha {
+  flex: 1;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  overflow: hidden;
+}
+
+.visbuild-color-popover__alpha-fill {
+  position: absolute;
+  inset: 0;
+}
+
+.visbuild-color-popover__bar-thumb {
+  top: 50%;
+  width: 6px;
+  height: 16px;
+  border-radius: 2px;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.visbuild-color-popover__preview {
+  width: 28px;
+  height: 28px;
+  margin-top: 10px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  overflow: hidden;
+}
+
+.visbuild-color-popover__fields {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.visbuild-color-popover__fields label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.visbuild-color-popover__fields input {
+  width: 100%;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.visbuild-color-popover__fields span {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.visbuild-sidebar-color-pair {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.visbuild-sidebar-color-pair .visbuild-sidebar-color {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.visbuild-inline-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 32px;
+}
+
+.visbuild-inline-color__label {
+  flex: 1;
+  min-width: 0;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.visbuild-inline-color .visbuild-sidebar-color {
+  flex: 0 0 auto;
+  width: auto;
+  margin-left: auto;
+}

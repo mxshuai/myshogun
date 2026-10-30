@@ -1,0 +1,24 @@
+.visbuild-button {
+  color: var(--btn-color);
+  background-color: var(--btn-bg);
+  border: var(--btn-border);
+  border-radius: var(--btn-radius, 2px);
+  box-shadow: var(--btn-shadow, none);
+}
+
+.visbuild-button:hover,
+.visbuild-button:focus-visible {
+  color: var(--btn-hover-color);
+  background-color: var(--btn-hover-bg);
+  border: var(--btn-hover-border);
+  border-radius: var(--btn-hover-radius, var(--btn-radius, 2px));
+  box-shadow: var(--btn-hover-shadow, none);
+}
+
+.visbuild-button:active {
+  color: var(--btn-active-color);
+  background-color: var(--btn-active-bg);
+  border: var(--btn-active-border);
+  border-radius: var(--btn-active-radius, var(--btn-radius, 2px));
+  box-shadow: var(--btn-active-shadow, none);
+}

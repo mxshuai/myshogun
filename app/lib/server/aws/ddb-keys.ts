@@ -1,0 +1,269 @@
+import type {
+  MediaAsset,
+  PageBody,
+  PageIndex,
+  PageVersion,
+  PublishJob,
+  Shop,
+  VersionSchedule,
+} from "../types";
+
+export const GSI1_NAME = "GSI1";
+
+const PAGE_STATUSES = new Set([
+  "draft",
+  "dirty",
+  "published",
+  "scheduled",
+  "unpublished",
+]);
+const VERSION_SOURCES = new Set(["manual_save", "publish", "import"]);
+const SCHEDULE_STATUSES = new Set([
+  "pending",
+  "live",
+  "ended",
+  "cancelled",
+  "failed",
+]);
+const JOB_KINDS = new Set(["publish", "unpublish"]);
+const JOB_STATUSES = new Set([
+  "pending",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+]);
+
+/**
+ * Observability-only guard for enum fields read back from DynamoDB.
+ * Logs unexpected values (schema drift / dirty data) but returns the value
+ * unchanged, so normal runtime behavior is identical to a plain cast.
+ */
+function checkEnum(field: string, value: unknown, allowed: Set<string>): void {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    console.warn(`[ddb] unexpected ${field} value: ${JSON.stringify(value)}`);
+  }
+}
+
+export function shopPk(shopId: string) {
+  return `SHOP#${shopId}`;
+}
+
+export function pagePk(pageId: string) {
+  return `PAGE#${pageId}`;
+}
+
+export function jobPk(jobId: string) {
+  return `JOB#${jobId}`;
+}
+
+export function gidLookupPk(gid: string) {
+  return `GID_LOOKUP#${gid}`;
+}
+
+/** Fixed partition holding one pointer item per shop, so listShops() can
+ *  Query a single partition instead of scanning the whole table. */
+export const SHOP_DIR_PK = "SHOP_DIR";
+
+export function shopDirSk(shopId: string) {
+  return `SHOP#${shopId}`;
+}
+
+/** Reverse lookup: shop domain -> shopId, for O(1) domain resolution. */
+export function shopDomainLookupPk(domain: string) {
+  return `SHOP_LOOKUP#${domain}`;
+}
+
+export function shopToItem(shop: Shop) {
+  return {
+    PK: shopPk(shop.id),
+    SK: "META",
+    entity: "shop",
+    ...shop,
+  };
+}
+
+export function shopFromItem(item: Record<string, unknown>): Shop {
+  return {
+    id: String(item.id),
+    domain: String(item.domain),
+    name: String(item.name),
+    tokenSecretRef: String(item.tokenSecretRef),
+    createdAt: String(item.createdAt),
+    updatedAt: String(item.updatedAt),
+  };
+}
+
+export function pageIndexToItem(index: PageIndex) {
+  return {
+    PK: shopPk(index.shopId),
+    SK: `PAGE#${index.pageId}`,
+    entity: "page_index",
+    ...index,
+  };
+}
+
+export function pageIndexFromItem(item: Record<string, unknown>): PageIndex {
+  const handle = String(item.handle);
+  checkEnum("PageIndex.status", item.status, PAGE_STATUSES);
+  return {
+    pageId: String(item.pageId),
+    shopId: String(item.shopId),
+    handle,
+    title: String(item.title),
+    status: item.status as PageIndex["status"],
+    shopifyPageGid: item.shopifyPageGid
+      ? String(item.shopifyPageGid)
+      : null,
+    lastPublishedAt: item.lastPublishedAt
+      ? String(item.lastPublishedAt)
+      : null,
+    liveVersionId: item.liveVersionId ? String(item.liveVersionId) : null,
+    evergreenVersionId: item.evergreenVersionId
+      ? String(item.evergreenVersionId)
+      : null,
+    evergreenClearedAt: item.evergreenClearedAt
+      ? String(item.evergreenClearedAt)
+      : null,
+    // Backfill defaults for records written before these fields existed.
+    pagePath: item.pagePath ? String(item.pagePath) : `/${handle}`,
+    updatedAt: item.updatedAt
+      ? String(item.updatedAt)
+      : new Date(0).toISOString(),
+    scheduledPublishAt: item.scheduledPublishAt
+      ? String(item.scheduledPublishAt)
+      : null,
+  };
+}
+
+export function pageBodyToItem(body: PageBody) {
+  return {
+    PK: pagePk(body.pageId),
+    SK: "META",
+    entity: "page_body",
+    pageId: body.pageId,
+    currentVisbuildData: body.currentVisbuildData,
+    currentHtml: body.currentHtml,
+  };
+}
+
+export function pageBodyFromItem(item: Record<string, unknown>): PageBody {
+  return {
+    pageId: String(item.pageId),
+    currentVisbuildData: item.currentVisbuildData as PageBody["currentVisbuildData"],
+    currentHtml: item.currentHtml ? String(item.currentHtml) : null,
+  };
+}
+
+export function versionToItem(version: PageVersion) {
+  return {
+    PK: pagePk(version.pageId),
+    SK: `VERSION#${version.versionId}`,
+    entity: "version",
+    ...version,
+  };
+}
+
+export function versionFromItem(item: Record<string, unknown>): PageVersion {
+  checkEnum("PageVersion.source", item.source, VERSION_SOURCES);
+  return {
+    versionId: String(item.versionId),
+    pageId: String(item.pageId),
+    visbuildData: item.visbuildData as PageVersion["visbuildData"],
+    html: String(item.html),
+    source: item.source as PageVersion["source"],
+    title: item.title ? String(item.title) : "Untitled",
+    createdAt: String(item.createdAt),
+  };
+}
+
+export function scheduleSk(versionId: string) {
+  return `SCHEDULE#${versionId}`;
+}
+
+export function scheduleToItem(schedule: VersionSchedule) {
+  return {
+    PK: pagePk(schedule.pageId),
+    SK: scheduleSk(schedule.versionId),
+    entity: "version_schedule",
+    ...schedule,
+  };
+}
+
+export function scheduleFromItem(item: Record<string, unknown>): VersionSchedule {
+  checkEnum("VersionSchedule.status", item.status, SCHEDULE_STATUSES);
+  return {
+    versionId: String(item.versionId),
+    pageId: String(item.pageId),
+    shopId: String(item.shopId),
+    publishAt: String(item.publishAt),
+    unpublishAt: item.unpublishAt ? String(item.unpublishAt) : null,
+    timezone: String(item.timezone || "UTC"),
+    publishJobId: item.publishJobId ? String(item.publishJobId) : null,
+    unpublishJobId: item.unpublishJobId ? String(item.unpublishJobId) : null,
+    status: item.status as VersionSchedule["status"],
+    publishedAt: item.publishedAt ? String(item.publishedAt) : null,
+    unpublishedAt: item.unpublishedAt ? String(item.unpublishedAt) : null,
+    lastError: item.lastError ? String(item.lastError) : null,
+    createdAt: String(item.createdAt),
+    updatedAt: String(item.updatedAt),
+  };
+}
+
+export function jobToItem(job: PublishJob) {
+  return {
+    PK: jobPk(job.jobId),
+    SK: "META",
+    entity: "job",
+    GSI1PK: "JOB_STATUS#pending",
+    GSI1SK: job.runAt,
+    ...job,
+  };
+}
+
+export function mediaSk(createdAt: string, assetId: string) {
+  return `MEDIA#${createdAt}#${assetId}`;
+}
+
+export function mediaAssetToItem(asset: MediaAsset) {
+  return {
+    PK: shopPk(asset.shopId),
+    SK: mediaSk(asset.createdAt, asset.assetId),
+    entity: "media_asset",
+    ...asset,
+  };
+}
+
+export function mediaAssetFromItem(item: Record<string, unknown>): MediaAsset {
+  return {
+    assetId: String(item.assetId),
+    shopId: String(item.shopId),
+    url: String(item.url),
+    filename: String(item.filename),
+    contentType: String(item.contentType),
+    size: item.size != null ? Number(item.size) : null,
+    width: item.width != null ? Number(item.width) : null,
+    height: item.height != null ? Number(item.height) : null,
+    createdAt: String(item.createdAt),
+  };
+}
+
+export function jobFromItem(item: Record<string, unknown>): PublishJob {
+  checkEnum("PublishJob.status", item.status, JOB_STATUSES);
+  checkEnum("PublishJob.kind", item.kind, JOB_KINDS);
+  return {
+    jobId: String(item.jobId),
+    pageId: String(item.pageId),
+    shopId: String(item.shopId),
+    payloadVersionId: String(item.payloadVersionId),
+    kind: item.kind === "unpublish" ? "unpublish" : "publish",
+    runAt: String(item.runAt),
+    timezone: String(item.timezone),
+    status: item.status as PublishJob["status"],
+    attempts: Number(item.attempts ?? 0),
+    maxAttempts: Number(item.maxAttempts ?? 5),
+    lastError: item.lastError ? String(item.lastError) : null,
+    createdAt: String(item.createdAt),
+    updatedAt: String(item.updatedAt),
+  };
+}

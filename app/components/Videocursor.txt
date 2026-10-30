@@ -1,0 +1,210 @@
+import type { ComponentConfig } from "@puckeditor/core";
+import type { Components } from "./types";
+import { Section } from "./Section";
+import { withLayout } from "./Layout";
+
+function getYouTubeId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes("youtu.be")) {
+      return parsed.pathname.replace("/", "") || null;
+    }
+    if (parsed.hostname.includes("youtube.com")) {
+      return parsed.searchParams.get("v");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getVimeoId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("vimeo.com")) return null;
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : null;
+  } catch {
+    return null;
+  }
+}
+
+function toEmbedUrl({
+  videoUrl,
+  loop,
+  autoplay,
+  muteAudio,
+  relatedVideosFromOtherChannels,
+}: {
+  videoUrl: string;
+  loop: boolean;
+  autoplay: boolean;
+  muteAudio: boolean;
+  relatedVideosFromOtherChannels: boolean;
+}): string {
+  const youtubeId = getYouTubeId(videoUrl);
+  if (youtubeId) {
+    const params = new URLSearchParams({
+      autoplay: autoplay ? "1" : "0",
+      mute: muteAudio ? "1" : "0",
+      loop: loop ? "1" : "0",
+      rel: relatedVideosFromOtherChannels ? "1" : "0",
+      playsinline: "1",
+    });
+
+    // YouTube 循环播放需要 playlist 参数
+    if (loop) {
+      params.set("playlist", youtubeId);
+    }
+
+    return `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
+  }
+
+  const vimeoId = getVimeoId(videoUrl);
+  if (vimeoId) {
+    const params = new URLSearchParams({
+      autoplay: autoplay ? "1" : "0",
+      muted: muteAudio ? "1" : "0",
+      loop: loop ? "1" : "0",
+    });
+    return `https://player.vimeo.com/video/${vimeoId}?${params.toString()}`;
+  }
+
+  return "";
+}
+
+const VideoInternal: ComponentConfig<Components["Video"]> = {
+  fields: {
+    videoUrl: {
+      type: "text",
+      label: "Video URL",
+    },
+    aspectRatio: {
+      type: "radio",
+      label: "Aspect Ratio",
+      options: [
+        { label: "16 x 9", value: "16:9" },
+        { label: "4 x 3", value: "4:3" },
+      ],
+    },
+    loading: {
+      type: "radio",
+      label: "Loading",
+      options: [
+        { label: "Eager", value: "eager" },
+        { label: "Lazy", value: "lazy" },
+        { label: "Auto", value: "auto" },
+      ],
+    },
+    loop: {
+      type: "radio",
+      label: "Loop",
+      options: [
+        { label: "true", value: true },
+        { label: "false", value: false },
+      ],
+    },
+    autoplay: {
+      type: "radio",
+      label: "Autoplay",
+      options: [
+        { label: "true", value: true },
+        { label: "false", value: false },
+      ],
+    },
+    muteAudio: {
+      type: "radio",
+      label: "Mute audio",
+      options: [
+        { label: "true", value: true },
+        { label: "false", value: false },
+      ],
+    },
+    relatedVideosFromOtherChannels: {
+      type: "radio",
+      label: "Related videos from other channels",
+      options: [
+        { label: "true", value: true },
+        { label: "false", value: false },
+      ],
+    },
+  },
+  defaultProps: {
+    videoUrl: "",
+    aspectRatio: "16:9",
+    loading: "auto",
+    loop: false,
+    autoplay: false,
+    muteAudio: false,
+    relatedVideosFromOtherChannels: true,
+    layout: {
+      padding: "0px",
+    },
+  },
+  render: ({
+    videoUrl,
+    aspectRatio,
+    loading,
+    loop,
+    autoplay,
+    muteAudio,
+    relatedVideosFromOtherChannels,
+  }) => {
+    const embedUrl = toEmbedUrl({
+      videoUrl,
+      loop,
+      autoplay,
+      muteAudio,
+      relatedVideosFromOtherChannels,
+    });
+
+    const ratioPadding = aspectRatio === "4:3" ? "75%" : "56.25%";
+
+    if (!videoUrl || !embedUrl) {
+      return (
+        <Section>
+          <div
+            style={{
+              border: "1px dashed #d0d0d0",
+              borderRadius: "8px",
+              padding: "16px",
+              color: "#666",
+              fontSize: "14px",
+            }}
+          >
+            Youtube or Vimeo link
+          </div>
+        </Section>
+      );
+    }
+
+    return (
+      <Section>
+        <div style={{ position: "relative", width: "100%", paddingTop: ratioPadding }}>
+          <iframe
+            src={embedUrl}
+            title="Video player"
+            loading={loading === "auto" ? undefined : loading}
+            allow={
+              autoplay
+                ? "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                : "accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            }
+            allowFullScreen
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              border: "none",
+              borderRadius: "8px",
+            }}
+          />
+        </div>
+      </Section>
+    );
+  },
+};
+
+export const Video = withLayout(VideoInternal);
+

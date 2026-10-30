@@ -1,0 +1,80 @@
+.visbuild-px-size__label {
+  margin-bottom: 6px;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.visbuild-px-size__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visbuild-px-size__control {
+  display: flex;
+  align-items: stretch;
+  width: 148px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.visbuild-px-size__input {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  padding: 0 8px;
+  outline: none;
+}
+
+.visbuild-px-size__steps {
+  display: flex;
+  flex-direction: column;
+  width: 22px;
+  flex-shrink: 0;
+  border-left: 1px solid #e5e7eb;
+  background: #f3f4f6;
+}
+
+.visbuild-px-size__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.visbuild-px-size__step + .visbuild-px-size__step {
+  border-top: 1px solid #e5e7eb;
+}
+
+.visbuild-px-size__step:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.visbuild-px-size__suffix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}

@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Visbuild Shopify SaaS - data plane (DynamoDB, Publish/Schedule Lambdas, S3 media bucket, Scheduler role)
+
+Parameters:
+  AppTableName:
+    Type: String
+    Default: visbuild-shopify-app
+  ShopifyTokenSecretPrefix:
+    Type: String
+    Default: visbuild-shopify/token
+Resources:
+  AppTable:
+    Type: AWS::DynamoDB::Table
+    # Protect production data: keep the table if the stack is deleted or the
+    # resource would be replaced. (Test phase: safe to delete-stack + recreate.)
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Ref AppTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  PublishLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AppDataAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:DeleteItem
+                Resource:
+                  - !GetAtt AppTable.Arn
+                  - !Sub "${AppTable.Arn}/index/*"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:CreateSecret
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ShopifyTokenSecretPrefix}/*"
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt PublishDLQ.Arn
+
+  PublishLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-publish"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 120
+      MemorySize: 512
+      Role: !GetAtt PublishLambdaRole.Arn
+      # Capture failed async invocations (EventBridge Scheduler triggers) so a
+      # publish that exhausts retries is preserved for inspection, not lost.
+      DeadLetterConfig:
+        TargetArn: !GetAtt PublishDLQ.Arn
+      Environment:
+        Variables:
+          USE_AWS_DATA_LAYER: "true"
+          APP_TABLE_NAME: !Ref AppTableName
+          SHOPIFY_TOKEN_SECRET_PREFIX: !Ref ShopifyTokenSecretPrefix
+          # AWS_REGION is injected by Lambda runtime; do not set it in Environment.
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log("Deploy real bundle: npm run build:lambda", event);
+            return { ok: false, message: "Replace ZipFile with built artifact" };
+          };
+
+  SchedulerInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokePublishLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt PublishLambda.Arn
+
+  ScheduleLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ManageEventBridgeSchedules
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - scheduler:CreateSchedule
+                  - scheduler:DeleteSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:UpdateSchedule
+                Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/visbuild-publish-*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SchedulerInvokeRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: scheduler.amazonaws.com
+
+  ScheduleLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-schedule"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 256
+      Role: !GetAtt ScheduleLambdaRole.Arn
+      Environment:
+        Variables:
+          PUBLISH_LAMBDA_ARN: !GetAtt PublishLambda.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt SchedulerInvokeRole.Arn
+          APP_AWS_REGION: !Ref AWS::Region
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log("Deploy real bundle: npm run build:lambda:schedule", event);
+            return { ok: false, error: "Replace ZipFile with built artifact" };
+          };
+
+  PublishDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-publish-dlq"
+      # Keep failed publish events the full SQS maximum (14 days) for triage.
+      MessageRetentionPeriod: 1209600
+
+  PublishErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Publish Lambda errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PublishLambda
+
+  ScheduleErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Schedule Lambda errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ScheduleLambda
+
+  AppTableThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DynamoDB throttled requests on AppTable
+      MetricName: ThrottledRequests
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: TableName
+          Value: !Ref AppTable
+
+Outputs:
+  AppTableName:
+    Value: !Ref AppTable
+  PublishLambdaArn:
+    Value: !GetAtt PublishLambda.Arn
+  SchedulerRoleArn:
+    Value: !GetAtt SchedulerInvokeRole.Arn
+  ScheduleLambdaArn:
+    Value: !GetAtt ScheduleLambda.Arn
+  PublishDlqUrl:
+    Value: !Ref PublishDLQ

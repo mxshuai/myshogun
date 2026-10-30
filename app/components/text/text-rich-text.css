@@ -1,0 +1,157 @@
+/* 画布 inline 编辑：确保 TipTap 区域可见、可点击（勿与侧栏隐藏规则冲突） */
+.visbuild-text--editing,
+[class*="RichTextEditor--inline"] .rich-text,
+.visbuild-text--editing .rich-text,
+.visbuild-text--editing .ProseMirror,
+.visbuild-text--editing .tiptap {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  user-select: text !important;
+  min-height: 1.5em;
+  height: auto !important;
+  max-height: none !important;
+}
+
+.visbuild-text-inspector {
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  background: var(--puck-color-white, #fff);
+}
+
+.visbuild-text-inspector > p {
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  font-weight: 600;
+  color: var(--puck-color-grey-04, #64748b);
+}
+
+/* 装饰 / 对齐 / 列表等图标按钮：更大、间距更宽 */
+.visbuild-text-inspector .visbuild-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row [class*="IconButton"] {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px !important;
+  border-radius: 6px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row [class*="IconButton"] span {
+  font-size: 1.125rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visbuild-text-inspector .visbuild-tool-row--insert {
+  gap: 12px;
+}
+
+.visbuild-text-inspector .visbuild-tool-row--insert button[type="button"] {
+  padding: 10px 18px;
+  font-size: 0.875rem;
+}
+
+/* 与 Button / Puck radio 字段一致：文字分段选项，无图标 */
+.visbuild-text-inspector .visbuild-sidebar-radio {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0;
+  width: 100%;
+  margin-bottom: 2px;
+  border: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--puck-color-white, #fff);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-right: 1px solid var(--puck-color-grey-09, #e5e7eb);
+  background: var(--puck-color-white, #fff);
+  color: var(--puck-color-grey-03, #334155);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:last-child {
+  border-right: none;
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:hover:not(:disabled) {
+  background: var(--puck-color-grey-11, #f8fafc);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option--active {
+  background: var(--puck-color-azure-11, #eff6ff);
+  color: var(--puck-color-azure-04, #2563eb);
+}
+
+.visbuild-text-inspector .visbuild-sidebar-radio__option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/**
+ * 仅侧栏 PuckFields 内 richtext：只显示格式面板，隐藏字段名和重复的 TipTap 编辑区。
+ * 必须限定在侧栏，避免影响画布 inline 编辑器（选中/拖动）。
+ */
+[class*="PuckFields"] :has(> [class*="RichTextEditor"]) > [class*="Input-label"] {
+  display: none;
+}
+
+[class*="PuckFields"] [class*="RichTextEditor--editor"]:not([class*="inline"]) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  border: none !important;
+  background: var(--puck-color-white, #fff) !important;
+  box-shadow: none !important;
+}
+
+[class*="PuckFields"]
+  [class*="RichTextEditor--editor"]:not([class*="inline"])
+  [class*="RichTextEditor-menu"] {
+  background: var(--puck-color-white, #fff);
+  position: relative;
+  z-index: 2;
+}
+
+[class*="PuckFields"]
+  [class*="RichTextEditor--editor"]:not([class*="inline"])
+  > .rich-text {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  border: none !important;
+  opacity: 0 !important;
+}
+
+[class*="RichTextMenu--form"] {
+  flex-wrap: wrap;
+  overflow: visible !important;
+}

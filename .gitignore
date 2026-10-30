@@ -1,0 +1,17 @@
+.DS_Store
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+/.amplify-hosting/
+.env.production
+.env.production.local
+.env*.local
+!.env.production.local.example
+.dev-data/
+infra/dist/
+infra/deploy.config.json
+infra/amplify-ssr-iam-policy.json
+
+.cursor/

@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "amplify.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "YOUR_AWS_ACCOUNT_ID"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:amplify:YOUR_REGION:YOUR_AWS_ACCOUNT_ID:apps/YOUR_AMPLIFY_APP_ID/*"
+        }
+      }
+    }
+  ]
+}

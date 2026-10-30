@@ -1,0 +1,108 @@
+.visbuild-collapsible-object {
+  --visbuild-group-mark: 5px;
+  --visbuild-group-gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.visbuild-collapsible-object__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--visbuild-group-gap);
+  padding: 6px 0;
+  font-weight: 600;
+  font-size: var(--puck-font-size-xxs, 0.875rem);
+  color: var(--puck-color-text, #1a1a1a);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.visbuild-collapsible-object__summary::-webkit-details-marker {
+  display: none;
+}
+
+.visbuild-collapsible-object__chevron {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: var(--visbuild-group-mark) solid currentColor;
+  opacity: 0.65;
+  transition: transform 0.15s ease;
+}
+
+.visbuild-collapsible-object[open] .visbuild-collapsible-object__chevron {
+  transform: rotate(90deg);
+}
+
+.visbuild-collapsible-object__body,
+.visbuild-layout-fields {
+  padding: 12px 0 4px;
+}
+
+.visbuild-layout-groups {
+  display: flex;
+  flex-direction: column;
+  margin: calc(var(--puck-space-4, 16px) * -1);
+  margin-bottom: calc(var(--puck-space-3, 12px) * -1);
+}
+
+.visbuild-layout-groups > .visbuild-collapsible-object {
+  padding: var(--puck-space-4, 16px);
+  padding-bottom: var(--puck-space-3, 12px);
+}
+
+.visbuild-layout-groups > .visbuild-collapsible-object + .visbuild-collapsible-object {
+  border-top: var(--puck-border-width-regular, 1px) solid var(--puck-color-border, #e5e7eb);
+  margin-top: var(--puck-space-2, 8px);
+}
+
+.visbuild-layout-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 只藏当前 object 自己的分组标题，不要动内部 Min Height / Top 等字段 label */
+.visbuild-collapsible-object__body > [class*="Input"] > [class*="Input-label"] {
+  display: none;
+}
+
+/* 去掉 Puck object 卡片边框，组内字段与标题文字左对齐 */
+.visbuild-collapsible-object__body > [class*="Input"] > [class*="ObjectField"] {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.visbuild-collapsible-object__body > [class*="Input"] > [class*="ObjectField"] > [class*="ObjectField-fieldset"] {
+  padding: 0;
+}
+
+/* 侧栏表单：标签 13px，单行输入框高 32px、字号 14px */
+[class*="PuckFields"] [class*="Input-label"] {
+  font-size: 13px;
+}
+
+[class*="PuckFields"] input[class*="Input-input"]:not([type="radio"]):not([type="checkbox"]),
+[class*="PuckFields"] select[class*="Input-input"] {
+  height: 32px;
+  font-size: 14px;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
+}
+
+/* 侧栏字段标签前不显示类型图标（T、下箭头等） */
+[class*="PuckFields"] [class*="Input-labelIcon"] {
+  display: none;
+}
+
+[class*="PuckFields"] [class*="Input-radioInner"] {
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1.2;
+}

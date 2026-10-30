@@ -1,0 +1,436 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import type { Editor } from "@tiptap/react";
+
+import { useMediaPicker } from "../editor/media/MediaPickerContext";
+import type { ImageValue } from "../editor/media/types";
+import { DEFAULT_IMAGE_FORM } from "./text-defaults";
+import {
+  applyLinkForm,
+  type LinkFormSnapshot,
+  type LinkMarkRange,
+} from "./text-link-utils";
+
+const accent = "#7c3aed";
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,23,42,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 300,
+      }}
+      role="presentation"
+      data-puck-rte-menu
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-puck-rte-menu
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 24,
+          minWidth: 360,
+          maxWidth: "92vw",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              border: "none",
+              background: "transparent",
+              fontSize: "1.25rem",
+              cursor: "pointer",
+              color: "#64748b",
+            }}
+          >
+            ×
+          </button>
+        </div>
+        {children}
+        {footer}
+      </div>
+    </div>
+  );
+}
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "0.875rem",
+  fontWeight: 500,
+  marginBottom: 6,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  boxSizing: "border-box",
+  marginBottom: 14,
+};
+
+export function LinkInsertModal({
+  editor,
+  initial,
+  onClose,
+  onApplied,
+}: {
+  editor: Editor;
+  initial: LinkFormSnapshot;
+  onClose: () => void;
+  onApplied?: (editor: Editor) => void;
+}) {
+  const [form, setForm] = useState(initial.form);
+  const [editingExisting] = useState(initial.editingExisting);
+  const linkRangeRef = useRef<LinkMarkRange | null>(initial.range);
+
+  const submit = () => {
+    applyLinkForm(editor, form, {
+      editingExisting,
+      range: linkRangeRef.current,
+    });
+    editor.chain().focus().run();
+    onApplied?.(editor);
+    onClose();
+  };
+
+  return (
+    <ModalShell
+      title="Insert or edit a link"
+      onClose={onClose}
+      footer={
+        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={submit}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 6,
+              border: "none",
+              background: accent,
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {editingExisting ? "Update link" : "Insert link"}
+          </button>
+        </div>
+      }
+    >
+      {editingExisting ? (
+        <p style={{ fontSize: "0.8rem", color: "#64748b", margin: "0 0 12px" }}>
+          清空 URL 并保存可移除链接及蓝色下划线样式。
+        </p>
+      ) : null}
+      <label style={labelStyle}>URL</label>
+      <input
+        style={inputStyle}
+        value={form.url}
+        onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+      />
+      <label style={labelStyle}>Text to display</label>
+      <input
+        style={inputStyle}
+        placeholder="Type your text here"
+        value={form.text}
+        onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+      />
+      <label style={labelStyle}>Title</label>
+      <input
+        style={inputStyle}
+        value={form.title}
+        onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+      />
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: "0.875rem",
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={form.openInNewWindow}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, openInNewWindow: e.target.checked }))
+          }
+        />
+        Open link in new window
+      </label>
+    </ModalShell>
+  );
+}
+
+export function ImageInsertModal({
+  editor,
+  onClose,
+  onInserted,
+}: {
+  editor: Editor;
+  onClose: () => void;
+  onInserted?: (editor: Editor) => void;
+}) {
+  const { openPicker } = useMediaPicker();
+  const [form, setForm] = useState({ ...DEFAULT_IMAGE_FORM });
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  const applyPickedImage = (image: ImageValue) => {
+    const width = image.width && image.width > 0 ? String(image.width) : "";
+    const height = image.height && image.height > 0 ? String(image.height) : "";
+    setRatio(width && height ? Number(width) / Number(height) : null);
+    setForm((current) => ({
+      ...current,
+      url: image.url,
+      width,
+      height,
+    }));
+  };
+
+  useEffect(() => {
+    if (!form.lockAspectRatio || !form.width || !form.height) return;
+    const w = Number(form.width);
+    const h = Number(form.height);
+    if (w > 0 && h > 0) setRatio(w / h);
+  }, [form.lockAspectRatio]);
+
+  const onWidth = (raw: string) => {
+    setForm((f) => {
+      const next = { ...f, width: raw };
+      if (f.lockAspectRatio && ratio && raw) {
+        const w = Number(raw);
+        if (w > 0) next.height = String(Math.round(w / ratio));
+      }
+      return next;
+    });
+  };
+
+  const onHeight = (raw: string) => {
+    setForm((f) => {
+      const next = { ...f, height: raw };
+      if (f.lockAspectRatio && ratio && raw) {
+        const h = Number(raw);
+        if (h > 0) next.width = String(Math.round(h * ratio));
+      }
+      return next;
+    });
+  };
+
+  const canInsert = Boolean(form.url.trim());
+
+  const submit = () => {
+    const src = form.url.trim();
+    if (!src) return;
+    const attrs: { src: string; alt?: string; width?: number; height?: number } = {
+      src,
+      alt: form.alt.trim() || undefined,
+    };
+    const w = Number(form.width);
+    const h = Number(form.height);
+    if (w > 0) attrs.width = w;
+    if (h > 0) attrs.height = h;
+    editor.chain().focus().setImage(attrs).run();
+    if (onInserted) onInserted(editor);
+    else onClose();
+  };
+
+  return (
+    <ModalShell
+      title="Insert or edit an image"
+      onClose={onClose}
+      footer={
+        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 8 }}>
+          <button
+            type="button"
+            disabled={!canInsert}
+            onClick={submit}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 6,
+              border: "none",
+              background: canInsert ? accent : "#cbd5e1",
+              color: "#fff",
+              fontWeight: 600,
+              cursor: canInsert ? "pointer" : "not-allowed",
+            }}
+          >
+            Insert Image
+          </button>
+        </div>
+      }
+    >
+      <button
+        type="button"
+        onClick={() => openPicker(applyPickedImage)}
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          borderRadius: 6,
+          border: "none",
+          background: accent,
+          color: "#fff",
+          fontWeight: 600,
+          cursor: "pointer",
+          marginBottom: 12,
+        }}
+      >
+        Select image
+      </button>
+      <p style={{ textAlign: "center", color: "#94a3b8", margin: "8px 0" }}>or</p>
+      <label style={labelStyle}>Image URL</label>
+      <input
+        style={inputStyle}
+        placeholder="http://"
+        value={form.url}
+        onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+      />
+      <label style={labelStyle}>Alt text</label>
+      <input
+        style={inputStyle}
+        value={form.alt}
+        onChange={(e) => setForm((f) => ({ ...f, alt: e.target.value }))}
+      />
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Image width</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              style={{ ...inputStyle, marginBottom: 0 }}
+              type="number"
+              min={0}
+              value={form.width}
+              onChange={(e) => onWidth(e.target.value)}
+            />
+            <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Image height</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              style={{ ...inputStyle, marginBottom: 0 }}
+              type="number"
+              min={0}
+              value={form.height}
+              onChange={(e) => onHeight(e.target.value)}
+            />
+            <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          title={form.lockAspectRatio ? "Constrain proportions on" : "Constrain proportions off"}
+          onClick={() =>
+            setForm((f) => ({ ...f, lockAspectRatio: !f.lockAspectRatio }))
+          }
+          style={{
+            border: "none",
+            background: form.lockAspectRatio ? "#ede9fe" : "#f1f5f9",
+            color: accent,
+            borderRadius: 6,
+            padding: "10px 12px",
+            cursor: "pointer",
+            marginBottom: 2,
+          }}
+        >
+          ⛓
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+export function SourceCodeModal({
+  editor,
+  onClose,
+  onSaved,
+}: {
+  editor: Editor;
+  onClose: () => void;
+  onSaved?: (editor: Editor) => void;
+}) {
+  const [code, setCode] = useState(editor.getHTML());
+
+  const save = () => {
+    editor.chain().focus().setContent(code, { emitUpdate: true }).run();
+    if (onSaved) onSaved(editor);
+    else onClose();
+  };
+
+  return (
+    <ModalShell
+      title="Source Code"
+      onClose={onClose}
+      footer={
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+          <button type="button" onClick={onClose} style={{ padding: "8px 14px" }}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 6,
+              border: "none",
+              background: "#2563eb",
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Save
+          </button>
+        </div>
+      }
+    >
+      <textarea
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        style={{
+          width: "100%",
+          minHeight: 220,
+          padding: 12,
+          borderRadius: 6,
+          border: "1px solid #7dd3fc",
+          fontFamily: "ui-monospace, monospace",
+          fontSize: 13,
+          boxSizing: "border-box",
+        }}
+      />
+    </ModalShell>
+  );
+}

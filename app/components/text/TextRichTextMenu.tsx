@@ -1,0 +1,598 @@
+"use client";
+
+import { useEffect, useReducer, useRef, useState } from "react";
+import type { Editor } from "@tiptap/react";
+import { RichTextMenu } from "@puckeditor/core";
+
+import {
+  TEXT_FONT_OPTIONS,
+  TEXT_FONT_WEIGHT_OPTIONS,
+  TEXT_PARAGRAPH_STYLE_OPTIONS,
+} from "./text-fonts";
+import {
+  emptyTextEditorUiState,
+  readTextEditorUiState,
+  runEditorChainOnScope,
+  setTextStyleMark,
+  toggleTextUnderline,
+} from "./text-tiptap-extensions";
+import {
+  ImageInsertModal,
+  LinkInsertModal,
+  SourceCodeModal,
+} from "./TextInsertModals";
+import { readLinkFormFromEditor } from "./text-link-utils";
+import { useSyncTextHtmlToPuck } from "./text-puck-sync";
+import { resolveTextEditor } from "./use-active-text-editor";
+import { SidebarColorPair } from "../ui/SidebarColorInput";
+
+/** 与 Puck 字段标签（Formatting）一致：--puck-font-size-xxs ≈ 14px */
+const sectionLabel: React.CSSProperties = {
+  fontSize: "var(--puck-font-size-xxs, 0.875rem)",
+  fontWeight: 600,
+  color: "var(--puck-color-grey-04, #64748b)",
+  margin: "12px 0 6px",
+};
+
+const row: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "center",
+};
+
+const selectStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  padding: "8px 10px",
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  fontSize: "0.875rem",
+};
+
+const numStyle: React.CSSProperties = {
+  width: 72,
+  padding: "8px 10px",
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  fontSize: "0.875rem",
+};
+
+type MenuProps = {
+  children?: React.ReactNode;
+  editor: Editor | null;
+  editorState: Record<string, unknown> | null;
+};
+
+function applyParagraphStyle(editor: Editor, value: string) {
+  runEditorChainOnScope(editor, (chain) => {
+    if (value === "paragraph") return chain.setParagraph();
+    const level = Number(value) as 1 | 2 | 3 | 4 | 5 | 6;
+    return chain.setHeading({ level });
+  });
+}
+
+function clearFormatting(editor: Editor) {
+  runEditorChainOnScope(editor, (chain) =>
+    chain.clearNodes().unsetAllMarks(),
+  );
+}
+
+type TextAlignValue = "left" | "center" | "right" | "justify";
+type TextListValue = "none" | "dash" | "bullet" | "ordered";
+
+const TEXT_ALIGN_OPTIONS: { label: string; value: TextAlignValue }[] = [
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+  { label: "Justify", value: "justify" },
+];
+
+const TEXT_LIST_OPTIONS: { label: string; value: TextListValue }[] = [
+  { label: "None", value: "none" },
+  { label: "Dash", value: "dash" },
+  { label: "Bullet", value: "bullet" },
+  { label: "Ordered", value: "ordered" },
+];
+
+function setTextAlign(editor: Editor, align: TextAlignValue) {
+  runEditorChainOnScope(editor, (chain) => chain.setTextAlign(align));
+}
+
+function readTextAlign(editor: Editor): TextAlignValue {
+  if (editor.isActive({ textAlign: "justify" })) return "justify";
+  if (editor.isActive({ textAlign: "center" })) return "center";
+  if (editor.isActive({ textAlign: "right" })) return "right";
+  return "left";
+}
+
+function readListType(
+  editor: Editor,
+  isDashList: boolean
+): TextListValue {
+  if (editor.isActive("orderedList")) return "ordered";
+  if (isDashList) return "dash";
+  if (editor.isActive("bulletList")) return "bullet";
+  return "none";
+}
+
+function setListType(editor: Editor, type: TextListValue) {
+  const current = readListType(
+    editor,
+    editor.isActive("bulletList") &&
+      editor.getAttributes("bulletList")?.class === "visbuild-list-dash"
+  );
+
+  if (type === current) return;
+
+  if (type === "none") {
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+    }
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    return;
+  }
+
+  if (type === "dash") {
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    if (
+      editor.isActive("bulletList") &&
+      editor.getAttributes("bulletList")?.class === "visbuild-list-dash"
+    ) {
+      return;
+    }
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) =>
+        c.updateAttributes("bulletList", { class: "visbuild-list-dash" })
+      );
+      return;
+    }
+    runEditorChainOnScope(editor, (c) =>
+      c.toggleBulletList().updateAttributes("bulletList", {
+        class: "visbuild-list-dash",
+      })
+    );
+    return;
+  }
+
+  if (type === "bullet") {
+    if (editor.isActive("orderedList")) {
+      runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+    }
+    if (editor.isActive("bulletList")) {
+      runEditorChainOnScope(editor, (c) =>
+        c.updateAttributes("bulletList", { class: null })
+      );
+      return;
+    }
+    runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+    return;
+  }
+
+  if (editor.isActive("bulletList")) {
+    runEditorChainOnScope(editor, (c) => c.toggleBulletList());
+  }
+  if (!editor.isActive("orderedList")) {
+    runEditorChainOnScope(editor, (c) => c.toggleOrderedList());
+  }
+}
+
+function SidebarRadioGroup<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { label: string; value: T }[];
+  disabled: boolean;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <>
+      <p style={sectionLabel}>{label}</p>
+      <div
+        className="visbuild-sidebar-radio"
+        role="radiogroup"
+        aria-label={label}
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            disabled={disabled}
+            className={
+              value === option.value
+                ? "visbuild-sidebar-radio__option visbuild-sidebar-radio__option--active"
+                : "visbuild-sidebar-radio__option"
+            }
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function parsePxAttr(value: string): string {
+  if (!value) return "";
+  const n = parseInt(String(value).replace(/px$/i, ""), 10);
+  return Number.isNaN(n) ? "" : String(n);
+}
+
+/** 侧栏 PX 数字框：本地草稿 + blur 提交，避免 onChange 抢焦点 */
+function SidebarPxInput({
+  disabled,
+  pxFromEditor,
+  onCommit,
+}: {
+  disabled: boolean;
+  pxFromEditor: string;
+  /** 返回 false 表示未写入，输入框恢复为当前反显值 */
+  onCommit: (px: number | null) => boolean | void;
+}) {
+  const [draft, setDraft] = useState("");
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (focusedRef.current) return;
+    setDraft(parsePxAttr(pxFromEditor));
+  }, [pxFromEditor]);
+
+  return (
+    <input
+      type="number"
+      min={0}
+      placeholder=""
+      style={numStyle}
+      disabled={disabled}
+      value={draft}
+      onFocus={() => {
+        focusedRef.current = true;
+        setDraft(parsePxAttr(pxFromEditor));
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        focusedRef.current = false;
+        const raw = draft.trim();
+        const next = !raw
+          ? null
+          : Number.isNaN(Number(raw)) || Number(raw) < 0
+            ? null
+            : Number(raw);
+        const applied = onCommit(next);
+        if (applied === false) setDraft(parsePxAttr(pxFromEditor));
+      }}
+    />
+  );
+}
+
+export function TextRichTextMenu({ children, editor: sidebarEditor, editorState }: MenuProps) {
+  const [modal, setModal] = useState<"link" | "image" | "code" | null>(null);
+  const linkSnapshotRef = useRef<ReturnType<typeof readLinkFormFromEditor> | null>(
+    null,
+  );
+  const [, refresh] = useReducer((n: number) => n + 1, 0);
+  const syncHtmlToPuck = useSyncTextHtmlToPuck();
+  const editor = resolveTextEditor(sidebarEditor);
+  /** 点击时再取一次：菜单首次渲染时画布编辑器可能尚未注册 */
+  const editorNow = () => resolveTextEditor(sidebarEditor) ?? editor;
+
+  useEffect(() => {
+    if (!editor || modal) return;
+    const onUpdate = () => refresh();
+    editor.on("selectionUpdate", onUpdate);
+    return () => {
+      editor.off("selectionUpdate", onUpdate);
+    };
+  }, [editor, modal]);
+
+  const st = editor ? readTextEditorUiState(editor) : emptyTextEditorUiState();
+  const readOnly = Boolean(
+    (editorState as { readOnly?: boolean } | null)?.readOnly,
+  );
+  const canEdit = Boolean(editor) && !readOnly;
+
+  const afterModalApply = (ed: Editor) => {
+    syncHtmlToPuck(ed);
+    refresh();
+  };
+
+  const runOnCanvas = (run: (target: Editor) => void) => {
+    const target = editorNow();
+    if (!target) return;
+    run(target);
+    syncHtmlToPuck(target);
+    refresh();
+  };
+
+  const patchStyle = (attrs: Record<string, string | null>) => {
+    runOnCanvas((target) => setTextStyleMark(target, attrs));
+  };
+
+  if (!editor) {
+    return <RichTextMenu>{children}</RichTextMenu>;
+  }
+
+  return (
+    <>
+      <div className="visbuild-text-inspector">
+        <p style={sectionLabel}>Text decoration</p>
+        <div className="visbuild-tool-row">
+          <RichTextMenu.Control
+            title="Bold"
+            active={editor.isActive("bold")}
+            disabled={!canEdit}
+            icon={<span style={{ fontWeight: 700 }}>B</span>}
+            onClick={() =>
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleBold()),
+              )
+            }
+          />
+          <RichTextMenu.Control
+            title="Italic"
+            active={editor.isActive("italic")}
+            disabled={!canEdit}
+            icon={<span style={{ fontStyle: "italic" }}>I</span>}
+            onClick={() =>
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleItalic()),
+              )
+            }
+          />
+          <RichTextMenu.Control
+            title="Underline"
+            active={Boolean(st.isUnderline)}
+            disabled={!canEdit}
+            icon={<span style={{ textDecoration: "underline" }}>U</span>}
+            onClick={() =>
+              runOnCanvas((target) => toggleTextUnderline(target))
+            }
+          />
+          <RichTextMenu.Control
+            title="Strikethrough"
+            active={editor.isActive("strike")}
+            disabled={!canEdit}
+            icon={<span style={{ textDecoration: "line-through" }}>S</span>}
+            onClick={() =>
+              runOnCanvas((target) =>
+                runEditorChainOnScope(target, (c) => c.toggleStrike()),
+              )
+            }
+          />
+        </div>
+
+        <p style={sectionLabel}>Paragraph style</p>
+        <select
+          style={{ ...selectStyle, width: "100%" }}
+          disabled={!canEdit}
+          value={String(st.paragraphStyle ?? "paragraph")}
+          onChange={(e) =>
+            runOnCanvas((target) =>
+              applyParagraphStyle(target, e.target.value),
+            )
+          }
+        >
+          {TEXT_PARAGRAPH_STYLE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
+        <p style={sectionLabel}>Font</p>
+        <select
+          style={{ ...selectStyle, width: "100%", marginBottom: 8 }}
+          disabled={!canEdit}
+          value={String(st.fontFamily ?? "")}
+          onChange={(e) =>
+            patchStyle({ fontFamily: e.target.value || null })
+          }
+        >
+          {TEXT_FONT_OPTIONS.map((o) => (
+            <option key={o.label} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <div style={{ ...row, marginBottom: 8 }}>
+          <select
+            style={selectStyle}
+            disabled={!canEdit}
+            value={String(st.fontWeight ?? "400")}
+            onChange={(e) => patchStyle({ fontWeight: e.target.value })}
+          >
+            {TEXT_FONT_WEIGHT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <SidebarPxInput
+            disabled={!canEdit}
+            pxFromEditor={String(st.fontSize ?? "16px")}
+            onCommit={(n) =>
+              patchStyle({ fontSize: n == null ? null : `${n}px` })
+            }
+          />
+          <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
+        </div>
+
+        <p style={sectionLabel}>Text and background color</p>
+        <SidebarColorPair
+          textValue={st.textColor}
+          backgroundValue={st.backgroundColor}
+          disabled={!canEdit}
+          textFallback="#374151"
+          backgroundFallback="#ffffff"
+          onTextChange={(color) => patchStyle({ color })}
+          onBackgroundChange={(backgroundColor) =>
+            patchStyle({ backgroundColor })
+          }
+        />
+
+        <SidebarRadioGroup
+          label="Alignment"
+          value={readTextAlign(editor)}
+          options={TEXT_ALIGN_OPTIONS}
+          disabled={!canEdit}
+          onChange={(align) =>
+            runOnCanvas((target) => setTextAlign(target, align))
+          }
+        />
+
+        <SidebarRadioGroup
+          label="List and indentation"
+          value={readListType(editor, Boolean(st.isDashList))}
+          options={TEXT_LIST_OPTIONS}
+          disabled={!canEdit}
+          onChange={(listType) =>
+            runOnCanvas((target) => setListType(target, listType))
+          }
+        />
+
+        <p style={sectionLabel}>Line height and letter spacing</p>
+        <div style={{ ...row, marginBottom: 8 }}>
+          <SidebarPxInput
+            disabled={!canEdit}
+            pxFromEditor={st.lineHeightSidebarPx}
+            onCommit={(n) => {
+              if (
+                !st.lineHeightExplicit &&
+                (n == null || n === Number(st.lineHeightSidebarPx))
+              ) {
+                return false;
+              }
+              patchStyle({
+                lineHeight: n == null ? null : `${n}px`,
+              });
+            }}
+          />
+          <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
+          <SidebarPxInput
+            disabled={!canEdit}
+            pxFromEditor={st.letterSpacingSidebarPx}
+            onCommit={(n) => {
+              if (
+                !st.letterSpacingExplicit &&
+                (n == null || n === 0) &&
+                st.letterSpacingSidebarPx === "0"
+              ) {
+                return false;
+              }
+              patchStyle({
+                letterSpacing: n == null ? null : `${n}px`,
+              });
+            }}
+          />
+          <span style={{ fontSize: 12, color: "#64748b" }}>PX</span>
+        </div>
+
+        <p style={sectionLabel}>Insert…</p>
+        <div className="visbuild-tool-row visbuild-tool-row--insert">
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => {
+              const target = editorNow();
+              if (target) {
+                linkSnapshotRef.current = readLinkFormFromEditor(target);
+              }
+              setModal("link");
+            }}
+            style={toolBtn}
+          >
+            Link
+          </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => setModal("image")}
+            style={toolBtn}
+          >
+            Image
+          </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => setModal("code")}
+            style={toolBtn}
+          >
+            Code
+          </button>
+        </div>
+
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={() =>
+            runOnCanvas((target) => clearFormatting(target))
+          }
+          style={{
+            marginTop: 12,
+            border: "none",
+            background: "none",
+            color: "#64748b",
+            fontSize: "0.875rem",
+            cursor: canEdit ? "pointer" : "not-allowed",
+            textDecoration: "underline",
+            padding: 0,
+          }}
+        >
+          Clear text formatting
+        </button>
+      </div>
+
+      {modal === "link" && linkSnapshotRef.current ? (
+        <LinkInsertModal
+          key={`link-${linkSnapshotRef.current.form.url}-${linkSnapshotRef.current.range?.from ?? 0}`}
+          editor={editorNow() ?? editor}
+          initial={linkSnapshotRef.current}
+          onClose={() => setModal(null)}
+          onApplied={afterModalApply}
+        />
+      ) : null}
+      {modal === "image" ? (
+        <ImageInsertModal
+          editor={editorNow() ?? editor}
+          onClose={() => setModal(null)}
+          onInserted={(ed) => {
+            syncHtmlToPuck(ed);
+            setModal(null);
+          }}
+        />
+      ) : null}
+      {modal === "code" ? (
+        <SourceCodeModal
+          editor={editorNow() ?? editor}
+          onClose={() => setModal(null)}
+          onSaved={(ed) => {
+            syncHtmlToPuck(ed);
+            setModal(null);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+const toolBtn: React.CSSProperties = {
+  padding: "10px 16px",
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  fontSize: "0.875rem",
+  cursor: "pointer",
+};
+
