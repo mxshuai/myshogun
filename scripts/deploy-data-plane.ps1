@@ -8,39 +8,37 @@ $Region = $config.Region
 $StackName = $config.StackName
 Push-Location $Root
 try {
-  $status = aws cloudformation describe-stacks `
-    --stack-name $StackName `
-    --region $Region `
-    --query "Stacks[0].StackStatus" `
-    --output text 2>$null
+  $status = Get-CfnStackStatus -StackName $StackName -Region $Region
   if ($status -eq "ROLLBACK_COMPLETE") {
     Write-Host "Stack is ROLLBACK_COMPLETE — deleting before redeploy..." -ForegroundColor Yellow
-    aws cloudformation delete-stack --stack-name $StackName --region $Region
-    aws cloudformation wait stack-delete-complete --stack-name $StackName --region $Region
+    $exit = Invoke-AwsCli cloudformation delete-stack --stack-name $StackName --region $Region
+    if ($exit -ne 0) { exit $exit }
+    $exit = Invoke-AwsCli cloudformation wait stack-delete-complete --stack-name $StackName --region $Region
+    if ($exit -ne 0) { exit $exit }
   }
 
   Write-Host "Deploying stack $StackName ($Region)..." -ForegroundColor Cyan
   Write-Host "  AppTableName=$($config.AppTableName)"
 
-  aws cloudformation deploy `
+  $exit = Invoke-AwsCli cloudformation deploy `
     --template-file infra/template.yaml `
     --stack-name $StackName `
     --capabilities CAPABILITY_IAM `
     --parameter-overrides "AppTableName=$($config.AppTableName)" `
     --region $Region
-
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($exit -ne 0) { exit $exit }
 
   Write-Host "`nSetting up S3 media bucket (outside CloudFormation)..." -ForegroundColor Cyan
   & (Join-Path $PSScriptRoot "setup-assets-bucket.ps1")
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   Write-Host "`n--- Stack Outputs ---" -ForegroundColor Cyan
-  aws cloudformation describe-stacks `
+  $exit = Invoke-AwsCli cloudformation describe-stacks `
     --stack-name $StackName `
     --region $Region `
     --query "Stacks[0].Outputs" `
     --output table
+  if ($exit -ne 0) { exit $exit }
 }
 finally {
   Pop-Location
