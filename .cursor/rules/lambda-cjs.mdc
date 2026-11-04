@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Lambda 打包：必须 CommonJS (CJS)
 
-本项目独立 Lambda（`app/functions/publish.ts`、`schedule.ts`）部署到 **nodejs20.x**，Handler 为 **`index.handler`**，运行时按 **CommonJS** 加载，不是 Remix SSR。
+本项目独立 Lambda（`app/functions/publish.ts`、`schedule.ts`）部署到 **nodejs22.x**，Handler 为 **`index.handler`**，运行时按 **CommonJS** 加载，不是 Remix SSR。
 
 ## 必须
 
