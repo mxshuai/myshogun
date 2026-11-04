@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "react-router build && node scripts/sync-amplify-compute-assets.mjs",
-    "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node20 --outfile=infra/dist/publish/index.js --format=cjs",
-    "build:lambda:schedule": "esbuild app/functions/schedule.ts --bundle --platform=node --target=node20 --outfile=infra/dist/schedule/index.js --format=cjs",
+    "build:lambda": "esbuild app/functions/publish.ts --bundle --platform=node --target=node22 --outfile=infra/dist/publish/index.js --format=cjs",
+    "build:lambda:schedule": "esbuild app/functions/schedule.ts --bundle --platform=node --target=node22 --outfile=infra/dist/schedule/index.js --format=cjs",
     "verify:lambda-bundle": "node scripts/verify-lambda-bundle.mjs",
     "verify": "npm run typecheck && npm run verify:lambda-bundle",
     "dev": "react-router dev",

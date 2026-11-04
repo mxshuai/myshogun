@@ -1,5 +1,5 @@
 /**
- * Guardrail: AWS Lambda nodejs20 + Handler index.handler expects CommonJS.
+ * Guardrail: AWS Lambda nodejs22 + Handler index.handler expects CommonJS.
  * Fails if esbuild output looks like ESM or package.json uses --format=esm.
  */
 import { readFileSync, existsSync } from "node:fs";
