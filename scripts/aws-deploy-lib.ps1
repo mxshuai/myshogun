@@ -90,6 +90,48 @@ function Join-CorsParameterValue {
   return ($unique -join ",")
 }
 
+# Native aws.exe writes errors to stderr; with $ErrorActionPreference Stop that becomes a terminating error.
+function Invoke-AwsCli {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$AwsArgument
+  )
+
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    # Native aws.exe stdout must not enter the function's return pipeline; otherwise
+    # callers like `$exit = Invoke-AwsCli ...` get a string and `-ne 0` is always true.
+    & aws @AwsArgument | Out-Host
+    $exitCode = $LASTEXITCODE
+    return , $exitCode
+  } finally {
+    $ErrorActionPreference = $prevEap
+  }
+}
+
+function Get-CfnStackStatus {
+  param(
+    [string]$StackName,
+    [string]$Region
+  )
+
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "SilentlyContinue"
+  $status = aws cloudformation describe-stacks `
+    --stack-name $StackName `
+    --region $Region `
+    --query "Stacks[0].StackStatus" `
+    --output text 2>$null
+  $exit = $LASTEXITCODE
+  $ErrorActionPreference = $prevEap
+
+  if ($exit -ne 0 -or -not $status) {
+    return $null
+  }
+  return "$status".Trim()
+}
+
 function Get-StackOutputs {
   param(
     [string]$StackName,
