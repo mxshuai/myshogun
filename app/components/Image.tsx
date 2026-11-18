@@ -23,6 +23,12 @@ import {
   flattenImageProps,
   resolveImageSectionDimensions,
 } from "./image-styles";
+import "animate.css";
+import { defaultImageAnimations } from "./image-animation-config";
+import "./ImageAnimationsCustomField.css";
+import { imageAnimationsFieldGroup } from "./image-animation-fields";
+import { ImageAnimationHost } from "./ImageAnimationLayer";
+import "./image-mouse-hover.css";
 import "./image.css";
 
 const imageMainFields = {
@@ -75,6 +81,7 @@ const imageFields = {
   dimensions: imageDimensionsFieldGroup,
   defaultStyle: imageStyleFieldGroup("Default style", false),
   hoverStyle: imageStyleFieldGroup("Hover style", false),
+  animations: imageAnimationsFieldGroup(undefined),
 } as ComponentConfig<Components["Image"]>["fields"];
 
 const ImageInternal: ComponentConfig<Components["Image"]> = {
@@ -121,6 +128,7 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
         "Hover style",
         props.hoverStyle?.boxShadow === true
       ),
+      animations: imageAnimationsFieldGroup(props),
     } as NonNullable<ComponentConfig<Components["Image"]>["fields"]>;
   },
   defaultProps: {
@@ -136,6 +144,7 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
     dimensions: { ...defaultImageDimensions },
     defaultStyle: { ...defaultImageDefaultStyle },
     hoverStyle: { ...defaultImageHoverStyle },
+    animations: { ...defaultImageAnimations },
     layout: {
       ...defaultLayoutSpacing,
     },
@@ -223,17 +232,21 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
         imgStack
       );
 
+    const imageShellClass = `visbuild-image${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`;
+
     return (
       <Section sectionMinHeight={sectionMinHeight} maxWidth={sectionMaxWidth}>
-        <div
-          className={`visbuild-image${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`}
+        <ImageAnimationHost
+          animations={flat.animations}
+          isEditing={puck.isEditing === true}
+          className={imageShellClass}
           style={{
             ...buildImageCssVariables(flat),
             ...buildImageFrameStyle(flat.dimensions),
           }}
         >
           {content}
-        </div>
+        </ImageAnimationHost>
       </Section>
     );
   },

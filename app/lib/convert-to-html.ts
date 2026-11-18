@@ -46,13 +46,19 @@ import {
   ACCORDION_PLUS_FA_CLASS,
 } from "~/components/accordion-styles";
 import { wrapLayoutLayers } from "~/lib/layout-html-wrappers";
+import {
+  animateCssImportLine,
+  dataUsesImageAnimations,
+  imageAnimationDataAttributes,
+  imageAnimationShopifyScript,
+} from "~/lib/image-animation-export";
 
 /**
  * 将 Puck JSON 数据转换为 HTML 字符串（包含内联 CSS）
  */
 export function convertToHTML(data: Data): string {
   const components = data.content || [];
-  const cssContent = generateCSS();
+  const cssContent = generateCSS(data);
   
   let html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n';
   html += '  <meta charset="UTF-8">\n';
@@ -71,6 +77,10 @@ export function convertToHTML(data: Data): string {
   });
   
   html += '  </div>\n';
+  if (dataUsesImageAnimations(data)) {
+    html += imageAnimationShopifyScript();
+    html += "\n";
+  }
   html += '</body>\n</html>';
   
   return html;
@@ -348,7 +358,13 @@ function generateImage(props: any, layout: any, spaces: string): string {
     core += `${spaces}    ${imgBlock}\n`;
   }
 
-  const inner = `${spaces}  <div class="visbuild-image${hoverClass}" style="${wrapperStyle}">\n${core}${spaces}  </div>\n`;
+  const {
+    attrs: animAttrs,
+    extraClass: animClass,
+    styleExtra: animStyleExtra,
+  } = imageAnimationDataAttributes(flat);
+  const wrapperStyleMerged = [wrapperStyle, animStyleExtra].filter(Boolean).join("; ");
+  const inner = `${spaces}  <div class="visbuild-image${hoverClass}${animClass}"${animAttrs} style="${wrapperStyleMerged}">\n${core}${spaces}  </div>\n`;
   const sectionSize = resolveImageSectionDimensions(
     flat.dimensions,
     layout?.dimensions,
@@ -853,7 +869,7 @@ function generateTabs(props: any, spaces: string, indent: number): string {
     theme === "sloped"
       ? `${borderThickness}px solid ${escapeHtml(borderColor)}`
       : "none";
-  html += `${spaces}  <div style="border-top: ${contentBorderTop}; padding: ${TAB_CONTENT_PADDING}; background-color: ${escapeHtml(activeColors.backgroundColor)}; border-radius: 0 0 8px 8px;">\n`;
+  html += `${spaces}  <div style="border-top: ${contentBorderTop}; padding: ${TAB_CONTENT_PADDING}; background-color: transparent; border-radius: 0 0 8px 8px;">\n`;
 
   tabs.forEach((tab: any, index: number) => {
     const isInitial = index === initialActiveIndex;
@@ -1446,8 +1462,11 @@ function escapeHtml(text: string): string {
 /**
  * 生成 CSS 文件内容
  */
-export function generateCSS(): string {
-  return `.visbuild-page,
+export function generateCSS(data?: Data): string {
+  const animateImport = data && dataUsesImageAnimations(data)
+    ? `${animateCssImportLine()}\n\n`
+    : "";
+  return `${animateImport}.visbuild-page,
 .visbuild-page *,
 .visbuild-page *::before,
 .visbuild-page *::after {

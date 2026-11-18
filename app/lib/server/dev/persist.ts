@@ -16,20 +16,34 @@ export async function readJsonFile<T>(filename: string, fallback: T): Promise<T>
   const dest = getDevDataPath(filename);
   try {
     const raw = await fs.readFile(dest, "utf8");
-    return JSON.parse(raw) as T;
+    const trimmed = raw.trim();
+    if (!trimmed) return fallback;
+    return JSON.parse(trimmed) as T;
   } catch (e: unknown) {
     const code =
       e && typeof e === "object" && "code" in e
         ? (e as NodeJS.ErrnoException).code
         : undefined;
     if (code === "ENOENT") return fallback;
+    const isSyntax =
+      e instanceof SyntaxError ||
+      (e && typeof e === "object" && (e as Error).name === "SyntaxError");
+    if (isSyntax) {
+      console.warn(
+        `[dev-data] ${filename} is not valid JSON; using empty fallback. ` +
+          "If you had local pages/shops, restore from backup or re-run dev-login.",
+      );
+      return fallback;
+    }
     throw e;
   }
 }
 
 export async function writeJsonFile<T>(filename: string, data: T): Promise<void> {
   await ensureDevDir();
-  await fs.writeFile(getDevDataPath(filename), JSON.stringify(data, null, 2), {
-    encoding: "utf8",
-  });
+  const dest = getDevDataPath(filename);
+  const payload = JSON.stringify(data, null, 2);
+  const tmp = `${dest}.tmp`;
+  await fs.writeFile(tmp, payload, { encoding: "utf8" });
+  await fs.rename(tmp, dest);
 }

@@ -1,0 +1,12 @@
+.visbuild-image-animations-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.visbuild-image-animations-field__advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
