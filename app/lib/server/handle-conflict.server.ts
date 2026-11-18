@@ -4,9 +4,27 @@ import { createAdminClient, ShopifyApiError } from "./shopify";
 import { normalizeHandle } from "./page-ops";
 import type { PageIndex, ServerContext } from "./types";
 
+export type ShopifyPageByHandle = {
+  id: string;
+  title: string;
+};
+
 export type HandleConflictResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; kind: "local"; error: string }
+  | {
+      ok: false;
+      kind: "shopify";
+      handle: string;
+      remoteTitle: string;
+      remoteId: string;
+    };
+
+export function handleConflictErrorMessage(result: HandleConflictResult): string {
+  if (result.ok) return "";
+  if (result.kind === "local") return result.error;
+  return `Handle "${result.handle}" already exists on Shopify (page: ${result.remoteTitle})`;
+}
 
 function handleFromPath(path: string): string {
   if (path === "/") return "home";
@@ -27,11 +45,11 @@ async function findLocalPageByHandle(
   );
 }
 
-async function findShopifyPageByHandle(
+export async function findShopifyPageByHandle(
   ctx: ServerContext,
   shopId: string,
   handle: string,
-): Promise<{ id: string; title: string } | null> {
+): Promise<ShopifyPageByHandle | null> {
   const shop = await ctx.repo.getShop(shopId);
   if (!shop) return null;
   const token = await ctx.secrets.getShopToken(shopId);
@@ -86,6 +104,7 @@ export async function validatePageHandleForShop(
   if (local) {
     return {
       ok: false,
+      kind: "local",
       error: `Handle "${handle}" is already used by page ${local.pagePath} in this app`,
     };
   }
@@ -97,7 +116,10 @@ export async function validatePageHandleForShop(
   ) {
     return {
       ok: false,
-      error: `Handle "${handle}" already exists on Shopify (page: ${remote.title})`,
+      kind: "shopify",
+      handle,
+      remoteTitle: remote.title,
+      remoteId: remote.id,
     };
   }
 

@@ -24,7 +24,7 @@ function assertSchedulerConfig(): { lambdaArn: string; roleArn: string } {
   const roleArn = getSchedulerRoleArn();
   if (!lambdaArn || !roleArn) {
     throw new Error(
-      "PUBLISH_LAMBDA_ARN and SCHEDULER_ROLE_ARN must be set (see PRODUCTION_DEPLOY.md)",
+      "PUBLISH_LAMBDA_ARN and SCHEDULER_ROLE_ARN must be set (see AWS_PRODUCTION_DEPLOY.md)",
     );
   }
   if (roleArn.includes("REPLACE_ME")) {

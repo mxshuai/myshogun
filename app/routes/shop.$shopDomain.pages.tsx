@@ -7,6 +7,7 @@ import { shopPagesPath } from "~/lib/shop-url";
 import { ensureServerContext } from "~/lib/server/factory";
 import {
   createPageForShop,
+  saveResultErrorMessage,
   deletePageByPath,
   duplicatePageByPath,
   listPagesForShop,
@@ -66,7 +67,11 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
     const result = await setPublishedByPath(ctx, shopId, pagePath);
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 400 });
+      const message = saveResultErrorMessage(result);
+      return data(
+        { ok: false as const, error: message ?? "Publish failed" },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }
@@ -90,7 +95,11 @@ export async function action({ params, request }: Route.ActionArgs) {
       const pagePath = typeof p === "string" ? normalizePagePath(p) : null;
       if (!pagePath) continue;
       const result = await setPublishedByPath(ctx, shopId, pagePath);
-      if (!result.ok) errors.push(`${pagePath}: ${result.error}`);
+      if (!result.ok) {
+        errors.push(
+          `${pagePath}: ${saveResultErrorMessage(result) ?? "Failed"}`,
+        );
+      }
     }
     if (errors.length > 0) {
       return data(
@@ -109,7 +118,11 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
     const result = await unscheduleVersionByPath(ctx, shopId, pagePath, versionId.trim());
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 400 });
+      const message = saveResultErrorMessage(result);
+      return data(
+        { ok: false as const, error: message ?? "Unschedule failed" },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }
@@ -124,7 +137,11 @@ export async function action({ params, request }: Route.ActionArgs) {
       cancelPendingSchedules,
     });
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 400 });
+      const message = saveResultErrorMessage(result);
+      return data(
+        { ok: false as const, error: message ?? "Unpublish failed" },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }
@@ -159,7 +176,11 @@ export async function action({ params, request }: Route.ActionArgs) {
       timezone,
     });
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 400 });
+      const message = saveResultErrorMessage(result);
+      return data(
+        { ok: false as const, error: message ?? "Schedule failed" },
+        { status: 400 },
+      );
     }
     return data({ ok: true as const });
   }
@@ -203,14 +224,29 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!pagePath) {
       return data({ ok: false as const, error: "Invalid URL path" }, { status: 400 });
     }
+    const confirmTakeover = form.get("confirmShopifyTakeover") === "1";
     const result = await createPageForShop(
       ctx,
       shopId,
       pagePath,
-      typeof title === "string" ? title : ""
+      typeof title === "string" ? title : "",
+      { confirmShopifyTakeover: confirmTakeover },
     );
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 409 });
+      if ("code" in result && result.code === "SHOPIFY_HANDLE_EXISTS") {
+        return data(
+          {
+            ok: false as const,
+            code: result.code,
+            handle: result.handle,
+            remoteTitle: result.remoteTitle,
+            remoteId: result.remoteId,
+          },
+          { status: 409 },
+        );
+      }
+      const message = saveResultErrorMessage(result) ?? "Create failed";
+      return data({ ok: false as const, error: message }, { status: 409 });
     }
     return data({ ok: true as const, newPath: result.path });
   }
