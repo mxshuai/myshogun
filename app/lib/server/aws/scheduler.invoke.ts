@@ -28,7 +28,7 @@ async function invokeScheduleLambda(
   const arn = getScheduleLambdaArn();
   if (!arn) {
     throw new Error(
-      "SCHEDULE_LAMBDA_ARN must be set in Amplify environment variables (see PRODUCTION_DEPLOY.md)",
+      "SCHEDULE_LAMBDA_ARN must be set in Amplify environment variables (see AWS_PRODUCTION_DEPLOY.md)",
     );
   }
 

@@ -178,7 +178,7 @@ http://localhost:5173/auth/dev-login?shop=<你的店>.myshopify.com&next=/pages
 **前置**
 
 1. 代码已 push 到部署分支，Amplify 构建 **Succeeded**。
-2. 控制台环境变量已配置（至少）：`USE_AWS_DATA_LAYER=true`、`SHOPIFY_*`、`SCOPES`、`APP_TABLE_NAME`、`PUBLISH_LAMBDA_ARN`、`SCHEDULE_LAMBDA_ARN`、compute 角色对 Schedule Lambda 的 `lambda:Invoke`。详见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md)。
+2. 控制台环境变量已配置（至少）：`USE_AWS_DATA_LAYER=true`、`SHOPIFY_*`、`SCOPES`、`APP_TABLE_NAME`、`PUBLISH_LAMBDA_ARN`、`SCHEDULE_LAMBDA_ARN`、compute 角色对 Schedule Lambda 的 `lambda:Invoke`。详见 [`AWS_PRODUCTION_DEPLOY.md`](AWS_PRODUCTION_DEPLOY.md)（索引见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md)）。
 3. Publish / Schedule Lambda 已为 **CJS** 包（见 `npm run verify:lambda-bundle` 与部署脚本）。
 
 **登录与隔离**
@@ -251,6 +251,8 @@ npx tsx scripts/clear-app-data.ts --keep-shops
 
 ### Shopify 页面主题模板（visbuild，部署必配）
 
+在 Pages 列表 **新建页面** 时，若 Shopify 上已有相同 handle、本应用内尚无该路径，可先确认「接管」：创建时仅绑定 Shopify Page GID，**首次发布**才用 `pageUpdate` 覆盖内容与 **visbuild** 模板。
+
 本应用发布页面时，会通过 Admin GraphQL 为 **全店所有页面** 写入固定主题模板后缀 **`visbuild`**（代码写死，无需环境变量）。实现位置：[`app/lib/server/shopify.ts`](app/lib/server/shopify.ts) 中的 `SHOPIFY_PAGE_TEMPLATE_SUFFIX`；`pageCreate` / `pageUpdate`（含 Publish Now、定时发布、seed 脚本）均自动带上 `templateSuffix: "visbuild"`。若要改用其他模板，只改该常量并同步更新主题文件即可。
 
 **部署前必须在 Shopify 在线商店主题中创建对应模板文件**，否则发布可能报错或回退为默认 `page` 模板：
@@ -293,7 +295,7 @@ npx tsx scripts/clear-app-data.ts --keep-shops
 
 基础设施模板见 [`infra/template.yaml`](infra/template.yaml)。
 
-**生产全链路（悉尼区）**：见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md)（含五步在 AWS / 本地的详细变化说明；Account `124074140777`，Region `ap-southeast-2`，资源前缀 **visbuild**）。
+**生产全链路（悉尼区）**：见 [`AWS_PRODUCTION_DEPLOY.md`](AWS_PRODUCTION_DEPLOY.md)；上线前本机验证见 [`LOCAL_PRE_DEPLOY_VERIFY.md`](LOCAL_PRE_DEPLOY_VERIFY.md)（Account `124074140777`，Region `ap-southeast-2`，资源前缀 **visbuild**）。
 
 ## 相关文件
 

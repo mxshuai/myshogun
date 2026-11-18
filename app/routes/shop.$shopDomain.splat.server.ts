@@ -9,6 +9,7 @@ import {
   getEditorPageMeta,
   getPageDataByPath,
   savePageByPath,
+  saveResultErrorMessage,
   setPublishedByPath,
 } from "~/lib/server/page-service.server";
 import { cancelVersionSchedule, scheduleVersion } from "~/lib/server/publish";
@@ -172,7 +173,11 @@ export async function action({ params, request }: Route.ActionArgs) {
   if (body.intent === "save") {
     const result = await savePageByPath(ctx, shop.id, path, body.data, desired);
     if (!result.ok) {
-      return data({ ok: false as const, error: result.error }, { status: 400 });
+      const message = saveResultErrorMessage(result);
+      return data(
+        { ok: false as const, error: message ?? "Save failed" },
+        { status: 400 },
+      );
     }
     const snapshot = await editorSnapshot(ctx, shop.id, result.path);
     return data({
@@ -199,13 +204,21 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (body.intent === "publish") {
       const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
       if (!saved.ok) {
-        return data({ ok: false as const, error: saved.error }, { status: 400 });
+        const message = saveResultErrorMessage(saved);
+        return data(
+          { ok: false as const, error: message ?? "Save failed" },
+          { status: 400 },
+        );
       }
       const result = await setPublishedByPath(ctx, shop.id, saved.path, {
         versionId: saved.versionId,
       });
       if (!result.ok) {
-        return data({ ok: false as const, error: result.error }, { status: 400 });
+        const message = saveResultErrorMessage(result);
+        return data(
+          { ok: false as const, error: message ?? "Publish failed" },
+          { status: 400 },
+        );
       }
       const snapshot = await editorSnapshot(ctx, shop.id, result.path);
       return data({
@@ -225,7 +238,11 @@ export async function action({ params, request }: Route.ActionArgs) {
       if (!versionId) {
         const saved = await savePageByPath(ctx, shop.id, path, body.data, desired);
         if (!saved.ok) {
-          return data({ ok: false as const, error: saved.error }, { status: 400 });
+          const message = saveResultErrorMessage(saved);
+          return data(
+            { ok: false as const, error: message ?? "Save failed" },
+            { status: 400 },
+          );
         }
         versionId = saved.versionId ?? null;
         savedPath = saved.path;

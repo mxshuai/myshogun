@@ -13,7 +13,10 @@ import {
 } from "~/lib/schedule-window";
 import { visbuildDataEqual } from "~/lib/visbuild-data-equal";
 import { isDevPlaceholderShopToken } from "./dev-auth.server";
-import { validatePageHandleForShop } from "./handle-conflict.server";
+import {
+  handleConflictErrorMessage,
+  validatePageHandleForShop,
+} from "./handle-conflict.server";
 import { createAdminClient, type ShopifyAdminClient } from "./shopify";
 import type {
   JobKind,
@@ -314,7 +317,9 @@ export async function scheduleVersion(
       excludeShopifyGid: index.shopifyPageGid,
     },
   );
-  if (!handleCheck.ok) throw new Error(handleCheck.error);
+  if (!handleCheck.ok) {
+    throw new Error(handleConflictErrorMessage(handleCheck));
+  }
   const version = await ctx.repo.getPageVersion(params.versionId);
   if (!version || version.pageId !== params.pageId) {
     throw new Error("Version not found");

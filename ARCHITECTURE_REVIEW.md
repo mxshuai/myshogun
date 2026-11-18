@@ -1,7 +1,7 @@
 # 架构评审与部署方案
 
 > 本文为一次性架构评审产出:梳理系统架构与数据库字段、给出优化建议、并汇总部署步骤。
-> 权威的部署操作细节仍以 [`DEPLOYMENT.md`](DEPLOYMENT.md) 与 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md) 为准,本文不重复其分步命令。
+> 权威的部署操作细节仍以 [`DEPLOYMENT.md`](DEPLOYMENT.md) 与 [`AWS_PRODUCTION_DEPLOY.md`](AWS_PRODUCTION_DEPLOY.md) 为准,本文不重复其分步命令。
 
 ## 1. 技术栈总览
 
@@ -87,7 +87,7 @@ flowchart TD
 
 ## 6. 部署步骤概览
 
-完整分步见 [`PRODUCTION_DEPLOY.md`](PRODUCTION_DEPLOY.md);要点:
+完整分步见 [`AWS_PRODUCTION_DEPLOY.md`](AWS_PRODUCTION_DEPLOY.md);要点:
 
 1. **数据面**:`npm run deploy:data-plane`(CloudFormation 建表、两个 Lambda 骨架、IAM 角色、告警)。
 2. **Publish / Schedule Lambda**:`npm run deploy:publish-lambda` / `deploy:schedule-lambda`(CJS 包,脚本内含 `verify:lambda-bundle`)。

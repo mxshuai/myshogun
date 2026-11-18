@@ -2,7 +2,10 @@ import type { Data } from "@puckeditor/core";
 
 import { canonicalPagePath, literalPagePath } from "../page-path";
 import { visbuildDataEqual } from "../visbuild-data-equal";
-import { validatePageHandleForShop } from "./handle-conflict.server";
+import {
+  handleConflictErrorMessage,
+  validatePageHandleForShop,
+} from "./handle-conflict.server";
 import { newId, normalizeHandle } from "./page-ops";
 import type { ScheduleSummary, VersionDisplayStatus } from "../schedule-window";
 import { versionDisplayStatus } from "../schedule-window";
@@ -46,7 +49,20 @@ export type ShopPageSummary = {
 
 export type SaveResult =
   | { ok: true; path: string; pageId?: string; status?: PageStatus; versionId?: string }
+  | {
+      ok: false;
+      code: "SHOPIFY_HANDLE_EXISTS";
+      handle: string;
+      remoteTitle: string;
+      remoteId: string;
+    }
   | { ok: false; error: string };
+
+export function saveResultErrorMessage(result: SaveResult): string | null {
+  if (result.ok) return null;
+  if ("error" in result) return result.error;
+  return `Handle "${result.handle}" already exists on Shopify (page: ${result.remoteTitle})`;
+}
 
 export type EditorPageMeta = {
   pageId: string;
@@ -263,7 +279,7 @@ export async function savePageByPath(
       excludeShopifyGid: idx.shopifyPageGid,
     });
     if (!handleCheck.ok) {
-      return { ok: false, error: handleCheck.error };
+      return { ok: false, error: handleConflictErrorMessage(handleCheck) };
     }
     patch.pagePath = desired;
     patch.handle = handleFromPath(desired);
@@ -305,6 +321,7 @@ export async function createPageForShop(
   shopId: string,
   pathRaw: string,
   titleRaw: string,
+  options?: { confirmShopifyTakeover?: boolean },
 ): Promise<SaveResult> {
   if (literalPagePath(pathRaw) === "/") {
     return { ok: false, error: "Path / is reserved for the home page" };
@@ -317,8 +334,28 @@ export async function createPageForShop(
   }
 
   const handleCheck = await validatePageHandleForShop(ctx, shopId, path);
+  let shopifyPageGid: string | null = null;
   if (!handleCheck.ok) {
-    return { ok: false, error: handleCheck.error };
+    if (handleCheck.kind === "local") {
+      return { ok: false, error: handleCheck.error };
+    }
+    if (!options?.confirmShopifyTakeover) {
+      return {
+        ok: false,
+        code: "SHOPIFY_HANDLE_EXISTS",
+        handle: handleCheck.handle,
+        remoteTitle: handleCheck.remoteTitle,
+        remoteId: handleCheck.remoteId,
+      };
+    }
+    const linked = await ctx.repo.getPageByGid(handleCheck.remoteId);
+    if (linked) {
+      return {
+        ok: false,
+        error: `This Shopify page is already linked in this app as ${linked.pagePath}`,
+      };
+    }
+    shopifyPageGid = handleCheck.remoteId;
   }
 
   const now = new Date().toISOString();
@@ -334,7 +371,7 @@ export async function createPageForShop(
     handle: handleFromPath(path),
     title,
     status: "draft",
-    shopifyPageGid: null,
+    shopifyPageGid,
     lastPublishedAt: null,
     liveVersionId: null,
     evergreenVersionId: null,

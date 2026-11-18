@@ -19,6 +19,10 @@ import {
   PageActionConfirmDialog,
   type PageActionConfirmState,
 } from "~/components/pages/PageActionConfirmDialog";
+import {
+  ShopifyTakeoverConfirmDialog,
+  type ShopifyTakeoverPending,
+} from "~/components/pages/ShopifyTakeoverConfirmDialog";
 import { CreatePageDialog } from "~/components/pages/CreatePageDialog";
 import { PagesMuiProvider } from "~/components/pages/PagesMuiProvider";
 import { ShogunRowMenu } from "~/components/pages/ShogunRowMenu";
@@ -98,6 +102,9 @@ type FetcherData = {
   ok?: boolean;
   newPath?: string;
   error?: string;
+  code?: string;
+  handle?: string;
+  remoteTitle?: string;
 };
 
 export function PagesList({
@@ -125,6 +132,8 @@ export function PagesList({
   const [newPageTitle, setNewPageTitle] = useState("");
   const [newPagePath, setNewPagePath] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [shopifyTakeoverPending, setShopifyTakeoverPending] =
+    useState<ShopifyTakeoverPending | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pageConfirm, setPageConfirm] = useState<PageActionConfirmState | null>(null);
   const [shogunSort, setShogunSort] = useState<
@@ -172,6 +181,24 @@ export function PagesList({
         setScheduleError(d.error);
         return;
       }
+    }
+
+    if (
+      createOpen &&
+      d.ok === false &&
+      d.code === "SHOPIFY_HANDLE_EXISTS" &&
+      typeof d.handle === "string" &&
+      typeof d.remoteTitle === "string"
+    ) {
+      setCreateOpen(false);
+      setCreateError(null);
+      setShopifyTakeoverPending({
+        pageTitle: newPageTitle,
+        pagePath: newPagePath,
+        handle: d.handle,
+        remoteTitle: d.remoteTitle,
+      });
+      return;
     }
 
     if (createOpen && d.ok === false && typeof d.error === "string") {
@@ -324,7 +351,7 @@ export function PagesList({
     setPageConfirm(null);
   };
 
-  const submitCreate = () => {
+  const submitCreate = (options?: { confirmShopifyTakeover?: boolean }) => {
     const pagePath = canonicalPagePath(newPagePath);
     if (!pagePath) {
       setCreateError("Invalid URL path");
@@ -337,9 +364,20 @@ export function PagesList({
         intent: "createPage",
         pageTitle: newPageTitle,
         pagePath,
+        ...(options?.confirmShopifyTakeover
+          ? { confirmShopifyTakeover: "1" }
+          : {}),
       },
-      { method: "post", action: pagesAction }
+      { method: "post", action: pagesAction },
     );
+  };
+
+  const confirmShopifyTakeover = () => {
+    if (!shopifyTakeoverPending) return;
+    setNewPageTitle(shopifyTakeoverPending.pageTitle);
+    setNewPagePath(shopifyTakeoverPending.pagePath);
+    setShopifyTakeoverPending(null);
+    submitCreate({ confirmShopifyTakeover: true });
   };
 
   const filteredShopify = useMemo(() => {
@@ -861,7 +899,14 @@ export function PagesList({
           setCreateOpen(false);
           setCreateError(null);
         }}
-        onSubmit={submitCreate}
+        onSubmit={() => submitCreate()}
+      />
+
+      <ShopifyTakeoverConfirmDialog
+        pending={shopifyTakeoverPending}
+        busy={busy}
+        onClose={() => setShopifyTakeoverPending(null)}
+        onConfirm={confirmShopifyTakeover}
       />
 
       {scheduleListOpen && scheduleTarget ? (
