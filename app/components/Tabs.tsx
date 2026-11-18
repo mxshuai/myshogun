@@ -288,7 +288,7 @@ function TabsView({
         ? `${borderThickness}px solid ${borderColor}`
         : "none",
     padding: TAB_CONTENT_PADDING,
-    backgroundColor: resolvedActive.backgroundColor,
+    backgroundColor: "transparent",
     borderRadius: "0 0 8px 8px",
   };
 

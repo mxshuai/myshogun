@@ -183,7 +183,7 @@ type InlineLayoutFieldProps = {
   name?: string;
 };
 
-function InlineSwitch({
+export function InlineSwitch({
   label,
   checked,
   readOnly,

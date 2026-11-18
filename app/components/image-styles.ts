@@ -1,5 +1,10 @@
 import type { CSSProperties } from "react";
 
+import {
+  IMAGE_MOUSE_HOVER_CSS,
+  normalizeImageAnimations,
+  type ImageAnimationsGroup,
+} from "./image-animation-config";
 import { normalizeImageValue } from "./editor/media/types";
 import {
   resolveBorderCSSValue,
@@ -67,6 +72,7 @@ export type ImageRenderProps = {
   hoverBoxShadowOffsetY?: number;
   hoverBoxShadowBlur?: number;
   hoverBoxShadowSpread?: number;
+  animations: ImageAnimationsGroup;
 };
 
 const DEFAULT_DIMENSIONS: ImageDimensionsGroup = {
@@ -177,6 +183,9 @@ export function flattenImageProps(props: Record<string, unknown>): ImageRenderPr
     hoverBoxShadowOffsetY: hoverStyle.boxShadowOffsetY,
     hoverBoxShadowBlur: hoverStyle.boxShadowBlur,
     hoverBoxShadowSpread: hoverStyle.boxShadowSpread,
+    animations: normalizeImageAnimations(
+      props.animations as Partial<ImageAnimationsGroup> | undefined,
+    ),
   };
 }
 
@@ -361,4 +370,8 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
   border: var(--img-hover-border, var(--img-border, none));
   border-radius: var(--img-hover-radius, var(--img-radius, 0));
   box-shadow: var(--img-hover-shadow, var(--img-shadow, none));
-}`;
+}
+.visbuild-image--scroll-pending {
+  opacity: 0;
+}
+${IMAGE_MOUSE_HOVER_CSS}`;

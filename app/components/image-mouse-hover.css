@@ -1,0 +1,71 @@
+/* animate.css attention keyframes; modifier class visbuild-image--mouse-{name} */
+.visbuild-image.visbuild-image--mouse-bounce:hover {
+  animation-name: bounce;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-flash:hover {
+  animation-name: flash;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-pulse:hover {
+  animation-name: pulse;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-rubberBand:hover {
+  animation-name: rubberBand;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-headShake:hover {
+  animation-name: headShake;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-swing:hover {
+  animation-name: swing;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-tada:hover {
+  animation-name: tada;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-wobble:hover {
+  animation-name: wobble;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-jello:hover {
+  animation-name: jello;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}
+.visbuild-image.visbuild-image--mouse-heartBeat:hover {
+  animation-name: heartBeat;
+  animation-duration: var(--visbuild-mouse-anim-duration, 1s);
+  animation-delay: var(--visbuild-mouse-anim-delay, 0ms);
+  animation-iteration-count: var(--visbuild-mouse-anim-iteration, 1);
+  animation-fill-mode: both;
+}

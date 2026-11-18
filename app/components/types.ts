@@ -143,6 +143,22 @@ export type Components = {
       boxShadowBlur?: number;
       boxShadowSpread?: number;
     };
+    animations: {
+      scrollInViewAnimation: string;
+      scrollInViewAdvanced?: {
+        delay: "none" | "1s" | "2s" | "3s" | "4s" | "5s";
+        duration: "default" | "faster" | "fast" | "slow" | "slower";
+        iterationCount: "once" | "infinite" | "2" | "3";
+        triggerOnce: boolean;
+      };
+      mouseOverAnimation: string;
+      mouseOverAdvanced?: {
+        delay: "none" | "1s" | "2s" | "3s" | "4s" | "5s";
+        duration: "default" | "faster" | "fast" | "slow" | "slower";
+        iterationCount: "once" | "infinite" | "2" | "3";
+        triggerOnce: boolean;
+      };
+    };
   }>;
   Video: WithLayout<{
     main: {
