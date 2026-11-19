@@ -1,6 +1,6 @@
-/** 与 Shogun 默认面板一致：Body / 16px / Normal / 左对齐 / 深灰字 */
+/** Body / 16px / Normal / 左对齐 / 深灰字；字体继承 .visbuild-text / 全局栈，不写入行内 font-family */
 export const DEFAULT_TEXT_HTML =
-  '<p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 400; color: #374151; text-align: left; line-height: 1.5; margin: 0;">Text</p>';
+  '<p style="font-size: 16px; font-weight: 400; color: #374151; text-align: left; line-height: 1.5; margin: 0;">Text</p>';
 
 /** 无编辑器时的侧栏占位（16px × 1.5） */
 export const DEFAULT_TEXT_LINE_HEIGHT = "24px";

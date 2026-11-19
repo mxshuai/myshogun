@@ -10,6 +10,8 @@ import {
 import type { Route } from "./+types/root";
 import { guardRootRequest } from "~/lib/server/auth.server";
 
+import "./visbuild-global-font.css";
+
 export async function loader({ request }: Route.LoaderArgs) {
   guardRootRequest(request);
   return null;

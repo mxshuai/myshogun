@@ -1,3 +1,5 @@
+import { VISBUILD_DEFAULT_FONT_FAMILY } from "~/lib/visbuild-global-font";
+
 /** Paragraph style 的标题用原生 h1–h6，样式写在标签上，压过浏览器默认和页面重置 */
 export const TEXT_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
@@ -153,7 +155,7 @@ export function replaceTextHeadingTags(html: string): string {
  * 标题外观在 h 标签的 style 上，不放在这里。
  */
 export const TEXT_CONTENT_CSS = [
-  ".visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; }",
+  `.visbuild-text { width: 100%; line-height: 1.5; word-break: break-word; font-family: ${VISBUILD_DEFAULT_FONT_FAMILY}; }`,
   ".visbuild-text p { margin: 0 0 0.75em; }",
   ".visbuild-text p:last-child { margin-bottom: 0; }",
   ".visbuild-text ul, .visbuild-text ol { margin: 1em 0; padding: 0 0 0 40px; }",

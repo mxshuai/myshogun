@@ -3,6 +3,7 @@ import type { Data } from "@puckeditor/core";
 import { effectiveSectionSides } from "~/components/Layout";
 import { normalizeEmptyParagraphsForExport } from "~/components/text/text-empty-paragraph-export";
 import { replaceTextHeadingTags, TEXT_CONTENT_CSS } from "~/components/text/text-heading";
+import { VISBUILD_DEFAULT_FONT_FAMILY } from "~/lib/visbuild-global-font";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import {
   containerBackgroundImageUrl,
@@ -1477,7 +1478,7 @@ export function generateCSS(data?: Data): string {
 .visbuild-page {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: ${VISBUILD_DEFAULT_FONT_FAMILY};
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
