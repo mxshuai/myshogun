@@ -1,6 +1,7 @@
 import type { Data } from "@puckeditor/core";
 
 import { effectiveSectionSides } from "~/components/Layout";
+import { normalizeEmptyParagraphsForExport } from "~/components/text/text-empty-paragraph-export";
 import { replaceTextHeadingTags, TEXT_CONTENT_CSS } from "~/components/text/text-heading";
 import { resolveBackgroundSizeCss } from "~/components/container-background-size";
 import {
@@ -222,7 +223,7 @@ function sanitizeRichTextHtml(html: string): string {
   const cleaned = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  return replaceTextHeadingTags(cleaned);
+  return replaceTextHeadingTags(normalizeEmptyParagraphsForExport(cleaned));
 }
 
 /**
