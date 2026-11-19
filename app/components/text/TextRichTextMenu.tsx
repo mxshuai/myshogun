@@ -8,6 +8,7 @@ import {
   TEXT_FONT_OPTIONS,
   TEXT_FONT_WEIGHT_OPTIONS,
   TEXT_PARAGRAPH_STYLE_OPTIONS,
+  TEXT_PARAGRAPH_STYLE_PRESETS,
 } from "./text-fonts";
 import {
   emptyTextEditorUiState,
@@ -70,6 +71,16 @@ function applyParagraphStyle(editor: Editor, value: string) {
     const level = Number(value) as 1 | 2 | 3 | 4 | 5 | 6;
     return chain.setHeading({ level });
   });
+  const preset =
+    TEXT_PARAGRAPH_STYLE_PRESETS[value] ??
+    TEXT_PARAGRAPH_STYLE_PRESETS.paragraph;
+  setTextStyleMark(editor, {
+    fontSize: preset.fontSize,
+    fontWeight: preset.fontWeight,
+  });
+  if (value === "paragraph") {
+    runEditorChainOnScope(editor, (chain) => chain.unsetBold());
+  }
 }
 
 function clearFormatting(editor: Editor) {

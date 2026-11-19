@@ -1,3 +1,19 @@
+import { HEADING_SIZE_BY_LEVEL } from "../heading-level-sizes";
+
+/** 切换 Paragraph style 时写入 textStyle，侧栏字号/字重与之对齐 */
+export const TEXT_PARAGRAPH_STYLE_PRESETS: Record<
+  string,
+  { fontSize: string; fontWeight: string }
+> = {
+  paragraph: { fontSize: "16px", fontWeight: "400" },
+  "1": { fontSize: `${HEADING_SIZE_BY_LEVEL[1]}px`, fontWeight: "700" },
+  "2": { fontSize: `${HEADING_SIZE_BY_LEVEL[2]}px`, fontWeight: "700" },
+  "3": { fontSize: `${HEADING_SIZE_BY_LEVEL[3]}px`, fontWeight: "700" },
+  "4": { fontSize: `${HEADING_SIZE_BY_LEVEL[4]}px`, fontWeight: "700" },
+  "5": { fontSize: `${HEADING_SIZE_BY_LEVEL[5]}px`, fontWeight: "700" },
+  "6": { fontSize: `${HEADING_SIZE_BY_LEVEL[6]}px`, fontWeight: "700" },
+};
+
 /** 通用 Web 字体（CSS font-family 栈） */
 export const TEXT_FONT_OPTIONS = [
   { label: "Select font", value: "" },

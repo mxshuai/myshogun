@@ -7,6 +7,7 @@ import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
 
+import { HEADING_SIZE_BY_LEVEL } from "../heading-level-sizes";
 import {
   DEFAULT_TEXT_LETTER_SPACING,
   DEFAULT_TEXT_LINE_HEIGHT,
@@ -314,14 +315,40 @@ export function readTextEditorUiState(editor: import("@tiptap/react").Editor) {
   const markLineHeight = ts.lineHeight as string | undefined;
   const markLetterSpacing = ts.letterSpacing as string | undefined;
   const metrics = readSelectionMetrics(editor);
-  const fontSizePx = ts.fontSize
-    ? parseFontSizePx(ts.fontSize as string)
-    : (metrics.fontSizePx ?? 16);
+  const headingLevel = (() => {
+    for (const level of [1, 2, 3, 4, 5, 6] as const) {
+      if (editor.isActive("heading", { level })) return level;
+    }
+    return null;
+  })();
+
+  const fontSizeFromMetrics =
+    metrics.fontSizePx != null ? `${Math.round(metrics.fontSizePx)}px` : null;
+  const fontSizeFromHeading =
+    headingLevel != null ? `${HEADING_SIZE_BY_LEVEL[headingLevel]}px` : null;
+  const resolvedFontSize =
+    (ts.fontSize as string) ||
+    fontSizeFromMetrics ||
+    fontSizeFromHeading ||
+    "16px";
+
+  const fontSizePx = parseFontSizePx(resolvedFontSize);
+
+  let resolvedFontWeight = (ts.fontWeight as string) ?? "";
+  if (!resolvedFontWeight) {
+    if (editor.isActive("bold")) {
+      resolvedFontWeight = "700";
+    } else if (headingLevel != null) {
+      resolvedFontWeight = "700";
+    } else {
+      resolvedFontWeight = "400";
+    }
+  }
 
   return {
     fontFamily: (ts.fontFamily as string) ?? "",
-    fontSize: (ts.fontSize as string) ?? "16px",
-    fontWeight: (ts.fontWeight as string) ?? "400",
+    fontSize: resolvedFontSize,
+    fontWeight: resolvedFontWeight,
     lineHeightSidebarPx: markLineHeight
       ? lineHeightToSidebarPx(markLineHeight, fontSizePx)
       : (metrics.lineHeightPx ??
