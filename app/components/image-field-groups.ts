@@ -140,6 +140,7 @@ export const imageDimensionsFieldGroup: ObjectField<ImageDimensionsGroup> = {
       type: "radio",
       label: "Image fit",
       options: [
+        { label: "Natural", value: "natural" },
         { label: "Cover", value: "cover" },
         { label: "Contain", value: "contain" },
         { label: "Stretch", value: "stretch" },
@@ -206,7 +207,7 @@ export const imagePerformanceFieldGroup = {
 export const defaultImageDimensions = {
   minHeight: 0,
   maxWidth: 0,
-  imageFit: "cover",
+  imageFit: "natural",
   imagePosition: "center center",
   zoom: 0,
   aspectRatio: "auto",

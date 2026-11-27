@@ -19,8 +19,11 @@ import {
   buildImageCssVariables,
   buildImageDimensionalStyle,
   buildImageFrameStyle,
+  buildImageStackStyle,
   buildResponsiveSrcSet,
   flattenImageProps,
+  IMAGE_NATURAL_FIT_CLASS,
+  isNaturalImageLayout,
   resolveImageSectionDimensions,
 } from "./image-styles";
 import "animate.css";
@@ -188,9 +191,19 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
         : undefined;
     const resolvedHref = flat.linkHref?.trim() || "#";
     const dimensionalStyle = buildImageDimensionalStyle(flat.dimensions);
+    const naturalLayout = isNaturalImageLayout(flat.dimensions);
+    const imgSizes = srcSet ? (naturalLayout ? "auto" : "100vw") : undefined;
+    const hoverImgSizes = hoverSrcSet
+      ? naturalLayout
+        ? "auto"
+        : "100vw"
+      : undefined;
 
     const hasHoverImage = Boolean(flat.hoverSrc);
-    const imgStack = (
+    const stackStyle = buildImageStackStyle(flat.dimensions);
+    const useHoverStack = hasHoverImage && naturalLayout;
+
+    const imgNodes = (
       <>
         <img
           className={`visbuild-image__img visbuild-image__img--default${hasHoverImage ? " visbuild-image__img--stacked" : ""}`}
@@ -198,7 +211,7 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
           alt={flat.alt}
           loading={loadingAttr}
           srcSet={srcSet}
-          sizes={srcSet ? "100vw" : undefined}
+          sizes={imgSizes}
           style={dimensionalStyle}
         />
         {hasHoverImage ? (
@@ -209,11 +222,19 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
             aria-hidden="true"
             loading={loadingAttr}
             srcSet={hoverSrcSet}
-            sizes={hoverSrcSet ? "100vw" : undefined}
+            sizes={hoverImgSizes}
             style={dimensionalStyle}
           />
         ) : null}
       </>
+    );
+
+    const imgStack = useHoverStack ? (
+      <div className="visbuild-image__stack" style={stackStyle}>
+        {imgNodes}
+      </div>
+    ) : (
+      imgNodes
     );
 
     const content =
@@ -232,7 +253,7 @@ const ImageInternal: ComponentConfig<Components["Image"]> = {
         imgStack
       );
 
-    const imageShellClass = `visbuild-image${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`;
+    const imageShellClass = `visbuild-image${naturalLayout ? ` ${IMAGE_NATURAL_FIT_CLASS}` : ""}${hasHoverImage ? " visbuild-image--has-hover" : ""}${puck.isEditing ? " visbuild-image--editing" : ""}`;
 
     return (
       <Section sectionMinHeight={sectionMinHeight} maxWidth={sectionMaxWidth}>

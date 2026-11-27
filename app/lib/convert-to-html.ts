@@ -22,6 +22,8 @@ import {
   buildResponsiveSrcSet,
   flattenImageProps,
   IMAGE_EXPORT_CSS,
+  IMAGE_NATURAL_FIT_CLASS,
+  isNaturalImageLayout,
   resolveImageSectionDimensions,
   serializeImageDimensionalStyle,
   serializeImageWrapperStyle,
@@ -334,10 +336,21 @@ function generateImage(props: any, layout: any, spaces: string): string {
   const imgStyle = serializeImageDimensionalStyle(flat.dimensions);
   const loadingAttr =
     flat.performance.loading === "auto" ? "" : ` loading="${flat.performance.loading}"`;
+  const naturalLayout = isNaturalImageLayout(flat.dimensions);
+  const sizesValue = naturalLayout ? "auto" : "100vw";
   const srcSet = flat.performance.responsiveImage
     ? buildResponsiveSrcSet(flat.src, flat.performance.imageQuality)
     : undefined;
-  const srcSetAttr = srcSet ? ` srcset="${escapeHtml(srcSet)}" sizes="100vw"` : "";
+  const hoverSrcSet =
+    flat.performance.responsiveImage && flat.hoverSrc
+      ? buildResponsiveSrcSet(flat.hoverSrc, flat.performance.imageQuality)
+      : undefined;
+  const srcSetAttr = srcSet
+    ? ` srcset="${escapeHtml(srcSet)}" sizes="${sizesValue}"`
+    : "";
+  const hoverSrcSetAttr = hoverSrcSet
+    ? ` srcset="${escapeHtml(hoverSrcSet)}" sizes="${sizesValue}"`
+    : "";
   const href = flat.linkHref?.trim() || "#";
   const targetAttr = flat.openInNewWindow
     ? ' target="_blank" rel="noopener noreferrer"'
@@ -345,11 +358,16 @@ function generateImage(props: any, layout: any, spaces: string): string {
 
   const hasHoverImage = Boolean(flat.hoverSrc);
   const hoverClass = hasHoverImage ? " visbuild-image--has-hover" : "";
+  const naturalClass = naturalLayout ? ` ${IMAGE_NATURAL_FIT_CLASS}` : "";
   const defaultImgTag = `<img class="visbuild-image__img visbuild-image__img--default${hasHoverImage ? " visbuild-image__img--stacked" : ""}" src="${escapeHtml(flat.src)}" alt="${escapeHtml(flat.alt)}"${loadingAttr}${srcSetAttr} style="${imgStyle}" />`;
   const hoverImgTag = hasHoverImage
-    ? `\n${spaces}    <img class="visbuild-image__img visbuild-image__img--hover visbuild-image__img--stacked" src="${escapeHtml(flat.hoverSrc)}" alt="" aria-hidden="true" style="${imgStyle}" />`
+    ? `\n${spaces}      <img class="visbuild-image__img visbuild-image__img--hover visbuild-image__img--stacked" src="${escapeHtml(flat.hoverSrc)}" alt="" aria-hidden="true"${loadingAttr}${hoverSrcSetAttr} style="${imgStyle}" />`
     : "";
-  const imgBlock = `${defaultImgTag}${hoverImgTag}`;
+  const imgInner = `${defaultImgTag}${hoverImgTag}`;
+  const useHoverStack = hasHoverImage && naturalLayout;
+  const imgBlock = useHoverStack
+    ? `<div class="visbuild-image__stack">\n${spaces}      ${imgInner}\n${spaces}    </div>`
+    : imgInner;
 
   let core = "";
   if (flat.imageClickable && flat.linkHref?.trim()) {
@@ -366,7 +384,7 @@ function generateImage(props: any, layout: any, spaces: string): string {
     styleExtra: animStyleExtra,
   } = imageAnimationDataAttributes(flat);
   const wrapperStyleMerged = [wrapperStyle, animStyleExtra].filter(Boolean).join("; ");
-  const inner = `${spaces}  <div class="visbuild-image${hoverClass}${animClass}"${animAttrs} style="${wrapperStyleMerged}">\n${core}${spaces}  </div>\n`;
+  const inner = `${spaces}  <div class="visbuild-image${naturalClass}${hoverClass}${animClass}"${animAttrs} style="${wrapperStyleMerged}">\n${core}${spaces}  </div>\n`;
   const sectionSize = resolveImageSectionDimensions(
     flat.dimensions,
     layout?.dimensions,

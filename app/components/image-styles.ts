@@ -18,7 +18,7 @@ export type ImageDimensionsGroup = {
   /** 原 Layout Dimensions：内容最大宽度 */
   maxWidth?: number;
   height?: number;
-  imageFit: "cover" | "contain" | "stretch";
+  imageFit: "natural" | "cover" | "contain" | "stretch";
   imagePosition: string;
   zoom: number;
   aspectRatio: "auto" | "16/9" | "4/3" | "3/2" | "1/1";
@@ -78,7 +78,7 @@ export type ImageRenderProps = {
 const DEFAULT_DIMENSIONS: ImageDimensionsGroup = {
   minHeight: 0,
   maxWidth: 0,
-  imageFit: "cover",
+  imageFit: "natural",
   imagePosition: "center center",
   zoom: 0,
   aspectRatio: "auto",
@@ -127,7 +127,21 @@ function styleFromGroup(
   return { ...fallback, ...group };
 }
 
-export function mapImageFit(fit: ImageDimensionsGroup["imageFit"]): CSSProperties["objectFit"] {
+export const IMAGE_NATURAL_FIT_CLASS = "visbuild-image--natural-fit";
+
+export function isNaturalImageLayout(
+  dimensions: ImageDimensionsGroup,
+): boolean {
+  if (dimensions.imageFit !== "natural") return false;
+  if (dimensions.aspectRatio !== "auto") return false;
+  if (dimensions.height != null && dimensions.height > 0) return false;
+  return true;
+}
+
+export function mapImageFit(
+  fit: ImageDimensionsGroup["imageFit"],
+): CSSProperties["objectFit"] | undefined {
+  if (fit === "natural") return undefined;
   if (fit === "stretch") return "fill";
   return fit;
 }
@@ -243,11 +257,18 @@ export function resolveImageSectionDimensions(
 }
 
 export function buildImageFrameStyle(dimensions: ImageDimensionsGroup): CSSProperties {
+  const natural = isNaturalImageLayout(dimensions);
   const style: CSSProperties = {
     width: "100%",
     overflow: "hidden",
     position: "relative",
   };
+
+  if (natural) {
+    style.display = "flex";
+    style.flexDirection = "column";
+    style.alignItems = "center";
+  }
 
   if (dimensions.aspectRatio !== "auto") {
     style.aspectRatio = dimensions.aspectRatio;
@@ -259,17 +280,42 @@ export function buildImageFrameStyle(dimensions: ImageDimensionsGroup): CSSPrope
   return style;
 }
 
+export function buildImageStackStyle(
+  dimensions: ImageDimensionsGroup,
+): CSSProperties | undefined {
+  if (!isNaturalImageLayout(dimensions)) return undefined;
+  return {
+    position: "relative",
+    maxWidth: "100%",
+    display: "inline-block",
+    lineHeight: 0,
+  };
+}
+
 export function buildImageDimensionalStyle(
-  dimensions: ImageDimensionsGroup
+  dimensions: ImageDimensionsGroup,
 ): CSSProperties {
+  const natural = isNaturalImageLayout(dimensions);
   const fixedFrame =
     dimensions.aspectRatio !== "auto" ||
     (dimensions.height != null && dimensions.height > 0);
 
+  if (natural) {
+    return {
+      width: "auto",
+      maxWidth: "100%",
+      height: "auto",
+      transform:
+        dimensions.zoom > 0 ? `scale(${1 + dimensions.zoom / 100})` : undefined,
+      transformOrigin: "center top",
+    };
+  }
+
+  const objectFit = mapImageFit(dimensions.imageFit);
   return {
     width: "100%",
     height: fixedFrame ? "100%" : "auto",
-    objectFit: mapImageFit(dimensions.imageFit),
+    ...(objectFit != null ? { objectFit } : {}),
     objectPosition: dimensions.imagePosition,
     transform:
       dimensions.zoom > 0 ? `scale(${1 + dimensions.zoom / 100})` : undefined,
@@ -335,7 +381,13 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
   overflow: hidden;
   position: relative;
 }
-.visbuild-image__link {
+.visbuild-image--natural-fit .visbuild-image__link {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+}
+.visbuild-image:not(.visbuild-image--natural-fit) .visbuild-image__link {
   display: block;
   width: 100%;
   height: 100%;
@@ -343,10 +395,21 @@ export const IMAGE_EXPORT_CSS = `.visbuild-image__frame {
   text-decoration: none;
   color: inherit;
 }
+.visbuild-image--natural-fit .visbuild-image__link {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+.visbuild-image__stack {
+  position: relative;
+  max-width: 100%;
+  display: inline-block;
+  line-height: 0;
+}
 .visbuild-image__img {
   display: block;
-  width: 100%;
   max-width: 100%;
+  height: auto;
   box-sizing: border-box;
   opacity: var(--img-opacity, 1);
   border: var(--img-border, none);

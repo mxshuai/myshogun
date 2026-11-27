@@ -114,7 +114,7 @@ export type Components = {
       minHeight?: number;
       maxWidth?: number;
       height?: number;
-      imageFit: "cover" | "contain" | "stretch";
+      imageFit: "natural" | "cover" | "contain" | "stretch";
       imagePosition: string;
       zoom: number;
       aspectRatio: "auto" | "16/9" | "4/3" | "3/2" | "1/1";

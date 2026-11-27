@@ -19,7 +19,7 @@
   font-size: 14px;
 }
 
-.visbuild-image__link {
+.visbuild-image:not(.visbuild-image--natural-fit) .visbuild-image__link {
   display: block;
   width: 100%;
   height: 100%;
@@ -28,10 +28,27 @@
   color: inherit;
 }
 
+.visbuild-image--natural-fit .visbuild-image__link {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+
+.visbuild-image__stack {
+  position: relative;
+  max-width: 100%;
+  display: inline-block;
+  line-height: 0;
+}
+
 .visbuild-image__img {
   display: block;
-  width: 100%;
   max-width: 100%;
+  height: auto;
   box-sizing: border-box;
   opacity: var(--img-opacity, 1);
   border: var(--img-border, none);
