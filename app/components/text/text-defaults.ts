@@ -24,10 +24,10 @@ export type ImageFormState = {
 };
 
 export const DEFAULT_LINK_FORM: LinkFormState = {
-  url: "http://",
+  url: "",
   text: "Type your text here",
   title: "",
-  openInNewWindow: true,
+  openInNewWindow: false,
 };
 
 export const DEFAULT_IMAGE_FORM: ImageFormState = {

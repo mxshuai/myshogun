@@ -163,7 +163,7 @@ export const TEXT_CONTENT_CSS = [
   ".visbuild-text ul { list-style-type: disc; }",
   ".visbuild-text ol { list-style-type: decimal; }",
   ".visbuild-text li { display: list-item; }",
-  '.visbuild-text ul.visbuild-list-dash { list-style-type: "– "; padding-left: 1.25em; }',
+  '.visbuild-text ul.visbuild-list-dash, .visbuild-text [class*="RichTextEditor"] .rich-text ul.visbuild-list-dash { list-style-type: "– "; padding-left: 1.25em; }',
   ".visbuild-text img { max-width: 100%; height: auto; }",
   ".visbuild-text a { color: #2563eb; text-decoration: underline; cursor: pointer; }",
   ".visbuild-text a.visbuild-link-no-underline { text-decoration: none !important; }",

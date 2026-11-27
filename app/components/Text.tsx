@@ -23,13 +23,24 @@ function mergeClassNames(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-function renderTextBody(htmlProp: unknown): ReactNode {
-  /** 编辑态：Puck 将 html 替换为 inline TipTap（含 overlay portal），避免再包一层 div 阻断选中 */
+function renderTextBody(htmlProp: unknown, isEditing: boolean): ReactNode {
+  /**
+   * Puck 会将 richtext 字符串替换为 React 节点：
+   * - 画布编辑：inline TipTap（div portal），类名加在根节点上
+   * - Preview / Render：Suspense + RichTextRender，Suspense 不接受 className，须外包 .visbuild-text 才能让列表等样式生效
+   */
   if (isValidElement(htmlProp)) {
-    const existing = (htmlProp.props as { className?: string }).className;
-    return cloneElement(htmlProp as ReactElement<{ className?: string }>, {
-      className: mergeClassNames(existing, "visbuild-text", "visbuild-text--editing"),
-    });
+    if (isEditing) {
+      const existing = (htmlProp.props as { className?: string }).className;
+      return cloneElement(htmlProp as ReactElement<{ className?: string }>, {
+        className: mergeClassNames(
+          existing,
+          "visbuild-text",
+          "visbuild-text--editing",
+        ),
+      });
+    }
+    return <div className="visbuild-text">{htmlProp}</div>;
   }
 
   const raw =
@@ -92,10 +103,11 @@ const TextInternal: ComponentConfig<Components["Text"]> = {
   },
   render: (props) => {
     const main = props.main ?? { html: DEFAULT_TEXT_HTML };
+    const isEditing = props.puck?.isEditing === true;
     return (
       <Section>
         <style>{TEXT_CONTENT_CSS}</style>
-        {renderTextBody(main.html)}
+        {renderTextBody(main.html, isEditing)}
       </Section>
     );
   },

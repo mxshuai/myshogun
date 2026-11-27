@@ -86,7 +86,6 @@ export function readLinkFormFromEditor(editor: Editor): LinkFormSnapshot {
     form: {
       ...DEFAULT_LINK_FORM,
       text: selectedText || DEFAULT_LINK_FORM.text,
-      openInNewWindow: true,
     },
   };
 }

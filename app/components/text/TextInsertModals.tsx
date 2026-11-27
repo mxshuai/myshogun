@@ -157,6 +157,7 @@ export function LinkInsertModal({
       <label style={labelStyle}>URL</label>
       <input
         style={inputStyle}
+        placeholder="https://"
         value={form.url}
         onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
       />
